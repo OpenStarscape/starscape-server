@@ -5,3 +5,5 @@ authors = ["William Wold <wm@wmww.sh>"]
 edition = "2018"
 
 [dependencies]
+slotmap = "0.4"
+cgmath = "0.17"
