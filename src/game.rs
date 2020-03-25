@@ -27,8 +27,8 @@ impl Game {
     pub fn step(&mut self) -> bool {
         println!("Game time: {}", self.time);
 
-        for (_, body) in &self.state.bodies {
-            body.step(&self.state, self.time, self.step_time, &vec![]);
+        for (_, _body) in &mut self.state.bodies {
+            // TODO: apply force
         }
 
         // TODO: Process incoming messages
