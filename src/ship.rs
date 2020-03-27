@@ -1,7 +1,7 @@
 use cgmath::Point3;
 use std::sync::{Arc, RwLock};
 
-use super::body::{Body, Collision, Shape, Brain, Type};
+use super::body::{Body, Brain, Collision};
 use super::state::{BodyKey, State};
 
 struct Ship {
@@ -11,8 +11,11 @@ struct Ship {
 impl Ship {
     fn new(state: &mut State, position: Point3<f64>) -> Arc<RwLock<Ship>> {
         let arc = Arc::new(RwLock::new(Ship { body: None }));
-        let body = Body::new(Type::Ship, position, Shape::Sphere { radius: 1.0 }, Some(arc.clone()));
-        let body_key = state.bodies.insert(body);
+        let body = Body::new()
+            .with_position(position)
+            .with_sphere_shape(1.0)
+            .with_brain(arc.clone());
+        let body_key = state.add_body(body);
         {
             let mut ship = arc.write().unwrap();
             ship.body = Some(body_key);

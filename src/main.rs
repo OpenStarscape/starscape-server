@@ -1,10 +1,11 @@
 #[macro_use(new_key_type)]
 extern crate slotmap;
 
-mod game;
-mod state;
 mod body;
+mod game;
+mod physics;
 mod ship;
+mod state;
 
 fn main() {
     println!("Initializing game...");
