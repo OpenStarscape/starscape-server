@@ -1,7 +1,7 @@
 use cgmath::Point3;
 use std::sync::{Arc, RwLock};
 
-use super::body::{Body, Brain, Collision};
+use super::body::{Body, Collision, Controller};
 use super::state::{BodyKey, State};
 
 struct Ship {
@@ -14,7 +14,7 @@ impl Ship {
         let body = Body::new()
             .with_position(position)
             .with_sphere_shape(1.0)
-            .with_brain(arc.clone());
+            .with_controller(arc.clone());
         let body_key = state.add_body(body);
         {
             let mut ship = arc.write().unwrap();
@@ -28,7 +28,7 @@ pub fn new_ship(state: &mut State, position: Point3<f64>) {
     Ship::new(state, position);
 }
 
-impl Brain for RwLock<Ship> {
+impl Controller for RwLock<Ship> {
     fn collided_with(&self, _state: &State, _collision: &Collision) {}
 }
 
@@ -37,7 +37,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn adds_body_to_state() {
+    fn body_has_correct_position() {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
         let arc = Ship::new(&mut state, pos);
@@ -47,11 +47,24 @@ mod tests {
     }
 
     #[test]
-    fn sets_up_bodies_brain() {
+    fn body_has_sphere_shape() {
+        let pos = Point3::new(1.0, 2.0, 3.0);
+        let mut state = State::new();
+        let arc = Ship::new(&mut state, pos);
+        assert_eq!(state.bodies.len(), 1);
+        let key = arc.read().unwrap().body.unwrap();
+        assert!(state.bodies[key].shape == crate::body::Shape::Sphere { radius: 1.0 });
+    }
+
+    #[test]
+    fn sets_up_controller() {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
         let arc = Ship::new(&mut state, pos);
         let key = arc.read().unwrap().body.unwrap();
-        assert!(state.bodies[key].brain.is_some());
+        assert_eq!(
+            &*state.bodies[key].controller as *const _ as *const usize,
+            &*arc as *const _ as *const usize,
+        );
     }
 }

@@ -4,13 +4,14 @@ use std::sync::Arc;
 use super::state::{BodyKey, State};
 
 /// Collision shape
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum Shape {
     Point,
     Sphere { radius: f64 },
 }
 
 /// Any physics object in space
+#[derive(Clone)]
 pub struct Body {
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
@@ -27,7 +28,7 @@ pub struct Body {
     /// unnecessary and computationally expensive.
     pub gravity_well: bool,
     /// The interface the physics system uses to talk to the controller of this object
-    pub brain: Option<Arc<dyn Brain>>,
+    pub controller: Arc<dyn Controller>,
 }
 
 impl Body {
@@ -38,7 +39,7 @@ impl Body {
             shape: Shape::Point,
             mass: 1.0,
             gravity_well: false,
-            brain: None,
+            controller: Arc::new(()),
         }
     }
 
@@ -67,18 +68,29 @@ impl Body {
         self
     }
 
-    pub fn with_brain(mut self, brain: Arc<dyn Brain>) -> Body {
-        self.brain = Some(brain);
+    pub fn with_controller(mut self, controller: Arc<dyn Controller>) -> Body {
+        self.controller = controller;
         self
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
 pub struct Collision {
-    /// The time the collision will occur
-    pub timestamp: f64,
+    /// The time from now until the collision will occur
+    pub time_until: f64,
     pub body: BodyKey,
 }
 
-pub trait Brain {
+impl Collision {
+    pub fn new(time_until: f64, body: BodyKey) -> Collision {
+        Collision { time_until, body }
+    }
+}
+
+pub trait Controller {
     fn collided_with(&self, state: &State, collision: &Collision);
+}
+
+impl Controller for () {
+    fn collided_with(&self, _state: &State, _collision: &Collision) {}
 }
