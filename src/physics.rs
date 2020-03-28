@@ -1,8 +1,10 @@
+use cgmath::InnerSpace;
 use cgmath::{MetricSpace, Point3};
 
+use crate::body::{Body, Collision};
 use crate::state::State;
 
-const EPSILON: f64 = 0.0001;
+const EPSILON: f64 = 0.000001;
 
 /// TODO: calculate the gravitational constant for our units (kilometers, kilotonnes, seconds)
 const GRAVITATIONAL_CONSTANT: f64 = 1.0;
@@ -28,15 +30,72 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
             let distance2 = well.position.distance2(body.position);
             if distance2 > EPSILON {
                 let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
-                let distance = distance2.sqrt();
-                let normalized_vec = (well.position - body.position) / distance;
-                body.velocity += (acceleration * dt) * normalized_vec;
+                let delta_vel = (well.position - body.position).normalize_to(acceleration * dt);
+                body.velocity += delta_vel;
             }
         })
     });
 }
 
-pub fn apply_collisions(state: &mut State, dt: f64) {}
+fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> {
+    // r = r1 + r2
+    // x = x1 - x2, y = …, z = …
+    // dx = dx1 - dx2, dy = …, dz = …
+    // r = ((x + dx*t)^2 + (y + dy*t)^2 + (z + dz*t)^2).sqrt()
+    // 0 = (x + dx*t)^2 + (y + dy*t)^2 + (z + dz*t)^2 - r^2
+    // 0 = x^2 + 2x*dx*t + (dx^2)t^2 ... - r^2
+    // 0 = (dx^2 + dy^2 + dz^2)t^2 + 2(x*dx + y*dy + z*dz)t + x^2 + y^2 + z^2 - r^2
+    // 0 = a*t^2 + b*t + c
+    // a = dx^2 + dy^2 + dz^2
+    // b = 2(x*dx + y*dy + z*dz)
+    // c = x^2 + y^2 + z^2 - r^2
+    let r = body1.shape.radius() + body2.shape.radius();
+    if r > EPSILON {
+        let rel_pos = body1.position - body2.position;
+        let rel_vel = body1.velocity - body2.velocity;
+        let a = rel_vel.magnitude2();
+        let b = 2.0 * (rel_pos.x * rel_vel.x + rel_pos.y * rel_vel.y + rel_pos.z * rel_vel.z);
+        let c = rel_pos.magnitude2() - r * r;
+        // only care about the first solution (when the two spheres start touching)
+        // divide by zero is fine
+        let t = (-b - (b * b - 4.0 * a * c).sqrt()) / (2.0 * a);
+        if t >= 0.0 && t < dt {
+            return Some(t);
+        }
+    }
+    None
+}
+
+pub fn apply_collisions(state: &State, dt: f64) {
+    // TODO: sort bodies and don't compare bodies that can not touch
+    state.bodies.iter().for_each(|(key1, body1)| {
+        let _ = state.bodies.iter().try_for_each(|(key2, body2)| {
+            if key1 == key2 {
+                // We only want to process each combination of bodies once, so abort the inner loop
+                // once it catches up to the outer loop
+                Err(())
+            } else {
+                if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
+                    body1.controller.collided_with(
+                        state,
+                        &Collision {
+                            time_until,
+                            body: key2,
+                        },
+                    );
+                    body2.controller.collided_with(
+                        state,
+                        &Collision {
+                            time_until,
+                            body: key1,
+                        },
+                    );
+                }
+                Ok(())
+            }
+        });
+    });
+}
 
 pub fn apply_motion(state: &mut State, dt: f64) {
     state.bodies.values_mut().for_each(|body| {
@@ -306,16 +365,15 @@ mod collision_tests {
     }
 
     #[test]
-    fn stationary_point_inside_stationary_sphere_collides() {
-        assert_collides(
+    fn stationary_point_inside_stationary_sphere_does_not_collide() {
+        assert_do_not_collide(
             Body::new().with_sphere_shape(1.0),
             Body::new().with_position(Point3::new(0.2, 0.2, 0.2)),
-            0.0,
         );
     }
 
     #[test]
-    fn stationary_overlapping_spheres_collide() {
+    fn stationary_overlapping_spheres_do_not_collide() {
         assert_do_not_collide(
             Body::new().with_sphere_shape(1.0),
             Body::new()

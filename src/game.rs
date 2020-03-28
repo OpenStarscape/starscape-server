@@ -1,6 +1,6 @@
 use cgmath::Point3;
 
-use super::physics::{apply_gravity, apply_motion};
+use super::physics::{apply_collisions, apply_gravity, apply_motion};
 use super::ship::new_ship;
 use super::state::State;
 
@@ -29,6 +29,7 @@ impl Game {
         println!("Game time: {}", self.state.time);
 
         apply_gravity(&mut self.state, self.step_dt);
+        apply_collisions(&mut self.state, self.step_dt);
         apply_motion(&mut self.state, self.step_dt);
 
         self.state.time += self.step_dt;
