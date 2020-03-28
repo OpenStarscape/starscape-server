@@ -10,6 +10,15 @@ pub enum Shape {
     Sphere { radius: f64 },
 }
 
+impl Shape {
+    pub fn radius(&self) -> f64 {
+        match self {
+            Shape::Point => 0.0,
+            Shape::Sphere { radius } => *radius,
+        }
+    }
+}
+
 /// Any physics object in space
 #[derive(Clone)]
 pub struct Body {
@@ -88,6 +97,7 @@ impl Collision {
 }
 
 pub trait Controller {
+    /// note that there is no guarantee collisions come in in order
     fn collided_with(&self, state: &State, collision: &Collision);
 }
 
