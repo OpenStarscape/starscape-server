@@ -1,13 +1,11 @@
-use cgmath::InnerSpace;
-use cgmath::{MetricSpace, Point3};
+use cgmath::*;
 
 use crate::body::{Body, Collision};
 use crate::state::State;
-
-const EPSILON: f64 = 0.000001;
+use crate::EPSILON;
 
 /// TODO: calculate the gravitational constant for our units (kilometers, kilotonnes, seconds)
-const GRAVITATIONAL_CONSTANT: f64 = 1.0;
+const GRAVITATIONAL_CONSTANT: f64 = 6.6743015e-3;
 
 pub fn apply_gravity(state: &mut State, dt: f64) {
     // we can't access the body (and thus the position) of a gravity well while we are mutating the
@@ -21,17 +19,20 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
         .gravity_wells
         .iter()
         .map(|body| GravityWell {
-            position: state.bodies[*body].position,
-            mass: state.bodies[*body].mass,
+            // TODO: error handing on body not in bodies
+            position: *state.bodies[*body].position,
+            mass: *state.bodies[*body].mass,
         })
         .collect();
+    let pending_updates = &state.pending_updates;
     state.bodies.values_mut().for_each(|body| {
         wells.iter().for_each(|well| {
-            let distance2 = well.position.distance2(body.position);
+            let distance2 = well.position.distance2(*body.position);
             if distance2 > EPSILON {
                 let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
-                let delta_vel = (well.position - body.position).normalize_to(acceleration * dt);
-                body.velocity += delta_vel;
+                let delta_vel = (well.position - *body.position).normalize_to(acceleration * dt);
+                body.velocity
+                    .set(pending_updates, *body.velocity + delta_vel);
             }
         })
     });
@@ -51,8 +52,8 @@ fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> 
     // c = x^2 + y^2 + z^2 - r^2
     let r = body1.shape.radius() + body2.shape.radius();
     if r > EPSILON {
-        let rel_pos = body1.position - body2.position;
-        let rel_vel = body1.velocity - body2.velocity;
+        let rel_pos = *body1.position - *body2.position;
+        let rel_vel = *body1.velocity - *body2.velocity;
         let a = rel_vel.magnitude2();
         let b = 2.0 * (rel_pos.x * rel_vel.x + rel_pos.y * rel_vel.y + rel_pos.z * rel_vel.z);
         let c = rel_pos.magnitude2() - r * r;
@@ -98,9 +99,10 @@ pub fn apply_collisions(state: &State, dt: f64) {
 }
 
 pub fn apply_motion(state: &mut State, dt: f64) {
-    state.bodies.values_mut().for_each(|body| {
-        body.position += dt * body.velocity;
-    });
+    for body in state.bodies.values_mut() {
+        body.position
+            .set(&state.pending_updates, *body.position + dt * *body.velocity);
+    }
 }
 
 #[cfg(test)]
@@ -117,9 +119,9 @@ mod gravity_tests {
         let velocity = Vector3::new(0.0, 0.0, 0.0);
         let mut state = State::new();
         let body = state.add_body(Body::new().with_mass(PLANET_MASS).with_gravity());
-        assert_eq!(state.bodies[body].velocity, velocity);
+        assert_eq!(*state.bodies[body].velocity, velocity);
         apply_gravity(&mut state, 1.0);
-        assert_eq!(state.bodies[body].velocity, velocity);
+        assert_eq!(*state.bodies[body].velocity, velocity);
     }
 
     #[test]
@@ -133,9 +135,9 @@ mod gravity_tests {
                 .with_gravity()
                 .with_position(position),
         );
-        assert_eq!(state.bodies[body].velocity, velocity);
+        assert_eq!(*state.bodies[body].velocity, velocity);
         apply_gravity(&mut state, 1.0);
-        assert_eq!(state.bodies[body].velocity, velocity);
+        assert_eq!(*state.bodies[body].velocity, velocity);
     }
 
     #[test]
@@ -146,7 +148,7 @@ mod gravity_tests {
         let body = state.add_body(Body::new().with_position(position));
         assert_eq!(state.bodies[body].velocity.x, 0.0);
         apply_gravity(&mut state, 1.0);
-        let v = state.bodies[body].velocity;
+        let v = *state.bodies[body].velocity;
         assert!(v.x < -EPSILON);
         assert_eq!(v.y, 0.0);
         assert_eq!(v.z, 0.0);
@@ -160,13 +162,13 @@ mod gravity_tests {
         state_a.add_body(Body::new().with_mass(PLANET_MASS).with_gravity());
         let body_a = state_a.add_body(Body::new().with_position(position));
         apply_gravity(&mut state_a, 1.0);
-        let v_a = state_a.bodies[body_a].velocity;
+        let v_a = *state_a.bodies[body_a].velocity;
 
         let mut state_b = State::new();
         state_b.add_body(Body::new().with_mass(PLANET_MASS).with_gravity());
         let body_b = state_b.add_body(Body::new().with_position(position));
         apply_gravity(&mut state_b, 0.5);
-        let v_b = state_b.bodies[body_b].velocity;
+        let v_b = *state_b.bodies[body_b].velocity;
 
         assert!((v_a.x - (v_b.x * 2.0)).abs() < EPSILON);
     }
@@ -178,7 +180,7 @@ mod gravity_tests {
         state.add_body(Body::new().with_mass(PLANET_MASS).with_gravity());
         let body = state.add_body(Body::new().with_position(position));
         apply_gravity(&mut state, 1.0);
-        let v = state.bodies[body].velocity;
+        let v = *state.bodies[body].velocity;
         assert!(v.x < -EPSILON);
         assert!(v.y.abs() < EPSILON);
         assert!(v.z > EPSILON);
@@ -198,7 +200,7 @@ mod gravity_tests {
         );
         let body = state.add_body(Body::new().with_position(position));
         apply_gravity(&mut state, 1.0);
-        let v = state.bodies[body].velocity;
+        let v = *state.bodies[body].velocity;
         assert!(v.x.abs() < EPSILON);
         assert!(v.y.abs() < EPSILON);
         assert!(v.z.abs() < EPSILON);
@@ -226,7 +228,7 @@ mod collision_tests {
         }
     }
 
-    impl Controller for RwLock<MockController> {
+    impl Controller for Arc<RwLock<MockController>> {
         fn collided_with(&self, _state: &State, collision: &Collision) {
             let mut vec = self.write().unwrap();
             vec.collisions.push(collision.clone());
@@ -240,8 +242,8 @@ mod collision_tests {
         let mut state = State::new();
         let c1 = MockController::new();
         let c2 = MockController::new();
-        let b1 = state.add_body(body1.with_controller(c1.clone()));
-        let b2 = state.add_body(body2.with_controller(c2.clone()));
+        let b1 = state.add_body(body1.with_controller(Box::new(c1.clone())));
+        let b2 = state.add_body(body2.with_controller(Box::new(c2.clone())));
         apply_collisions(&mut state, 1.0);
         let col1 = c1.read().unwrap().collisions.clone();
         let col2 = c2.read().unwrap().collisions.clone();
@@ -268,7 +270,7 @@ mod collision_tests {
     fn no_collisions_for_single_point() {
         let mut state = State::new();
         let c1 = MockController::new();
-        state.add_body(Body::new().with_controller(c1.clone()));
+        state.add_body(Body::new().with_controller(Box::new(c1.clone())));
         apply_collisions(&mut state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
@@ -280,7 +282,7 @@ mod collision_tests {
         state.add_body(
             Body::new()
                 .with_sphere_shape(1.0)
-                .with_controller(c1.clone()),
+                .with_controller(Box::new(c1.clone())),
         );
         apply_collisions(&mut state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
@@ -294,7 +296,7 @@ mod collision_tests {
             Body::new()
                 .with_velocity(Vector3::new(3.0, 0.5, -2.0))
                 .with_sphere_shape(1.0)
-                .with_controller(c1.clone()),
+                .with_controller(Box::new(c1.clone())),
         );
         apply_collisions(&mut state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
@@ -307,7 +309,7 @@ mod collision_tests {
         state.add_body(
             Body::new()
                 .with_sphere_shape(1.0)
-                .with_controller(c1.clone()),
+                .with_controller(Box::new(c1.clone())),
         );
         state.add_body(
             Body::new()
@@ -460,10 +462,10 @@ mod motion_tests {
     fn no_motion_if_zero_velocity() {
         let mut state = State::new();
         let body = state.add_body(Body::new());
-        assert_eq!(state.bodies[body].position, Point3::new(0.0, 0.0, 0.0));
-        assert_eq!(state.bodies[body].velocity, Vector3::new(0.0, 0.0, 0.0));
+        assert_eq!(*state.bodies[body].position, Point3::new(0.0, 0.0, 0.0));
+        assert_eq!(*state.bodies[body].velocity, Vector3::new(0.0, 0.0, 0.0));
         apply_motion(&mut state, 1.0);
-        assert_eq!(state.bodies[body].position, Point3::new(0.0, 0.0, 0.0));
+        assert_eq!(*state.bodies[body].position, Point3::new(0.0, 0.0, 0.0));
     }
 
     #[test]
@@ -476,8 +478,8 @@ mod motion_tests {
         );
         let body2 = state.add_body(Body::new().with_velocity(Vector3::new(0.0, 0.5, 0.0)));
         apply_motion(&mut state, 1.0);
-        assert_eq!(state.bodies[body1].position, Point3::new(0.0, 4.0, 2.0));
-        assert_eq!(state.bodies[body2].position, Point3::new(0.0, 0.5, 0.0));
+        assert_eq!(*state.bodies[body1].position, Point3::new(0.0, 4.0, 2.0));
+        assert_eq!(*state.bodies[body2].position, Point3::new(0.0, 0.5, 0.0));
     }
 
     #[test]
@@ -485,6 +487,6 @@ mod motion_tests {
         let mut state = State::new();
         let body = state.add_body(Body::new().with_velocity(Vector3::new(4.0, 0.0, 0.0)));
         apply_motion(&mut state, 0.5);
-        assert_eq!(state.bodies[body].position, Point3::new(2.0, 0.0, 0.0));
+        assert_eq!(*state.bodies[body].position, Point3::new(2.0, 0.0, 0.0));
     }
 }

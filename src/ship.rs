@@ -1,40 +1,163 @@
-use cgmath::Point3;
-use std::sync::{Arc, RwLock};
+use cgmath::*;
+use slotmap::Key;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
-use super::body::{Body, Collision, Controller};
-use super::state::{BodyKey, State};
+use crate::body::{Body, Collision, Controller};
+use crate::conduit::PropertyConduit;
+use crate::entity::Entity;
+use crate::state::{BodyKey, ConduitKey, EntityKey, ShipKey, State};
+use crate::EPSILON;
 
-struct Ship {
-    body: Option<BodyKey>,
+struct PendingUpdates {
+    thrust: Vector3<f64>,
+    kill: bool,
 }
 
-impl Ship {
-    fn new(state: &mut State, position: Point3<f64>) -> Arc<RwLock<Ship>> {
-        let arc = Arc::new(RwLock::new(Ship { body: None }));
-        let body = Body::new()
-            .with_position(position)
-            .with_sphere_shape(1.0)
-            .with_controller(arc.clone());
-        let body_key = state.add_body(body);
-        {
-            let mut ship = arc.write().unwrap();
-            ship.body = Some(body_key);
+impl PendingUpdates {
+    fn new() -> Self {
+        Self {
+            thrust: Vector3::zero(),
+            kill: false,
         }
-        arc
     }
 }
 
-pub fn new_ship(state: &mut State, position: Point3<f64>) {
-    Ship::new(state, position);
+pub struct Ship {
+    max_thrust: f64,
+    thrust: Vector3<f64>,
+    alive: bool,
+    pending: Mutex<PendingUpdates>,
 }
 
-impl Controller for RwLock<Ship> {
-    fn collided_with(&self, _state: &State, _collision: &Collision) {}
+impl Ship {
+    fn new(max_thrust: f64) -> Self {
+        Self {
+            max_thrust,
+            thrust: Vector3::zero(),
+            alive: true,
+            pending: Mutex::new(PendingUpdates::new()),
+        }
+    }
+
+    fn set_thrust(&self, thrust: Vector3<f64>) -> Result<(), String> {
+        let magnitude = thrust.magnitude();
+        if magnitude > self.max_thrust + EPSILON {
+            Err(format!(
+                "{:?} has a magnitude of {}, which is greater than the maximum allowed thrust {}",
+                thrust, magnitude, self.max_thrust
+            ))
+        } else {
+            let mut pending = self
+                .pending
+                .lock()
+                .expect("Failed lock pending ship updates");
+            pending.thrust = thrust;
+            Ok(())
+        }
+    }
+
+    fn kill(&self) {
+        let mut pending = self
+            .pending
+            .lock()
+            .expect("Failed lock pending ship updates");
+        pending.kill = true;
+    }
 }
 
+struct ShipBodyController {
+    ship: ShipKey,
+}
+
+impl Controller for ShipBodyController {
+    fn collided_with(&self, state: &State, _collision: &Collision) {
+        if let Some(ship) = state.ships.get(self.ship) {
+            ship.kill();
+        } else {
+            eprint!("Could not find colliding ship {:?}", self.ship);
+        }
+    }
+}
+
+struct ShipEntity {
+    entity: EntityKey,
+    body: BodyKey,
+    ship: ShipKey,
+    properties: HashMap<&'static str, ConduitKey>,
+}
+
+impl ShipEntity {
+    fn new(entity: EntityKey, body: BodyKey, ship: ShipKey) -> Self {
+        Self {
+            entity,
+            body,
+            ship,
+            properties: HashMap::new(),
+        }
+    }
+}
+
+impl Entity for ShipEntity {
+    fn add_conduit(&mut self, name: &'static str, conduit: ConduitKey) {
+        self.properties.insert(name, conduit);
+    }
+
+    fn conduit(&self, property: &str) -> Result<ConduitKey, String> {
+        if let Some(conduit) = self.properties.get(property) {
+            Ok(*conduit)
+        } else {
+            Err(format!("Ship does not have a {:?} property", property))
+        }
+    }
+
+    fn destroy(&mut self, state: &mut State) {
+        state.bodies.remove(self.body);
+        state.ships.remove(self.ship);
+    }
+}
+
+pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
+    let ship = state.ships.insert(Ship::new(10.0));
+    let body = state.add_body(
+        Body::new()
+            .with_position(position)
+            .with_sphere_shape(1.0)
+            .with_controller(Box::new(ShipBodyController { ship })),
+    );
+    let entity = state
+        .entities
+        .insert_with_key(|entity| Box::new(ShipEntity::new(entity, body, ship)));
+    let conduit = state.conduits.insert_with_key(|conduit| {
+        (Box::new(PropertyConduit::new(
+            conduit,
+            entity,
+            "position",
+            move |state: &State| &state.bodies[body].position,
+        )))
+    });
+    state.entities[entity].add_conduit("position", conduit);
+    entity
+    /*for (name, prop_getter) in vec![
+        ("position", &|state: &State| Ok(&state.bodies.get(body)?.position)),
+        ("thrust", &|state: &State| Ok(&state.ships.get(ship)?.thrust)),
+    ] {
+        let conduit = state.conduits.insert(Box::new(PropertyConduit::new(entity, name, prop_getter)));
+        state.entities[entity].add_conduit(name, conduit);
+    }*/
+}
+
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cleans_up_when_destroyed() {
+        panic!("Test not finished");
+        let mut state = State::new();
+        state.assert_is_empty();
+    }
 
     #[test]
     fn body_has_correct_position() {
@@ -68,3 +191,4 @@ mod tests {
         );
     }
 }
+*/
