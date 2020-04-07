@@ -1,7 +1,7 @@
-use cgmath::{Point3, Vector3};
-use std::sync::Arc;
+use cgmath::*;
 
-use super::state::{BodyKey, State};
+use crate::property::Property;
+use crate::state::{BodyKey, State};
 
 /// Collision shape
 #[derive(Clone, Copy, PartialEq)]
@@ -20,64 +20,63 @@ impl Shape {
 }
 
 /// Any physics object in space
-#[derive(Clone)]
 pub struct Body {
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
-    pub position: Point3<f64>,
+    pub position: Property<Point3<f64>>,
     /// Speed at which the object is moving (kilometers-per-second)
-    pub velocity: Vector3<f64>,
+    pub velocity: Property<Vector3<f64>>,
     /// Shape of this object (used for collision detection)
-    pub shape: Shape,
+    pub shape: Property<Shape>,
     /// Mass of this object (kilotonnes aka millions of kilograms)
-    pub mass: f64,
+    pub mass: Property<f64>,
     /// If this object should be a source of gravity
     /// Ideally all objects would have a gravitational effect on all other objects, but that is
     /// unnecessary and computationally expensive.
-    pub gravity_well: bool,
+    pub gravity_well: Property<bool>,
     /// The interface the physics system uses to talk to the controller of this object
-    pub controller: Arc<dyn Controller>,
+    pub controller: Box<dyn Controller>,
 }
 
 impl Body {
-    pub fn new() -> Body {
-        Body {
-            position: Point3::new(0.0, 0.0, 0.0),
-            velocity: Vector3::new(0.0, 0.0, 0.0),
-            shape: Shape::Point,
-            mass: 1.0,
-            gravity_well: false,
-            controller: Arc::new(()),
+    pub fn new() -> Self {
+        Self {
+            position: Property::new(Point3::origin()),
+            velocity: Property::new(Vector3::zero()),
+            shape: Property::new(Shape::Point),
+            mass: Property::new(1.0),
+            gravity_well: Property::new(false),
+            controller: Box::new(()),
         }
     }
 
-    pub fn with_position(mut self, position: Point3<f64>) -> Body {
-        self.position = position;
+    pub fn with_position(mut self, position: Point3<f64>) -> Self {
+        self.position = Property::new(position);
         self
     }
 
-    pub fn with_velocity(mut self, velocity: Vector3<f64>) -> Body {
-        self.velocity = velocity;
+    pub fn with_velocity(mut self, velocity: Vector3<f64>) -> Self {
+        self.velocity = Property::new(velocity);
         self
     }
 
-    pub fn with_sphere_shape(mut self, radius: f64) -> Body {
-        self.shape = Shape::Sphere { radius };
+    pub fn with_sphere_shape(mut self, radius: f64) -> Self {
+        self.shape = Property::new(Shape::Sphere { radius });
         self
     }
 
-    pub fn with_mass(mut self, mass: f64) -> Body {
-        self.mass = mass;
+    pub fn with_mass(mut self, mass: f64) -> Self {
+        self.mass = Property::new(mass);
         self
     }
 
-    pub fn with_gravity(mut self) -> Body {
-        self.gravity_well = true;
+    pub fn with_gravity(mut self) -> Self {
+        self.gravity_well = Property::new(true);
         self
     }
 
-    pub fn with_controller(mut self, controller: Arc<dyn Controller>) -> Body {
+    pub fn with_controller(mut self, controller: Box<dyn Controller>) -> Self {
         self.controller = controller;
         self
     }

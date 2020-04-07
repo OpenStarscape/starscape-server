@@ -2,10 +2,17 @@
 extern crate slotmap;
 
 mod body;
+mod conduit;
+mod connection;
+mod entity;
 mod game;
 mod physics;
+mod property;
+mod serialize;
 mod ship;
 mod state;
+
+pub const EPSILON: f64 = 0.000001;
 
 fn main() {
     println!("Initializing game...");
