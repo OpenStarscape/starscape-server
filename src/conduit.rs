@@ -59,8 +59,7 @@ where
             let subscribers = self.subscribers.read().expect("Failed to read subscribers");
             for connection_key in &*subscribers {
                 if let Some(connection) = state.connections.get(*connection_key) {
-                    if let Err(e) = connection.send_property_update(self.entity, self.name, &value)
-                    {
+                    if let Err(e) = connection.property_changed(self.entity, self.name, &value) {
                         eprintln!(
                             "Error updating property {:?}.{}: {}",
                             self.entity, self.name, e

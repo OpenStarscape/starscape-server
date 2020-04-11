@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::io::Write;
-use std::sync::{Mutex, RwLock};
+use std::sync::Mutex;
 
 use super::{Connection, ObjectId, ObjectMap, Protocol, Value};
 use crate::state::{ConnectionKey, State};
@@ -9,7 +9,7 @@ use crate::EntityKey;
 pub struct ConnectionImpl {
     self_key: ConnectionKey,
     protocol: Box<dyn Protocol>,
-    objects: RwLock<ObjectMap>,
+    objects: Mutex<ObjectMap>,
     writer: Mutex<Box<dyn Write>>,
 }
 
@@ -22,14 +22,14 @@ impl ConnectionImpl {
         Self {
             self_key,
             protocol,
-            objects: RwLock::new(ObjectMap::new()),
+            objects: Mutex::new(ObjectMap::new()),
             writer: Mutex::new(writer),
         }
     }
 }
 
 impl Connection for ConnectionImpl {
-    fn send_property_update(
+    fn property_changed(
         &self,
         entity: EntityKey,
         property: &str,
@@ -39,7 +39,7 @@ impl Connection for ConnectionImpl {
         let resolved_value: Value;
         let value: &Value;
         {
-            let objects = self.objects.read().expect("Failed to read object map");
+            let mut objects = self.objects.lock().expect("Failed to read object map");
             object = match objects.get_object(entity) {
                 Some(o) => o,
                 None => {
@@ -51,19 +51,13 @@ impl Connection for ConnectionImpl {
                 }
             };
             value = match unresolved_value {
-                Value::Entity(entity) => match objects.get_object(*entity) {
-                    Some(o) => {
-                        resolved_value = Value::Integer(o as i64);
-                        &resolved_value
-                    }
-                    None => {
-                        return Err(format!(
-                            "Referenced entity {:?} does not have an object on this connection",
-                            entity
-                        )
-                        .into())
-                    }
-                },
+                Value::Entity(entity) => {
+                    resolved_value = Value::Integer(match objects.get_object(*entity) {
+                        Some(o) => o,
+                        None => objects.register_entity(*entity),
+                    } as i64);
+                    &resolved_value
+                }
                 value => value,
             };
         }
@@ -82,11 +76,12 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn register_object(&self, entity: EntityKey) {
+    fn entity_destroyed(&self, state: &State, entity: EntityKey) {
         self.objects
-            .write()
+            .lock()
             .expect("Failed to write to object map")
-            .register_entity(entity);
+            .remove_entity(entity);
+        // TODO: tell client object was destroyed
     }
 
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str) {
