@@ -2,7 +2,7 @@ use cgmath::*;
 use std::io::{self, Write};
 
 use crate::body::Body;
-use crate::connection::{Connection, JsonConnection};
+use crate::connection::new_json_connection;
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
 use crate::ship::create_ship;
 use crate::state::State;
@@ -33,7 +33,7 @@ impl Game {
         let connection = game
             .state
             .connections
-            .insert_with_key(|key| Box::new(JsonConnection::new(key, Box::new(io::stdout()))));
+            .insert_with_key(|key| new_json_connection(key, Box::new(io::stdout())));
         game.state.connections[connection].register_object(ship_a);
         game.state.connections[connection].subscribe_to(&game.state, ship_a, "position");
         game
