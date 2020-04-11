@@ -43,7 +43,7 @@ impl ObjectMap {
 mod tests {
     use super::*;
 
-    /// Should only be used once per test
+    /// Should only be used once per type per test
     fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
         let mut map = slotmap::DenseSlotMap::with_key();
         (0..number).map(|_| map.insert(())).collect()
