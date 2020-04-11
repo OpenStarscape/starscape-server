@@ -33,12 +33,7 @@ impl Protocol for JsonProtocol {
 #[cfg(test)]
 mod json_tests {
     use super::*;
-
-    /// Should only be used once per type per test
-    fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
-        let mut map = slotmap::DenseSlotMap::with_key();
-        (0..number).map(|_| map.insert(())).collect()
-    }
+    use crate::state::mock_keys;
 
     fn assert_json_eq(message: &[u8], json: &str) {
         let expected: serde_json::Value =

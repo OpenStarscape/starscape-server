@@ -76,6 +76,13 @@ impl State {
     }
 }
 
+/// Should only be used once per type per test
+#[cfg(test)]
+pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
+    let mut map = slotmap::DenseSlotMap::with_key();
+    (0..number).map(|_| map.insert(())).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
