@@ -8,9 +8,9 @@ mod entity;
 mod game;
 mod physics;
 mod property;
-mod serialize;
 mod ship;
 mod state;
+mod value;
 
 pub const EPSILON: f64 = 0.000001;
 
