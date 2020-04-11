@@ -10,6 +10,7 @@ pub enum Value {
     Vector(Vector3<f64>),
     Scaler(f64),
     Integer(i64),
+	/// Entity needs to be transformed into an object ID before serialization
     Entity(EntityKey),
     Null,
 }
@@ -104,5 +105,63 @@ impl Serialize for Value {
             }
             Value::Null => serializer.serialize_none(),
         }
+    }
+}
+
+#[cfg(test)]
+mod json_tests {
+    use super::*;
+
+	/// Should only be used once per type per test
+    fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
+        let mut map = slotmap::DenseSlotMap::with_key();
+        (0..number).map(|_| map.insert(())).collect()
+    }
+
+    fn assert_json_eq(value: Value, json: &str) {
+        let expected: serde_json::Value =
+            serde_json::from_str(json).expect("failed to parse test JSON");
+        let actual: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&value).expect("Failed to serialize"))
+                .expect("Failed to parse the JSON we just generated");
+        assert_eq!(actual, expected);
+    }
+
+	#[test]
+    fn point() {
+        assert_json_eq(
+			Point3::new(1.0, 0.0, -3.0).into(),
+			"[1.0, 0.0, -3.0]",
+		)
+    }
+
+	#[test]
+    fn vector() {
+        assert_json_eq(
+			Vector3::new(1.0, 0.0, -3.0).into(),
+			"[1.0, 0.0, -3.0]",
+		)
+    }
+
+	#[test]
+    fn float() {
+        assert_json_eq(4.9.into(), "4.9");
+    }
+
+	#[test]
+    fn int() {
+        assert_json_eq((-243 as i64).into(), "-243");
+    }
+
+	#[test]
+    fn null() {
+        assert_json_eq(().into(), "null");
+    }
+	
+    #[test]
+    #[should_panic]
+    fn entity() {
+		let e: Vec<EntityKey> = mock_keys(1);
+        assert_json_eq(e[0].into(), "should panic");
     }
 }
