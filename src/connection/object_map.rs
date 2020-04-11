@@ -42,12 +42,7 @@ impl ObjectMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Should only be used once per type per test
-    fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
-        let mut map = slotmap::DenseSlotMap::with_key();
-        (0..number).map(|_| map.insert(())).collect()
-    }
+    use crate::state::mock_keys;
 
     #[test]
     fn registered_entities_and_objects_can_be_looked_up() {
@@ -61,6 +56,22 @@ mod tests {
         assert_eq!(map.get_object(e[0]), Some(o[0]));
         assert_eq!(map.get_object(e[1]), Some(o[1]));
         assert_eq!(map.get_entity(o[1]), Some(e[1]));
+    }
+
+    #[test]
+    fn object_ids_count_up_from_1() {
+        let mut map = ObjectMap::new();
+        let e = mock_keys(2);
+        let o: Vec<ObjectId> = e
+            .iter()
+            .map(|entity| map.register_entity(*entity))
+            .collect();
+        assert_eq!(o[0], 1);
+        assert_eq!(o[1], 2);
+        assert!(map.get_entity(0).is_none());
+        assert!(map.get_entity(1).is_some());
+        assert!(map.get_entity(2).is_some());
+        assert!(map.get_entity(3).is_none());
     }
 
     #[test]

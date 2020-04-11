@@ -6,6 +6,7 @@ use std::io::Write;
 use crate::connection::Connection;
 use crate::state::EntityKey;
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     Vector(Vector3<f64>),
     Scaler(f64),
@@ -111,12 +112,7 @@ impl Serialize for Value {
 #[cfg(test)]
 mod json_tests {
     use super::*;
-
-    /// Should only be used once per type per test
-    fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
-        let mut map = slotmap::DenseSlotMap::with_key();
-        (0..number).map(|_| map.insert(())).collect()
-    }
+    use crate::state::mock_keys;
 
     fn assert_json_eq(value: Value, json: &str) {
         let expected: serde_json::Value =

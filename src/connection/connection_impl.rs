@@ -97,9 +97,95 @@ impl Connection for ConnectionImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::mock_keys;
+    use slotmap::Key;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    struct MockProtocol {
+        log: Vec<(ObjectId, String, Value)>,
+    }
+
+    impl MockProtocol {
+        fn new() -> Rc<RefCell<Self>> {
+            Rc::new(RefCell::new(Self { log: Vec::new() }))
+        }
+    }
+
+    impl Protocol for Rc<RefCell<MockProtocol>> {
+        fn serialize_property_update(
+            &self,
+            object: ObjectId,
+            property: &str,
+            value: &Value,
+        ) -> Result<Vec<u8>, Box<Error>> {
+            self.borrow_mut()
+                .log
+                .push((object, property.to_owned(), (*value).clone()));
+            Ok(vec![])
+        }
+    }
 
     #[test]
-    fn object_ids_count_up_from_1() {
-        panic!("Test not implemented");
+    fn serializes_normal_property_update() {
+        let proto = MockProtocol::new();
+        let conn = ConnectionImpl::new(
+            ConnectionKey::null(),
+            Box::new(proto.clone()),
+            Box::new(Vec::new()),
+        );
+        let e = mock_keys(1);
+        let o = conn.objects.lock().unwrap().register_entity(e[0]);
+        conn.property_changed(e[0], "foo", &Value::Scaler(12.5))
+            .expect("Error updating property");
+        assert_eq!(
+            proto.borrow().log,
+            vec![(o, "foo".to_owned(), Value::Scaler(12.5))]
+        );
+    }
+
+    #[test]
+    fn resolves_entity_value_to_object_id() {
+        let proto = MockProtocol::new();
+        let conn = ConnectionImpl::new(
+            ConnectionKey::null(),
+            Box::new(proto.clone()),
+            Box::new(Vec::new()),
+        );
+        let e = mock_keys(2);
+        let o0 = conn.objects.lock().unwrap().register_entity(e[0]);
+        conn.property_changed(e[0], "foo", &Value::Entity(e[1]))
+            .expect("Error updating property");
+        let o1 = conn.objects.lock().unwrap().get_object(e[1]).unwrap();
+        assert_ne!(o0, o1);
+        assert_eq!(
+            proto.borrow().log,
+            vec![(o0, "foo".to_owned(), Value::Integer(o1 as i64))]
+        );
+    }
+
+    #[test]
+    fn resolves_the_same_entity_multiple_times() {
+        let proto = MockProtocol::new();
+        let conn = ConnectionImpl::new(
+            ConnectionKey::null(),
+            Box::new(proto.clone()),
+            Box::new(Vec::new()),
+        );
+        let e = mock_keys(2);
+        let o0 = conn.objects.lock().unwrap().register_entity(e[0]);
+        conn.property_changed(e[0], "foo", &Value::Entity(e[1]))
+            .expect("Error updating property");
+        conn.property_changed(e[0], "bar", &Value::Entity(e[1]))
+            .expect("Error updating property");
+        let o1 = conn.objects.lock().unwrap().get_object(e[1]).unwrap();
+        assert_ne!(o0, o1);
+        assert_eq!(
+            proto.borrow().log,
+            vec![
+                (o0, "foo".to_owned(), Value::Integer(o1 as i64)),
+                (o0, "bar".to_owned(), Value::Integer(o1 as i64))
+            ]
+        );
     }
 }
