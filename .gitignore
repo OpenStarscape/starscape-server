@@ -1,2 +1,7 @@
+# rustc
 /target
 **/*.rs.bk
+
+# Eclipse
+.project
+
