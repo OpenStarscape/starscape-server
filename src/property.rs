@@ -19,6 +19,11 @@ impl<T: PartialEq> Property<T> {
         }
     }
 
+    /// Same as the Deref impl, but sometimes gives the compiler more clues as to what you want
+    pub fn value(&self) -> &T {
+        &self.value
+    }
+
     pub fn set(&mut self, updates: &PendingUpdates, value: T) {
         if self.value != value {
             self.value = value;
@@ -29,10 +34,6 @@ impl<T: PartialEq> Property<T> {
                 pending_updates.extend(conduits.iter().cloned());
             }
         }
-    }
-
-    pub fn get(&self) -> &T {
-        &self.value
     }
 
     pub fn connect(&self, conduit: ConduitKey) {

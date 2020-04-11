@@ -36,7 +36,7 @@ pub struct State {
     /// Object properties that may be subscribed to changes
     pub conduits: DenseSlotMap<ConduitKey, Box<dyn Conduit>>,
     /// Network connections to clients
-    pub connections: DenseSlotMap<ConnectionKey, Connection>,
+    pub connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
 }
 
 impl State {

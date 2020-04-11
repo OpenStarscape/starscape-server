@@ -1,27 +1,45 @@
 use bimap::BiHashMap;
-use serde::ser::{SerializeStruct, Serializer};
+use serde::ser::{Serialize, Serializer};
+use std::error::Error;
 use std::io::Write;
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 
-//use crate::serialize::Serializable;
 use crate::state::{ConnectionKey, EntityKey, State};
+use crate::value::Value;
 
-type ObjectId = u32;
+type ObjectId = u64;
 
-pub struct Connection {
-    writer: Mutex<Box<dyn Write>>,
-    connection: ConnectionKey,
-    objects: BiHashMap<EntityKey, ObjectId>,
-    next_object_id: ObjectId,
+pub trait Connection {
+    fn send_property_update(
+        &self,
+        entity: EntityKey,
+        property: &str,
+        value: &Value,
+    ) -> Result<(), Box<Error>>;
+    fn register_object(&self, entity: EntityKey);
+    fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str);
 }
 
-impl Connection {
+struct ObjectMap {
+    map: BiHashMap<EntityKey, ObjectId>,
+    next_id: ObjectId,
+}
+
+pub struct JsonConnection {
+    writer: Mutex<Box<dyn Write>>,
+    connection: ConnectionKey,
+    objects: RwLock<ObjectMap>,
+}
+
+impl JsonConnection {
     pub fn new(connection: ConnectionKey, writer: Box<dyn Write>) -> Self {
-        Self {
+        JsonConnection {
             writer: Mutex::new(writer),
             connection,
-            objects: BiHashMap::new(),
-            next_object_id: 1,
+            objects: RwLock::new(ObjectMap {
+                map: BiHashMap::new(),
+                next_id: 1,
+            }),
         }
     }
 
@@ -32,6 +50,7 @@ impl Connection {
         property: &str,
         value: &T,
     ) -> serde_json::error::Result<()> {
+        use serde::ser::SerializeStruct;
         let mut message = serializer.serialize_struct("Message", 4)?;
         message.serialize_field("mtype", "update")?;
         message.serialize_field("object", object)?;
@@ -39,48 +58,98 @@ impl Connection {
         message.serialize_field("value", value)?;
         message.end()
     }
+}
 
-    pub fn send_property_update<T: serde::Serialize>(
+impl Connection for JsonConnection {
+    fn send_property_update(
         &self,
-        entity: &EntityKey,
+        entity: EntityKey,
         property: &str,
-        value: &T,
-    ) -> Result<(), String> {
-        let object = match self.objects.get_by_left(entity) {
-            Some(o) => o,
-            None => return Err("Object does not exist on this connection".to_owned()),
-        };
+        unresolved_value: &Value,
+    ) -> Result<(), Box<Error>> {
+        let object: ObjectId;
+        let resolved_value: Value;
+        let value: &Value;
+        {
+            let objects = self.objects.read().expect("Failed to read object map");
+            object = match objects.map.get_by_left(&entity) {
+                Some(o) => *o,
+                None => {
+                    return Err(format!(
+                        "Updated entity {:?} does not have an object on this connection",
+                        entity
+                    )
+                    .into())
+                }
+            };
+            value = match unresolved_value {
+                Value::Entity(entity) => match objects.map.get_by_left(entity) {
+                    Some(o) => {
+                        resolved_value = Value::Integer(*o as i64);
+                        &resolved_value
+                    }
+                    None => {
+                        return Err(format!(
+                            "Referenced entity {:?} does not have an object on this connection",
+                            entity
+                        )
+                        .into())
+                    }
+                },
+                value => value,
+            };
+        }
         let buffer = Vec::with_capacity(128);
         let mut serializer = serde_json::Serializer::new(buffer);
-        match self.serialize_property_update(&mut serializer, object, property, value) {
+        match self.serialize_property_update(&mut serializer, &object, property, value) {
             Ok(_) => {
                 let mut writer = self.writer.lock().expect("Failed to lock writer");
                 match writer.write(&serializer.into_inner()) {
                     Ok(_) => Ok(()),
-                    Err(e) => Err(format!("Error writing to writer: {}", e)),
+                    Err(e) => Err(format!("Error writing to writer: {}", e).into()),
                 }
             }
-            Err(e) => Err(format!("{}", e)),
+            Err(e) => Err(format!("{}", e).into()),
         }
     }
 
-    pub fn register_object(&mut self, entity: EntityKey) -> u32 {
-        let id = self.next_object_id;
-        self.next_object_id += 1;
-        self.objects.insert(entity, id);
-        id
+    fn register_object(&self, entity: EntityKey) {
+        let mut objects = self.objects.write().expect("Failed to write to object map");
+        let id = objects.next_id;
+        objects.next_id += 1;
+        objects.map.insert(entity, id);
     }
 
-    pub fn subscribe_to(&self, state: &State, object: u32, property: &str) {
-        let entity = *self
-            .objects
-            .get_by_right(&object)
-            .expect("Failed to look up object");
+    fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str) {
         let conduit = state.entities[entity]
             .conduit(property)
             .expect("Invalid property");
         if let Err(e) = state.conduits[conduit].subscribe(state, self.connection) {
             eprintln!("Error subscribing: {}", e);
+        }
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Value::Vector(vector) => {
+                use serde::ser::SerializeTuple;
+                let mut tuple = serializer.serialize_tuple(3)?;
+                tuple.serialize_element(&vector.x)?;
+                tuple.serialize_element(&vector.y)?;
+                tuple.serialize_element(&vector.z)?;
+                tuple.end()
+            }
+            Value::Scaler(value) => serializer.serialize_f64(*value),
+            Value::Integer(value) => serializer.serialize_i64(*value),
+            Value::Entity(entity) => {
+                panic!(
+                    "Can not serialize {:?}; entity should have been replaced by object ID",
+                    entity
+                );
+            }
+            Value::Null => serializer.serialize_none(),
         }
     }
 }

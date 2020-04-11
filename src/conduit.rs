@@ -1,9 +1,8 @@
-use serde::ser::Serialize;
 use std::sync::{Mutex, RwLock};
 
 use crate::property::Property;
-use crate::serialize::Wrapper;
 use crate::state::{ConduitKey, ConnectionKey, EntityKey, State};
+use crate::value::Value;
 
 /// The link between a single property somewhere in the state and client connections
 pub trait Conduit {
@@ -17,12 +16,7 @@ pub trait Conduit {
 }
 
 /// A conduit that passes on a Property value without changing it
-pub struct PropertyConduit<T, F>
-where
-    for<'a> F: Fn(&'a State) -> &'a Property<T>,
-    T: Clone + PartialEq,
-    Wrapper<T>: Serialize,
-{
+pub struct PropertyConduit<T, F> {
     conduit: ConduitKey,
     entity: EntityKey,
     name: &'static str,
@@ -34,8 +28,7 @@ where
 impl<T, F> PropertyConduit<T, F>
 where
     for<'a> F: Fn(&'a State) -> &'a Property<T>,
-    T: Clone + PartialEq,
-    Wrapper<T>: Serialize,
+    T: Clone + PartialEq + Into<Value>,
 {
     pub fn new(conduit: ConduitKey, entity: EntityKey, name: &'static str, property: F) -> Self {
         Self {
@@ -52,8 +45,7 @@ where
 impl<T, F> Conduit for PropertyConduit<T, F>
 where
     for<'a> F: Fn(&'a State) -> &'a Property<T>,
-    T: Clone + PartialEq,
-    Wrapper<T>: Serialize,
+    T: Clone + PartialEq + Into<Value>,
 {
     fn send_updates(&self, state: &State) -> Result<(), String> {
         let property = (self.property)(state);
@@ -61,16 +53,14 @@ where
             .cached_value
             .lock()
             .expect("Failed to lock cached value mutex");
-        if cached.is_none() || cached.as_ref().unwrap() != property.get() {
-            *cached = Some((*property).clone());
+        if cached.is_none() || cached.as_ref().unwrap() != property.value() {
+            *cached = Some(property.value().clone());
+            let value: Value = (property.value().clone()).into();
             let subscribers = self.subscribers.read().expect("Failed to read subscribers");
             for connection_key in &*subscribers {
                 if let Some(connection) = state.connections.get(*connection_key) {
-                    if let Err(e) = connection.send_property_update(
-                        &self.entity,
-                        self.name,
-                        &Wrapper::new((**property).clone()),
-                    ) {
+                    if let Err(e) = connection.send_property_update(self.entity, self.name, &value)
+                    {
                         eprintln!(
                             "Error updating property {:?}.{}: {}",
                             self.entity, self.name, e
