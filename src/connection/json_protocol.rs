@@ -29,3 +29,40 @@ impl Protocol for JsonProtocol {
         Ok(serializer.into_inner())
     }
 }
+
+#[cfg(test)]
+mod json_tests {
+    use super::*;
+
+    /// Should only be used once per type per test
+    fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
+        let mut map = slotmap::DenseSlotMap::with_key();
+        (0..number).map(|_| map.insert(())).collect()
+    }
+
+    fn assert_json_eq(message: &[u8], json: &str) {
+        let expected: serde_json::Value =
+            serde_json::from_str(json).expect("failed to parse test JSON");
+        let actual: serde_json::Value =
+            serde_json::from_slice(message).expect("Failed to parse the JSON we generated");
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn basic_property_update() {
+        let p = JsonProtocol::new();
+        let obj = 42;
+        let prop = "foobar";
+        let value = Value::Scaler(12.5);
+        assert_json_eq(
+            &p.serialize_property_update(obj, prop, &value)
+                .expect("Failed to serialize property update"),
+            "{
+				\"mtype\": \"update\",
+				\"object\": 42,
+				\"property\": \"foobar\",
+				\"value\": 12.5
+			}",
+        )
+    }
+}
