@@ -1,8 +1,8 @@
 use std::sync::{Mutex, RwLock};
 
+use crate::connection::Value;
 use crate::property::Property;
 use crate::state::{ConduitKey, ConnectionKey, EntityKey, State};
-use crate::value::Value;
 
 /// The link between a single property somewhere in the state and client connections
 pub trait Conduit {

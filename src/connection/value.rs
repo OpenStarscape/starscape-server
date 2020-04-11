@@ -1,5 +1,5 @@
 use cgmath::*;
-use serde::ser::{Serialize, SerializeTuple, Serializer};
+use serde::ser::{Serialize, Serializer};
 use std::error::Error;
 use std::io::Write;
 
@@ -79,6 +79,30 @@ impl<T: Into<Value>> From<Option<T>> for Value {
         match opt {
             Some(value) => value.into(),
             None => Value::Null,
+        }
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Value::Vector(vector) => {
+                use serde::ser::SerializeTuple;
+                let mut tuple = serializer.serialize_tuple(3)?;
+                tuple.serialize_element(&vector.x)?;
+                tuple.serialize_element(&vector.y)?;
+                tuple.serialize_element(&vector.z)?;
+                tuple.end()
+            }
+            Value::Scaler(value) => serializer.serialize_f64(*value),
+            Value::Integer(value) => serializer.serialize_i64(*value),
+            Value::Entity(entity) => {
+                panic!(
+                    "Can not serialize {:?}; entity should have been replaced by object ID",
+                    entity
+                );
+            }
+            Value::Null => serializer.serialize_none(),
         }
     }
 }

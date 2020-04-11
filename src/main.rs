@@ -10,7 +10,8 @@ mod physics;
 mod property;
 mod ship;
 mod state;
-mod value;
+
+pub use state::EntityKey;
 
 pub const EPSILON: f64 = 0.000001;
 
