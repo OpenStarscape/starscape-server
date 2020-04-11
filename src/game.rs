@@ -34,7 +34,6 @@ impl Game {
             .state
             .connections
             .insert_with_key(|key| new_json_connection(key, Box::new(io::stdout())));
-        game.state.connections[connection].register_object(ship_a);
         game.state.connections[connection].subscribe_to(&game.state, ship_a, "position");
         game
     }

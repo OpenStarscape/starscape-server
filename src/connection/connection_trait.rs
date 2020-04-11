@@ -4,12 +4,12 @@ use super::Value;
 use crate::state::{EntityKey, State};
 
 pub trait Connection {
-    fn send_property_update(
+    fn property_changed(
         &self,
         entity: EntityKey,
         property: &str,
         value: &Value,
     ) -> Result<(), Box<Error>>;
-    fn register_object(&self, entity: EntityKey);
+    fn entity_destroyed(&self, state: &State, entity: EntityKey);
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str);
 }
