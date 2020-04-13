@@ -1,10 +1,6 @@
+use crate::state::EntityKey;
 use cgmath::*;
 use serde::ser::{Serialize, Serializer};
-use std::error::Error;
-use std::io::Write;
-
-use crate::connection::Connection;
-use crate::state::EntityKey;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {

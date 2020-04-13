@@ -4,9 +4,9 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::body::{Body, Collision, Controller};
-use crate::conduit::PropertyConduit;
 use crate::entity::Entity;
-use crate::state::{BodyKey, ConduitKey, EntityKey, ShipKey, State};
+use crate::plumbing::new_property;
+use crate::state::{BodyKey, EntityKey, PropertyKey, ShipKey, State};
 use crate::EPSILON;
 
 struct PendingUpdates {
@@ -84,7 +84,7 @@ struct ShipEntity {
     entity: EntityKey,
     body: BodyKey,
     ship: ShipKey,
-    properties: HashMap<&'static str, ConduitKey>,
+    properties: HashMap<&'static str, PropertyKey>,
 }
 
 impl ShipEntity {
@@ -99,15 +99,15 @@ impl ShipEntity {
 }
 
 impl Entity for ShipEntity {
-    fn add_conduit(&mut self, name: &'static str, conduit: ConduitKey) {
-        self.properties.insert(name, conduit);
+    fn add_property(&mut self, name: &'static str, key: PropertyKey) {
+        self.properties.insert(name, key);
     }
 
-    fn conduit(&self, property: &str) -> Result<ConduitKey, String> {
-        if let Some(conduit) = self.properties.get(property) {
+    fn property(&self, name: &str) -> Result<PropertyKey, String> {
+        if let Some(conduit) = self.properties.get(name) {
             Ok(*conduit)
         } else {
-            Err(format!("Ship does not have a {:?} property", property))
+            Err(format!("Ship does not have a {:?} property", name))
         }
     }
 
@@ -128,15 +128,9 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     let entity = state
         .entities
         .insert_with_key(|entity| Box::new(ShipEntity::new(entity, body, ship)));
-    let conduit = state.conduits.insert_with_key(|conduit| {
-        (Box::new(PropertyConduit::new(
-            conduit,
-            entity,
-            "position",
-            move |state: &State| &state.bodies[body].position,
-        )))
+    new_property(state, entity, "position", move |state: &State| {
+        Ok(&state.bodies[body].position)
     });
-    state.entities[entity].add_conduit("position", conduit);
     entity
     /*for (name, prop_getter) in vec![
         ("position", &|state: &State| Ok(&state.bodies.get(body)?.position)),

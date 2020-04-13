@@ -1,61 +1,47 @@
+use std::error::Error;
 use std::sync::{Mutex, RwLock};
 
+use super::{Conduit, Property};
 use crate::connection::Value;
-use crate::property::Property;
-use crate::state::{ConduitKey, ConnectionKey, EntityKey, State};
+use crate::state::{ConnectionKey, EntityKey, PropertyKey, State};
 
-/// The link between a single property somewhere in the state and client connections
-pub trait Conduit {
-    /// Called by the engine
-    /// Conduit should retrieve a value from the state and send it to all subscribed connections
-    fn send_updates(&self, state: &State) -> Result<(), String>;
-    /// Causes the connection to start getting updates
-    fn subscribe(&self, state: &State, connection: ConnectionKey) -> Result<(), String>;
-    /// Stops the flow of updates to the given connection
-    fn unsubscribe(&self, state: &State, connection: ConnectionKey) -> Result<(), String>;
-}
-
-/// A conduit that passes on a Property value without changing it
-pub struct PropertyConduit<T, F> {
-    conduit: ConduitKey,
+/// The default property implementation
+pub struct ConduitProperty {
+    self_key: PropertyKey,
     entity: EntityKey,
     name: &'static str,
-    cached_value: Mutex<Option<T>>,
-    property: F,
+    cached_value: Mutex<Value>,
+    conduit: Box<dyn Conduit>,
     subscribers: RwLock<Vec<ConnectionKey>>,
 }
 
-impl<T, F> PropertyConduit<T, F>
-where
-    for<'a> F: Fn(&'a State) -> &'a Property<T>,
-    T: Clone + PartialEq + Into<Value>,
-{
-    pub fn new(conduit: ConduitKey, entity: EntityKey, name: &'static str, property: F) -> Self {
+impl ConduitProperty {
+    pub fn new(
+        self_key: PropertyKey,
+        entity: EntityKey,
+        name: &'static str,
+        conduit: Box<dyn Conduit>,
+    ) -> Self {
         Self {
-            conduit,
+            self_key,
             entity,
             name,
-            cached_value: Mutex::new(None),
-            property,
+            cached_value: Mutex::new(Value::Null),
+            conduit,
             subscribers: RwLock::new(Vec::new()),
         }
     }
 }
 
-impl<T, F> Conduit for PropertyConduit<T, F>
-where
-    for<'a> F: Fn(&'a State) -> &'a Property<T>,
-    T: Clone + PartialEq + Into<Value>,
-{
-    fn send_updates(&self, state: &State) -> Result<(), String> {
-        let property = (self.property)(state);
+impl Property for ConduitProperty {
+    fn send_updates(&self, state: &State) -> Result<(), Box<dyn Error>> {
+        let value = self.conduit.get_value(state)?;
         let mut cached = self
             .cached_value
             .lock()
             .expect("Failed to lock cached value mutex");
-        if cached.is_none() || cached.as_ref().unwrap() != property.value() {
-            *cached = Some(property.value().clone());
-            let value: Value = (property.value().clone()).into();
+        if *cached != value {
+            *cached = value.clone();
             let subscribers = self.subscribers.read().expect("Failed to read subscribers");
             for connection_key in &*subscribers {
                 if let Some(connection) = state.connections.get(*connection_key) {
@@ -80,7 +66,7 @@ where
         let mut subscribers = self.subscribers.write().unwrap();
         // TODO: error checking
         if subscribers.is_empty() {
-            (self.property)(state).connect(self.conduit);
+            self.conduit.connect(state, self.self_key)?;
         }
         subscribers.push(connection);
         Ok(())
@@ -94,29 +80,36 @@ where
 
 // TODO: make connection generic so testing is easier
 #[cfg(test)]
-mod property_conduit_tests {
+mod tests {
     use super::*;
     use crate::entity::Entity;
-    use crate::state::ConduitKey;
+    use crate::state::{mock_keys, PropertyKey};
+    use slotmap::Key;
+    use std::sync::Arc;
 
     struct MockEntity {}
 
     impl Entity for MockEntity {
-        fn add_conduit(&mut self, _name: &'static str, _conduit: ConduitKey) {}
-        fn conduit(&self, property: &str) -> Result<ConduitKey, String> {
+        fn add_property(&mut self, _name: &'static str, _key: PropertyKey) {}
+        fn property(&self, name: &str) -> Result<PropertyKey, String> {
             Err("Not implemented".to_owned())
         }
         fn destroy(&mut self, _state: &mut State) {}
     }
 
+    /*
     #[test]
     fn when_updated_sends_correct_entity_key() {
         let mut state = State::new();
-        let e_key = state.entities.insert(Box::new(MockEntity {}));
-        let prop = Property::new(7);
-        //let _conduit = PropertyConduit::new(e_key, "foo", move |_| &'a prop);
+        let e = mock_keys(1);
+        let prop = Arc::new(Property::new(7));
+        let conduit = PropertyConduit::new(ConduitKey::null(), e[0], "foo", {
+            let p = prop.clone();
+            move |state| &*p
+        });
         panic!("Implementation not finished");
     }
+    */
 
     #[test]
     fn when_updated_sends_correct_name() {
