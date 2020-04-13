@@ -35,3 +35,5 @@ pub fn new_property<T, F: 'static>(
     });
     state.entities[entity].add_property(name, conduit);
 }
+
+// TODO: test that new_property() adds property to entity

@@ -30,12 +30,18 @@ where
     }
 
     fn connect(&self, state: &State, conduit: PropertyKey) -> Result<(), String> {
-        (self.store_getter)(state)?.connect(conduit);
-        Ok(())
+        (self.store_getter)(state)?.connect(conduit).map_err(|e| {
+            eprintln!("Error: {}", e);
+            format!("Internal server error: {}", e)
+        })
     }
 
     fn disconnect(&self, state: &State, conduit: PropertyKey) -> Result<(), String> {
-        (self.store_getter)(state)?.disconnect(conduit);
-        Ok(())
+        (self.store_getter)(state)?
+            .disconnect(conduit)
+            .map_err(|e| {
+                eprintln!("Error: {}", e);
+                format!("Internal server error: {}", e)
+            })
     }
 }
