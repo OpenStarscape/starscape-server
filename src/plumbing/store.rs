@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::ops::Deref;
 use std::sync::RwLock;
 
@@ -39,15 +40,25 @@ impl<T: PartialEq> Store<T> {
         }
     }
 
-    pub fn connect(&self, target: PropertyKey) {
+    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
         let mut connections = self.connections.write().unwrap();
-        connections.push(target);
-        // TODO: error checking
+        if connections.contains(&target) {
+            Err(format!("already connected to {:?}", target).into())
+        } else {
+            connections.push(target);
+            Ok(())
+        }
     }
 
-    pub fn disconnect(&self, target: PropertyKey) {
-        let connections = self.connections.write().unwrap();
-        // TODO
+    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
+        let mut connections = self.connections.write().unwrap();
+        match connections.iter().position(|key| *key == target) {
+            None => Err(format!("{:?} is not connected", target).into()),
+            Some(i) => {
+                connections.swap_remove(i);
+                Ok(())
+            }
+        }
     }
 }
 
@@ -62,49 +73,84 @@ impl<T: PartialEq> Deref for Store<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::mock_keys;
+    use std::collections::HashSet;
 
     #[test]
-    fn does_not_update_subscribers_when_set_to_same_value() {
-        panic!("Test not implemented");
+    fn can_update_without_connected_properties() {
+        let mut store = Store::new(7);
+        let pending = RwLock::new(HashSet::new());
+        assert_eq!(*store, 7);
+        store.set(&pending, 5);
+        assert_eq!(*store, 5);
+        assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
-    fn set_does_not_serialize_when_there_are_no_subscribers() {
-        panic!("Test not implemented");
+    fn updates_connected_property_when_changed() {
+        let mut store = Store::new(7);
+        let pending = RwLock::new(HashSet::new());
+        let props = mock_keys(1);
+        store.connect(props[0]).expect("connecting failed");
+        store.set(&pending, 5);
+        assert_eq!(pending.read().unwrap().len(), 1);
+        assert!(pending.read().unwrap().contains(&props[0]));
     }
 
     #[test]
-    fn set_does_not_serialize_when_all_subscribers_removed() {
-        panic!("Test not implemented");
+    fn updates_multiple_connected_properties() {
+        let mut store = Store::new(7);
+        let pending = RwLock::new(HashSet::new());
+        let props = mock_keys(2);
+        props
+            .iter()
+            .for_each(|p| store.connect(*p).expect("connecting failed"));
+        store.set(&pending, 5);
+        assert_eq!(pending.read().unwrap().len(), 2);
+        props
+            .iter()
+            .for_each(|p| assert!(pending.read().unwrap().contains(p)));
     }
 
     #[test]
-    fn first_subscriber_creates_coupling() {
-        panic!("Test not implemented");
+    fn does_not_update_property_when_set_to_same_value() {
+        let mut store = Store::new(7);
+        let pending = RwLock::new(HashSet::new());
+        let props = mock_keys(1);
+        store.connect(props[0]).expect("connecting failed");
+        store.set(&pending, 7);
+        assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
-    fn multiple_subscribers_add_to_coupling() {
-        panic!("Test not implemented");
+    fn connecting_same_property_twice_errors() {
+        let store = Store::new(7);
+        let props = mock_keys(1);
+        store.connect(props[0]).expect("connecting failed");
+        assert!(store.connect(props[0]).is_err());
     }
 
     #[test]
-    fn removing_only_subscriber_removes_coupling() {
-        panic!("Test not implemented");
+    fn disconnecting_stops_updates() {
+        let mut store = Store::new(7);
+        let pending = RwLock::new(HashSet::new());
+        let props = mock_keys(2);
+        props
+            .iter()
+            .for_each(|p| store.connect(*p).expect("connecting failed"));
+        store.disconnect(props[1]).expect("disconnecting failed");
+        store.set(&pending, 5);
+        assert_eq!(pending.read().unwrap().len(), 1);
+        assert!(pending.read().unwrap().contains(&props[0]));
+        assert!(!pending.read().unwrap().contains(&props[1]));
     }
 
     #[test]
-    fn removing_all_subscribers_removes_coupling() {
-        panic!("Test not implemented");
-    }
-
-    #[test]
-    fn subscribing_twice_errors_or_something() {
-        panic!("Test not implemented");
-    }
-
-    #[test]
-    fn unsubscribing_when_not_subscribed_errors_or_something() {
-        panic!("Test not implemented");
+    fn disconnecting_when_not_connected_errors() {
+        let store = Store::new(7);
+        let props = mock_keys(2);
+        assert!(store.disconnect(props[0]).is_err());
+        store.connect(props[0]).expect("connecting failed");
+        assert!(store.disconnect(props[1]).is_err());
     }
 }
