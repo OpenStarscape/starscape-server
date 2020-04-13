@@ -3,20 +3,20 @@ use std::collections::HashSet;
 use std::sync::RwLock;
 
 use crate::body::Body;
-use crate::conduit::Conduit;
 use crate::connection::Connection;
 use crate::entity::Entity;
+use crate::plumbing::Property;
 use crate::ship::Ship;
 
 new_key_type! {
     pub struct EntityKey;
     pub struct BodyKey;
     pub struct ShipKey;
-    pub struct ConduitKey;
+    pub struct PropertyKey;
     pub struct ConnectionKey;
 }
 
-pub type PendingUpdates = RwLock<HashSet<ConduitKey>>;
+pub type PendingUpdates = RwLock<HashSet<PropertyKey>>;
 
 /// The entire game state at a single point in time
 pub struct State {
@@ -34,7 +34,7 @@ pub struct State {
     /// Subscribers that need to be updated
     pub pending_updates: PendingUpdates,
     /// Object properties that may be subscribed to changes
-    pub conduits: DenseSlotMap<ConduitKey, Box<dyn Conduit>>,
+    pub properties: DenseSlotMap<PropertyKey, Box<dyn Property>>,
     /// Network connections to clients
     pub connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
 }
@@ -48,7 +48,7 @@ impl State {
             gravity_wells: Vec::new(),
             ships: DenseSlotMap::with_key(),
             pending_updates: RwLock::new(HashSet::new()),
-            conduits: DenseSlotMap::with_key(),
+            properties: DenseSlotMap::with_key(),
             connections: DenseSlotMap::with_key(),
         }
     }
@@ -71,7 +71,7 @@ impl State {
         assert!(self.gravity_wells.is_empty());
         assert!(self.ships.is_empty());
         // pending_updates intentionally not checked
-        assert!(self.conduits.is_empty());
+        assert!(self.properties.is_empty());
         assert!(self.connections.is_empty());
     }
 }
@@ -127,7 +127,16 @@ mod tests {
 
     #[test]
     fn is_empty_by_default() {
-        let mut state = State::new();
+        let state = State::new();
         state.assert_is_empty();
+    }
+
+    #[test]
+    fn mock_keys_all_different() {
+        let k: Vec<EntityKey> = mock_keys(3);
+        assert_eq!(k.len(), 3);
+        assert_ne!(k[0], k[1]);
+        assert_ne!(k[0], k[2]);
+        assert_ne!(k[1], k[2]);
     }
 }

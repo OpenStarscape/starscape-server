@@ -1,33 +1,36 @@
 use std::ops::Deref;
 use std::sync::RwLock;
 
-use crate::state::{ConduitKey, PendingUpdates};
+use crate::state::{PendingUpdates, PropertyKey};
 
-pub struct Property<T: PartialEq> {
-    value: T,
+/// A value that can be connected to 0, 1 or more properties
+/// Updates are not dispatched to connected properties immediatly,
+/// Property keys are stored until it is time to dispatch all updates
+pub struct Store<T: PartialEq> {
+    inner: T,
     // TODO: use an atomic bool to more quickly check if watchers is empty?
     /// The keys of watchers that want to be updated when value changes
     /// Is conceptually a set, but since length is almost always 0 or 1 use a low cost vec
-    conduits: RwLock<Vec<ConduitKey>>,
+    connections: RwLock<Vec<PropertyKey>>,
 }
 
-impl<T: PartialEq> Property<T> {
-    pub fn new(value: T) -> Self {
-        Property {
-            value,
-            conduits: RwLock::new(Vec::new()),
+impl<T: PartialEq> Store<T> {
+    pub fn new(inner: T) -> Self {
+        Self {
+            inner,
+            connections: RwLock::new(Vec::new()),
         }
     }
 
-    /// Same as the Deref impl, but sometimes gives the compiler more clues as to what you want
+    /// Same as the Deref impl, but a named method can be easier to use sometimes
     pub fn value(&self) -> &T {
-        &self.value
+        &self.inner
     }
 
     pub fn set(&mut self, updates: &PendingUpdates, value: T) {
-        if self.value != value {
-            self.value = value;
-            let conduits = self.conduits.read().unwrap();
+        if self.inner != value {
+            self.inner = value;
+            let conduits = self.connections.read().unwrap();
             if conduits.len() > 0 {
                 let mut pending_updates =
                     updates.write().expect("Error writing to pending updates");
@@ -36,23 +39,23 @@ impl<T: PartialEq> Property<T> {
         }
     }
 
-    pub fn connect(&self, conduit: ConduitKey) {
-        let mut conduits = self.conduits.write().unwrap();
-        conduits.push(conduit);
+    pub fn connect(&self, target: PropertyKey) {
+        let mut connections = self.connections.write().unwrap();
+        connections.push(target);
         // TODO: error checking
     }
 
-    pub fn disconnect(&self, conduit: ConduitKey) {
-        let conduits = self.conduits.write().unwrap();
+    pub fn disconnect(&self, target: PropertyKey) {
+        let connections = self.connections.write().unwrap();
         // TODO
     }
 }
 
-impl<T: PartialEq> Deref for Property<T> {
+impl<T: PartialEq> Deref for Store<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
-        &self.value
+        &self.inner
     }
 }
 

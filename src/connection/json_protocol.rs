@@ -33,7 +33,6 @@ impl Protocol for JsonProtocol {
 #[cfg(test)]
 mod json_tests {
     use super::*;
-    use crate::state::mock_keys;
 
     fn assert_json_eq(message: &[u8], json: &str) {
         let expected: serde_json::Value =

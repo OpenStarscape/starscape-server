@@ -54,7 +54,7 @@ impl Game {
                 .write()
                 .expect("Failed to write to updates");
             for update in &*updates {
-                if let Some(conduit) = self.state.conduits.get(*update) {
+                if let Some(conduit) = self.state.properties.get(*update) {
                     if let Err(e) = conduit.send_updates(&self.state) {
                         eprintln!("Error sending update: {}", e);
                     }

@@ -86,9 +86,9 @@ impl Connection for ConnectionImpl {
 
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str) {
         let conduit = state.entities[entity]
-            .conduit(property)
+            .property(property)
             .expect("Invalid property");
-        if let Err(e) = state.conduits[conduit].subscribe(state, self.self_key) {
+        if let Err(e) = state.properties[conduit].subscribe(state, self.self_key) {
             eprintln!("Error subscribing: {}", e);
         }
     }
