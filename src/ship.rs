@@ -79,43 +79,6 @@ impl Controller for ShipBodyController {
     }
 }
 
-struct ShipEntity {
-    entity: EntityKey,
-    body: BodyKey,
-    ship: ShipKey,
-    properties: HashMap<&'static str, PropertyKey>,
-}
-
-impl ShipEntity {
-    fn new(entity: EntityKey, body: BodyKey, ship: ShipKey) -> Self {
-        Self {
-            entity,
-            body,
-            ship,
-            properties: HashMap::new(),
-        }
-    }
-}
-
-impl Entity for ShipEntity {
-    fn add_property(&mut self, name: &'static str, key: PropertyKey) {
-        self.properties.insert(name, key);
-    }
-
-    fn property(&self, name: &str) -> Result<PropertyKey, String> {
-        if let Some(conduit) = self.properties.get(name) {
-            Ok(*conduit)
-        } else {
-            Err(format!("Ship does not have a {:?} property", name))
-        }
-    }
-
-    fn destroy(&mut self, state: &mut State) {
-        state.bodies.remove(self.body);
-        state.ships.remove(self.ship);
-    }
-}
-
 pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     let ship = state.ships.insert(Ship::new(10.0));
     let body = state.add_body(
@@ -124,9 +87,9 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
             .with_sphere_shape(1.0)
             .with_controller(Box::new(ShipBodyController { ship })),
     );
-    let entity = state
-        .entities
-        .insert_with_key(|entity| Box::new(ShipEntity::new(entity, body, ship)));
+    let entity = state.entities.insert(Entity::new());
+    state.entities[entity].register_body(body);
+    state.entities[entity].register_ship(ship);
     new_property(state, entity, "position", move |state: &State| {
         Ok(&state.bodies[body].position)
     });

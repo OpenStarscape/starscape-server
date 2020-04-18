@@ -78,14 +78,12 @@ pub fn apply_collisions(state: &State, dt: f64) {
                 Err(())
             } else {
                 if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
-                    body1.controller.collided_with(
-                        state,
-                        &Collision::new(time_until, key2),
-                    );
-                    body2.controller.collided_with(
-                        state,
-                        &Collision::new(time_until,key1),
-                    );
+                    body1
+                        .controller
+                        .collided_with(state, &Collision::new(time_until, key2));
+                    body2
+                        .controller
+                        .collided_with(state, &Collision::new(time_until, key1));
                 }
                 Ok(())
             }
