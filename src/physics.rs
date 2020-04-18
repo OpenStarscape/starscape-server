@@ -268,7 +268,7 @@ mod collision_tests {
         let mut state = State::new();
         let c1 = MockController::new();
         state.add_body(Body::new().with_controller(Box::new(c1.clone())));
-        apply_collisions(&mut state, 1.0);
+        apply_collisions(&state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
 
@@ -295,7 +295,7 @@ mod collision_tests {
                 .with_sphere_shape(1.0)
                 .with_controller(Box::new(c1.clone())),
         );
-        apply_collisions(&mut state, 1.0);
+        apply_collisions(&state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
 

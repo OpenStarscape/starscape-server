@@ -85,6 +85,12 @@ impl Connection for ConnectionImpl {
     }
 
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str) {
+        {
+            let mut objects = self.objects.lock().expect("Failed to read object map");
+            if objects.get_object(entity).is_none() {
+                objects.register_entity(entity);
+            }
+        }
         let conduit = state.entities[entity]
             .property(property)
             .expect("Invalid property");
