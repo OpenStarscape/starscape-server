@@ -2,7 +2,9 @@ use super::{Conduit, Store};
 use crate::connection::Value;
 use crate::state::{PropertyKey, State};
 
+/// Connects a store to a server property
 pub struct StoreConduit<F> {
+    property: PropertyKey,
     store_getter: F,
 }
 
@@ -11,8 +13,11 @@ where
     T: Into<Value> + PartialEq + Clone,
     for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
 {
-    pub fn new(store_getter: F) -> Self {
-        Self { store_getter }
+    pub fn new(property: PropertyKey, store_getter: F) -> Self {
+        Self {
+            property,
+            store_getter,
+        }
     }
 }
 
@@ -29,16 +34,18 @@ where
         Err("StoreFetcher.set_value() not implemented".into())
     }
 
-    fn connect(&self, state: &State, conduit: PropertyKey) -> Result<(), String> {
-        (self.store_getter)(state)?.connect(conduit).map_err(|e| {
-            eprintln!("Error: {}", e);
-            format!("Internal server error: {}", e)
-        })
+    fn connect(&self, state: &State) -> Result<(), String> {
+        (self.store_getter)(state)?
+            .connect(self.property)
+            .map_err(|e| {
+                eprintln!("Error: {}", e);
+                format!("Internal server error: {}", e)
+            })
     }
 
-    fn disconnect(&self, state: &State, conduit: PropertyKey) -> Result<(), String> {
+    fn disconnect(&self, state: &State) -> Result<(), String> {
         (self.store_getter)(state)?
-            .disconnect(conduit)
+            .disconnect(self.property)
             .map_err(|e| {
                 eprintln!("Error: {}", e);
                 format!("Internal server error: {}", e)

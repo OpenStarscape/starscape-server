@@ -3,27 +3,22 @@ use std::sync::{Mutex, RwLock};
 
 use super::{Conduit, Property};
 use crate::connection::Value;
-use crate::state::{ConnectionKey, EntityKey, PropertyKey, State};
+use crate::state::{ConnectionKey, EntityKey, State};
 
 /// The default property implementation
 pub struct ConduitProperty {
-    self_key: PropertyKey,
     entity: EntityKey,
     name: &'static str,
     cached_value: Mutex<Value>,
     conduit: Box<dyn Conduit>,
+    /// Conceptually a set, but due to characteristics (few elements, infrequent modification)
+    /// a Vec should perform better in most cases
     subscribers: RwLock<Vec<ConnectionKey>>,
 }
 
 impl ConduitProperty {
-    pub fn new(
-        self_key: PropertyKey,
-        entity: EntityKey,
-        name: &'static str,
-        conduit: Box<dyn Conduit>,
-    ) -> Self {
+    pub fn new(entity: EntityKey, name: &'static str, conduit: Box<dyn Conduit>) -> Self {
         Self {
-            self_key,
             entity,
             name,
             cached_value: Mutex::new(Value::Null),
@@ -64,105 +59,282 @@ impl Property for ConduitProperty {
 
     fn subscribe(&self, state: &State, connection: ConnectionKey) -> Result<(), String> {
         let mut subscribers = self.subscribers.write().unwrap();
-        // TODO: error checking
-        if subscribers.is_empty() {
-            self.conduit.connect(state, self.self_key)?;
+        if subscribers.contains(&connection) {
+            // TODO: preserve entity and convert it to an object ID in the connection
+            // Will need a new error format for this
+            Err(format!(
+                "already subscribed to {:?}.{}",
+                self.entity, self.name
+            ))
+        } else {
+            if subscribers.is_empty() {
+                self.conduit.connect(state)?;
+            }
+            subscribers.push(connection);
+            Ok(())
         }
-        subscribers.push(connection);
-        Ok(())
     }
 
     fn unsubscribe(&self, state: &State, connection: ConnectionKey) -> Result<(), String> {
-        // TODO
-        Ok(())
+        let mut subscribers = self.subscribers.write().unwrap();
+        match subscribers.iter().position(|key| *key == connection) {
+            // TODO: preserve entity and convert it to an object ID in the connection
+            // Will need a new error format for this
+            None => Err(format!("not subscribed to {:?}.{}", self.entity, self.name)),
+            Some(i) => {
+                subscribers.swap_remove(i);
+                if subscribers.is_empty() {
+                    self.conduit.disconnect(state)?;
+                }
+                Ok(())
+            }
+        }
     }
 }
 
-// TODO: make connection generic so testing is easier
 #[cfg(test)]
+#[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use crate::entity::Entity;
-    use crate::state::{mock_keys, PropertyKey};
-    use slotmap::Key;
-    use std::sync::Arc;
+    use crate::connection::Connection;
+    use crate::state::mock_keys;
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
-    struct MockEntity {}
+    struct MockConnection {
+        log: Vec<(EntityKey, String, Value)>,
+    }
 
-    impl Entity for MockEntity {
-        fn add_property(&mut self, _name: &'static str, _key: PropertyKey) {}
-        fn property(&self, name: &str) -> Result<PropertyKey, String> {
-            Err("Not implemented".to_owned())
+    impl MockConnection {
+        fn new() -> Rc<RefCell<Self>> {
+            Rc::new(RefCell::new(Self { log: Vec::new() }))
         }
-        fn destroy(&mut self, _state: &mut State) {}
     }
 
-    /*
-    #[test]
-    fn when_updated_sends_correct_entity_key() {
+    impl Connection for Rc<RefCell<MockConnection>> {
+        fn property_changed(
+            &self,
+            entity: EntityKey,
+            property: &str,
+            value: &Value,
+        ) -> Result<(), Box<Error>> {
+            self.borrow_mut()
+                .log
+                .push((entity, property.to_owned(), value.clone()));
+            Ok(())
+        }
+
+        fn entity_destroyed(&self, _state: &State, _entity: EntityKey) {
+            panic!("Unexpected call");
+        }
+
+        fn subscribe_to(&self, _state: &State, _entity: EntityKey, _property: &str) {
+            panic!("Unexpected call");
+        }
+    }
+
+    struct MockConduit {
+        value_to_get: Result<Value, String>,
+        connected: bool,
+    }
+
+    impl MockConduit {
+        fn new() -> Rc<RefCell<Self>> {
+            Rc::new(RefCell::new(Self {
+                value_to_get: Err("No value yet".to_owned()),
+                connected: false,
+            }))
+        }
+    }
+
+    impl Conduit for Rc<RefCell<MockConduit>> {
+        fn get_value(&self, _sate: &State) -> Result<Value, String> {
+            self.borrow().value_to_get.clone()
+        }
+
+        fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
+            panic!("Unexpected call");
+        }
+
+        fn connect(&self, _state: &State) -> Result<(), String> {
+            assert!(!self.borrow().connected);
+            self.borrow_mut().connected = true;
+            Ok(())
+        }
+
+        fn disconnect(&self, _state: &State) -> Result<(), String> {
+            assert!(self.borrow().connected);
+            self.borrow_mut().connected = false;
+            Ok(())
+        }
+    }
+
+    fn setup_without_connection() -> (
+        State,
+        Vec<ConnectionKey>,
+        Rc<RefCell<MockConduit>>,
+        ConduitProperty,
+    ) {
+        let state = State::new();
+        let entity_keys = mock_keys(1);
+        let conn_keys = mock_keys(3);
+        let conduit = MockConduit::new();
+        let property = ConduitProperty::new(entity_keys[0], "foo", Box::new(conduit.clone()));
+        (state, conn_keys, conduit, property)
+    }
+
+    fn setup_with_connection() -> (
+        State,
+        EntityKey,
+        Rc<RefCell<MockConnection>>,
+        ConnectionKey,
+        Rc<RefCell<MockConduit>>,
+        ConduitProperty,
+    ) {
         let mut state = State::new();
-        let e = mock_keys(1);
-        let prop = Arc::new(Property::new(7));
-        let conduit = PropertyConduit::new(ConduitKey::null(), e[0], "foo", {
-            let p = prop.clone();
-            move |state| &*p
-        });
-        panic!("Implementation not finished");
-    }
-    */
-
-    #[test]
-    fn when_updated_sends_correct_name() {
-        panic!("Test not implemented");
-    }
-
-    #[test]
-    fn when_updated_sends_correct_value() {
-        panic!("Test not implemented");
+        let entity_keys = mock_keys(1);
+        let mock_conn = MockConnection::new();
+        let conn_key = state.connections.insert(Box::new(mock_conn.clone()));
+        let conduit = MockConduit::new();
+        let property = ConduitProperty::new(entity_keys[0], "foo", Box::new(conduit.clone()));
+        (
+            state,
+            entity_keys[0],
+            mock_conn,
+            conn_key,
+            conduit,
+            property,
+        )
     }
 
     #[test]
-    fn get_value_is_correct() {
-        panic!("Test not implemented");
+    fn first_subscription_connects_conduit() {
+        let (state, conn_keys, conduit, property) = setup_without_connection();
+        assert!(!conduit.borrow().connected);
+        property
+            .subscribe(&state, conn_keys[0])
+            .expect("failed to subscribe");
+        assert!(conduit.borrow().connected);
     }
 
     #[test]
-    fn get_value_is_correct_after_thare_was_a_subscriver() {
-        panic!("Test not implemented");
+    fn subsequent_subscriptions_do_not_connect_conduit() {
+        let (state, conn_keys, conduit, property) = setup_without_connection();
+        for c in conn_keys {
+            // mock conduit should panic if subscribed multiple times
+            property.subscribe(&state, c).expect("failed to subscribe");
+        }
+        assert!(conduit.borrow().connected);
     }
 
     #[test]
-    fn does_not_update_subscribers_when_unchaged() {
-        panic!("Test not implemented");
+    fn does_not_disconnect_on_first_unsubscribe() {
+        let (state, conn_keys, conduit, property) = setup_without_connection();
+        for c in &conn_keys {
+            // mock conduit should panic if subscribed multiple times
+            property
+                .subscribe(&state, c.clone())
+                .expect("failed to subscribe");
+        }
+        property
+            .unsubscribe(&state, conn_keys[0])
+            .expect("failed to unsubscribe");
+        assert!(conduit.borrow().connected);
     }
 
     #[test]
-    fn first_subscriber_connects_to_property() {
-        panic!("Test not implemented");
+    fn removing_only_subscription_disconnects_conduit() {
+        let (state, conn_keys, conduit, property) = setup_without_connection();
+        property.subscribers.write().unwrap().push(conn_keys[0]);
+        conduit.borrow_mut().connected = true;
+        property
+            .unsubscribe(&state, conn_keys[0])
+            .expect("failed to unsubscribe");
+        assert!(!conduit.borrow().connected);
     }
 
     #[test]
-    fn subsequent_subscribers_do_not_trigger_property_connect() {
-        panic!("Test not implemented");
-    }
-
-    #[test]
-    fn removing_single_subscriber_disconnects_from_property() {
-        panic!("Test not implemented");
-    }
-
-    #[test]
-    fn removing_all_subscribers_discpnnects_from_property() {
-        panic!("Test not implemented");
+    fn removing_all_subscriptions_disconnects_conduit() {
+        let (state, conn_keys, conduit, property) = setup_without_connection();
+        for c in &conn_keys {
+            // mock conduit should panic if subscribed multiple times
+            property
+                .subscribe(&state, c.clone())
+                .expect("failed to subscribe");
+        }
+        for c in &conn_keys {
+            // mock conduit should panic if unsubscribed multiple times
+            property
+                .unsubscribe(&state, c.clone())
+                .expect("failed to unsubscribe");
+        }
+        assert!(!conduit.borrow().connected);
     }
 
     #[test]
     fn single_connection_subscribing_twice_errors() {
-        panic!("Test not implemented");
+        let (state, conn, _, property) = setup_without_connection();
+        property
+            .subscribe(&state, conn[0])
+            .expect("failed to subscribe");
+        assert!(property.subscribe(&state, conn[0]).is_err());
     }
 
     #[test]
     fn unsubscribing_with_connection_not_subscribed_errors() {
-        panic!("Test not implemented");
+        let (state, conn, _, property) = setup_without_connection();
+        assert!(property.unsubscribe(&state, conn[0]).is_err());
+    }
+
+    #[test]
+    fn when_updated_sends_correct_data() {
+        let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
+        property.subscribers.write().unwrap().push(conn_key);
+        conduit.borrow_mut().value_to_get = Ok(Value::Integer(42));
+        property
+            .send_updates(&state)
+            .expect("failed to send updates");
+        assert_eq!(
+            mock_conn.borrow().log,
+            vec![(entity_key, "foo".to_owned(), Value::Integer(42))]
+        );
+    }
+
+    #[test]
+    fn sends_multiple_values_on_change() {
+        let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
+        property.subscribers.write().unwrap().push(conn_key);
+        conduit.borrow_mut().value_to_get = Ok(Value::Integer(42));
+        property
+            .send_updates(&state)
+            .expect("failed to send updates");
+        conduit.borrow_mut().value_to_get = Ok(Value::Integer(69));
+        property
+            .send_updates(&state)
+            .expect("failed to send updates");
+        assert_eq!(
+            mock_conn.borrow().log,
+            vec![
+                (entity_key, "foo".to_owned(), Value::Integer(42)),
+                (entity_key, "foo".to_owned(), Value::Integer(69)),
+            ]
+        );
+    }
+
+    #[test]
+    fn does_not_send_same_data_twice() {
+        let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
+        property.subscribers.write().unwrap().push(conn_key);
+        conduit.borrow_mut().value_to_get = Ok(Value::Integer(42));
+        property
+            .send_updates(&state)
+            .expect("failed to send updates");
+        property
+            .send_updates(&state)
+            .expect("failed to send updates");
+        assert_eq!(
+            mock_conn.borrow().log,
+            vec![(entity_key, "foo".to_owned(), Value::Integer(42))]
+        );
     }
 }
