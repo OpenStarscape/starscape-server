@@ -1,5 +1,4 @@
 use cgmath::*;
-use slotmap::Key;
 use std::collections::HashMap;
 use std::sync::Mutex;
 

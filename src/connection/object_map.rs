@@ -20,14 +20,14 @@ impl ObjectMap {
     pub fn register_entity(&mut self, entity: EntityKey) -> ObjectId {
         let id = self.next_id;
         self.next_id += 1;
-        if let Err(_) = self.map.insert_no_overwrite(entity, id) {
+        if self.map.insert_no_overwrite(entity, id).is_err() {
             panic!("{:?} already in the bimap", entity);
         }
         id
     }
 
     pub fn remove_entity(&mut self, entity: EntityKey) -> Option<ObjectId> {
-        self.map.remove_by_left(&entity).map(|(e, o)| o)
+        self.map.remove_by_left(&entity).map(|(_, o)| o)
     }
 
     pub fn get_object(&self, entity: EntityKey) -> Option<ObjectId> {

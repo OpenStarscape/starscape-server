@@ -84,6 +84,7 @@ pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
     use cgmath::Point3;

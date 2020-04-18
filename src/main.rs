@@ -12,7 +12,7 @@ mod state;
 
 pub use state::EntityKey;
 
-pub const EPSILON: f64 = 0.000001;
+pub const EPSILON: f64 = 0.000_001;
 
 fn main() {
     println!("Initializing game...");
