@@ -76,7 +76,7 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn entity_destroyed(&self, state: &State, entity: EntityKey) {
+    fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
         self.objects
             .lock()
             .expect("Failed to write to object map")

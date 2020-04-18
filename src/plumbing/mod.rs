@@ -14,7 +14,7 @@ pub use property::Property;
 pub use store::Store;
 
 use crate::connection::Value;
-use crate::state::{EntityKey, PropertyKey, State};
+use crate::state::{EntityKey, State};
 
 pub fn new_property<T, F: 'static>(
     state: &mut State,

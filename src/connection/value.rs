@@ -32,7 +32,7 @@ impl From<f64> for Value {
 
 impl From<f32> for Value {
     fn from(value: f32) -> Self {
-        Value::Scaler(value as f64)
+        Value::Scaler(f64::from(value))
     }
 }
 
@@ -44,7 +44,7 @@ impl From<i64> for Value {
 
 impl From<i32> for Value {
     fn from(value: i32) -> Self {
-        Value::Integer(value as i64)
+        Value::Integer(i64::from(value))
     }
 }
 
@@ -56,7 +56,7 @@ impl From<u64> for Value {
 
 impl From<u32> for Value {
     fn from(value: u32) -> Self {
-        Value::Integer(value as i64)
+        Value::Integer(i64::from(value))
     }
 }
 

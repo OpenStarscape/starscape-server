@@ -1,5 +1,5 @@
 use cgmath::*;
-use std::io::{self, Write};
+use std::io;
 
 use crate::body::Body;
 use crate::connection::new_json_connection;
@@ -22,7 +22,7 @@ impl Game {
             step_dt: 1.0 / 60.0,
             state: State::new(),
         };
-        let ship_a = create_ship(&mut game.state, Point3::new(0.0, 100000.0, 0.0));
+        let ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
         create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
         game.state.add_body(
             Body::new()
@@ -44,7 +44,7 @@ impl Game {
         println!(" -- Game time: {}", self.state.time);
 
         apply_gravity(&mut self.state, self.step_dt);
-        apply_collisions(&mut self.state, self.step_dt);
+        apply_collisions(&self.state, self.step_dt);
         apply_motion(&mut self.state, self.step_dt);
 
         {

@@ -5,7 +5,7 @@ use crate::state::State;
 use crate::EPSILON;
 
 /// TODO: calculate the gravitational constant for our units (kilometers, kilotonnes, seconds)
-const GRAVITATIONAL_CONSTANT: f64 = 6.6743015e-3;
+const GRAVITATIONAL_CONSTANT: f64 = 6.674_301_5e-3;
 
 pub fn apply_gravity(state: &mut State, dt: f64) {
     // we can't access the body (and thus the position) of a gravity well while we are mutating the
@@ -38,6 +38,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
     });
 }
 
+#[allow(clippy::many_single_char_names)]
 fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> {
     // r = r1 + r2
     // x = x1 - x2, y = …, z = …
@@ -79,17 +80,11 @@ pub fn apply_collisions(state: &State, dt: f64) {
                 if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
                     body1.controller.collided_with(
                         state,
-                        &Collision {
-                            time_until,
-                            body: key2,
-                        },
+                        &Collision::new(time_until, key2),
                     );
                     body2.controller.collided_with(
                         state,
-                        &Collision {
-                            time_until,
-                            body: key1,
-                        },
+                        &Collision::new(time_until,key1),
                     );
                 }
                 Ok(())
@@ -106,6 +101,7 @@ pub fn apply_motion(state: &mut State, dt: f64) {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod gravity_tests {
     use cgmath::Vector3;
 
@@ -208,6 +204,7 @@ mod gravity_tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod collision_tests {
     use cgmath::Vector3;
     use std::sync::{Arc, RwLock};
@@ -244,7 +241,7 @@ mod collision_tests {
         let c2 = MockController::new();
         let b1 = state.add_body(body1.with_controller(Box::new(c1.clone())));
         let b2 = state.add_body(body2.with_controller(Box::new(c2.clone())));
-        apply_collisions(&mut state, 1.0);
+        apply_collisions(&state, 1.0);
         let col1 = c1.read().unwrap().collisions.clone();
         let col2 = c2.read().unwrap().collisions.clone();
         (b1, b2, col1, col2)
@@ -284,7 +281,7 @@ mod collision_tests {
                 .with_sphere_shape(1.0)
                 .with_controller(Box::new(c1.clone())),
         );
-        apply_collisions(&mut state, 1.0);
+        apply_collisions(&state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
 
@@ -316,7 +313,7 @@ mod collision_tests {
                 .with_position(Point3::new(2.0, 0.0, 0.0))
                 .with_velocity(Vector3::new(-2.0, 0.0, 0.0)),
         );
-        apply_collisions(&mut state, 0.25);
+        apply_collisions(&state, 0.25);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
 
@@ -446,12 +443,13 @@ mod collision_tests {
                 .with_position(Point3::new(3.0, 1.0, 0.0))
                 .with_velocity(Vector3::new(-2.0, 0.0, 1.0))
                 .with_sphere_shape(1.0),
-            0.304564,
+            0.304_564,
         );
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::float_cmp)]
 mod motion_tests {
     use cgmath::Vector3;
 
