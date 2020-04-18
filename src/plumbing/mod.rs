@@ -27,10 +27,9 @@ pub fn new_property<T, F: 'static>(
 {
     let conduit = state.properties.insert_with_key(|key| {
         Box::new(ConduitProperty::new(
-            key,
             entity,
             name,
-            Box::new(StoreConduit::new(store_getter)),
+            Box::new(StoreConduit::new(key, store_getter)),
         ))
     });
     state.entities[entity].add_property(name, conduit);
