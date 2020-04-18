@@ -22,8 +22,8 @@ pub type PendingUpdates = RwLock<HashSet<PropertyKey>>;
 pub struct State {
     /// Current time in seconds since the start of the game
     pub time: f64,
-    /// An entity ties together the pieces of a complex object (such as a ship)
-    pub entities: DenseSlotMap<EntityKey, Box<dyn Entity>>,
+    /// An entity ties together the pieces of a complex object
+    pub entities: DenseSlotMap<EntityKey, Entity>,
     /// All physics objects in the game
     pub bodies: DenseSlotMap<BodyKey, Body>,
     /// Keys to the bodies which have a gravitational force
@@ -62,6 +62,27 @@ impl State {
             self.gravity_wells.push(key);
         }
         key
+    }
+
+    /// Remove a body from the game state and do any needed cleanup
+    /// TODO: test
+    pub fn remove_body(&mut self, body_key: BodyKey) -> Result<(), ()> {
+        if let Some(body) = self.bodies.remove(body_key) {
+            if *body.gravity_well {
+                match self.gravity_wells.iter().position(|key| *key == body_key) {
+                    None => eprintln!(
+                        "Body {:?} thinks it has a gravity well, but it does not",
+                        body_key
+                    ),
+                    Some(i) => {
+                        self.gravity_wells.swap_remove(i);
+                    }
+                }
+            }
+            Ok(())
+        } else {
+            Err(())
+        }
     }
 
     #[cfg(test)]

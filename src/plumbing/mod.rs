@@ -25,14 +25,14 @@ pub fn new_property<T, F: 'static>(
     T: Into<Value> + PartialEq + Clone,
     for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
 {
-    let conduit = state.properties.insert_with_key(|key| {
+    let property = state.properties.insert_with_key(|key| {
         Box::new(ConduitProperty::new(
             entity,
             name,
             Box::new(StoreConduit::new(key, store_getter)),
         ))
     });
-    state.entities[entity].add_property(name, conduit);
+    state.entities[entity].register_property(name, property);
 }
 
 // TODO: test that new_property() adds property to entity
