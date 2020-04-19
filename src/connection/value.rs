@@ -9,6 +9,7 @@ pub enum Value {
     Integer(i64),
     /// Entity needs to be transformed into an object ID before serialization
     Entity(EntityKey),
+    List(Vec<Value>),
     Null,
 }
 
@@ -66,6 +67,15 @@ impl From<EntityKey> for Value {
     }
 }
 
+impl<T> From<Vec<T>> for Value
+where
+    Value: From<T>,
+{
+    fn from(vec: Vec<T>) -> Self {
+        Value::List(vec.into_iter().map(From::from).collect())
+    }
+}
+
 impl From<()> for Value {
     fn from(_: ()) -> Self {
         Value::Null
@@ -99,6 +109,14 @@ impl Serialize for Value {
                     "Can not serialize {:?}; entity should have been replaced by object ID",
                     entity
                 );
+            }
+            Value::List(list) => {
+                use serde::ser::SerializeSeq;
+                let mut seq = serializer.serialize_seq(Some(list.len()))?;
+                for elem in list {
+                    seq.serialize_element(elem)?
+                }
+                seq.end()
             }
             Value::Null => serializer.serialize_none(),
         }
@@ -140,6 +158,11 @@ mod json_tests {
     }
 
     #[test]
+    fn list_of_ints() {
+        assert_json_eq(vec![1, 2, 3, 69, 42].into(), "[1, 2, 3, 69, 42]");
+    }
+
+    #[test]
     fn null() {
         assert_json_eq(().into(), "null");
     }
@@ -149,5 +172,12 @@ mod json_tests {
     fn entity() {
         let e: Vec<EntityKey> = mock_keys(1);
         assert_json_eq(e[0].into(), "should panic");
+    }
+
+    #[test]
+    #[should_panic]
+    fn list_of_entities() {
+        let e: Vec<EntityKey> = mock_keys(3);
+        assert_json_eq(e.into(), "should panic");
     }
 }
