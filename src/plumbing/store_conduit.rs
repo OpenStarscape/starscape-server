@@ -27,7 +27,7 @@ where
     for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
 {
     fn get_value(&self, state: &State) -> Result<Value, String> {
-        Ok((*(self.store_getter)(state)?.value()).clone().into())
+        Ok((*(self.store_getter)(state)?).clone().into())
     }
 
     fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
