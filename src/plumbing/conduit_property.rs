@@ -3,10 +3,11 @@ use std::sync::{Mutex, RwLock};
 
 use super::{Conduit, Property};
 use crate::connection::Value;
-use crate::state::{ConnectionKey, EntityKey, State};
+use crate::state::{ConnectionKey, EntityKey, PropertyKey, State};
 
 /// The default property implementation
 pub struct ConduitProperty {
+    self_key: PropertyKey,
     entity: EntityKey,
     name: &'static str,
     cached_value: Mutex<Value>,
@@ -17,8 +18,14 @@ pub struct ConduitProperty {
 }
 
 impl ConduitProperty {
-    pub fn new(entity: EntityKey, name: &'static str, conduit: Box<dyn Conduit>) -> Self {
+    pub fn new(
+        self_key: PropertyKey,
+        entity: EntityKey,
+        name: &'static str,
+        conduit: Box<dyn Conduit>,
+    ) -> Self {
         Self {
+            self_key,
             entity,
             name,
             cached_value: Mutex::new(Value::Null),
@@ -68,7 +75,7 @@ impl Property for ConduitProperty {
             ))
         } else {
             if subscribers.is_empty() {
-                self.conduit.connect(state)?;
+                self.conduit.connect(state, self.self_key)?;
             }
             subscribers.push(connection);
             Ok(())
@@ -84,7 +91,7 @@ impl Property for ConduitProperty {
             Some(i) => {
                 subscribers.swap_remove(i);
                 if subscribers.is_empty() {
-                    self.conduit.disconnect(state)?;
+                    self.conduit.disconnect(state, self.self_key)?;
                 }
                 Ok(())
             }
@@ -135,14 +142,14 @@ mod tests {
 
     struct MockConduit {
         value_to_get: Result<Value, String>,
-        connected: bool,
+        connected: Option<PropertyKey>,
     }
 
     impl MockConduit {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self {
                 value_to_get: Err("No value yet".to_owned()),
-                connected: false,
+                connected: None,
             }))
         }
     }
@@ -156,21 +163,22 @@ mod tests {
             panic!("Unexpected call");
         }
 
-        fn connect(&self, _state: &State) -> Result<(), String> {
-            assert!(!self.borrow().connected);
-            self.borrow_mut().connected = true;
+        fn connect(&self, _state: &State, property: PropertyKey) -> Result<(), String> {
+            assert!(self.borrow().connected.is_none());
+            self.borrow_mut().connected = Some(property);
             Ok(())
         }
 
-        fn disconnect(&self, _state: &State) -> Result<(), String> {
-            assert!(self.borrow().connected);
-            self.borrow_mut().connected = false;
+        fn disconnect(&self, _state: &State, property: PropertyKey) -> Result<(), String> {
+            assert!(self.borrow().connected == Some(property));
+            self.borrow_mut().connected = None;
             Ok(())
         }
     }
 
     fn setup_without_connection() -> (
         State,
+        PropertyKey,
         Vec<ConnectionKey>,
         Rc<RefCell<MockConduit>>,
         ConduitProperty,
@@ -178,9 +186,15 @@ mod tests {
         let state = State::new();
         let entity_keys = mock_keys(1);
         let conn_keys = mock_keys(3);
+        let prop_keys = mock_keys(1);
         let conduit = MockConduit::new();
-        let property = ConduitProperty::new(entity_keys[0], "foo", Box::new(conduit.clone()));
-        (state, conn_keys, conduit, property)
+        let property = ConduitProperty::new(
+            prop_keys[0],
+            entity_keys[0],
+            "foo",
+            Box::new(conduit.clone()),
+        );
+        (state, prop_keys[0], conn_keys, conduit, property)
     }
 
     fn setup_with_connection() -> (
@@ -195,8 +209,14 @@ mod tests {
         let entity_keys = mock_keys(1);
         let mock_conn = MockConnection::new();
         let conn_key = state.connections.insert(Box::new(mock_conn.clone()));
+        let prop_keys = mock_keys(1);
         let conduit = MockConduit::new();
-        let property = ConduitProperty::new(entity_keys[0], "foo", Box::new(conduit.clone()));
+        let property = ConduitProperty::new(
+            prop_keys[0],
+            entity_keys[0],
+            "foo",
+            Box::new(conduit.clone()),
+        );
         (
             state,
             entity_keys[0],
@@ -209,27 +229,27 @@ mod tests {
 
     #[test]
     fn first_subscription_connects_conduit() {
-        let (state, conn_keys, conduit, property) = setup_without_connection();
-        assert!(!conduit.borrow().connected);
+        let (state, prop_key, conn_keys, conduit, property) = setup_without_connection();
+        assert_eq!(conduit.borrow().connected, None);
         property
             .subscribe(&state, conn_keys[0])
             .expect("failed to subscribe");
-        assert!(conduit.borrow().connected);
+        assert_eq!(conduit.borrow().connected, Some(prop_key));
     }
 
     #[test]
     fn subsequent_subscriptions_do_not_connect_conduit() {
-        let (state, conn_keys, conduit, property) = setup_without_connection();
+        let (state, prop_key, conn_keys, conduit, property) = setup_without_connection();
         for c in conn_keys {
             // mock conduit should panic if subscribed multiple times
             property.subscribe(&state, c).expect("failed to subscribe");
         }
-        assert!(conduit.borrow().connected);
+        assert_eq!(conduit.borrow().connected, Some(prop_key));
     }
 
     #[test]
     fn does_not_disconnect_on_first_unsubscribe() {
-        let (state, conn_keys, conduit, property) = setup_without_connection();
+        let (state, prop_key, conn_keys, conduit, property) = setup_without_connection();
         for c in &conn_keys {
             // mock conduit should panic if subscribed multiple times
             property
@@ -239,23 +259,23 @@ mod tests {
         property
             .unsubscribe(&state, conn_keys[0])
             .expect("failed to unsubscribe");
-        assert!(conduit.borrow().connected);
+        assert_eq!(conduit.borrow().connected, Some(prop_key));
     }
 
     #[test]
     fn removing_only_subscription_disconnects_conduit() {
-        let (state, conn_keys, conduit, property) = setup_without_connection();
+        let (state, prop_key, conn_keys, conduit, property) = setup_without_connection();
         property.subscribers.write().unwrap().push(conn_keys[0]);
-        conduit.borrow_mut().connected = true;
+        conduit.borrow_mut().connected = Some(prop_key);
         property
             .unsubscribe(&state, conn_keys[0])
             .expect("failed to unsubscribe");
-        assert!(!conduit.borrow().connected);
+        assert_eq!(conduit.borrow().connected, None);
     }
 
     #[test]
     fn removing_all_subscriptions_disconnects_conduit() {
-        let (state, conn_keys, conduit, property) = setup_without_connection();
+        let (state, _, conn_keys, conduit, property) = setup_without_connection();
         for c in &conn_keys {
             // mock conduit should panic if subscribed multiple times
             property
@@ -268,12 +288,12 @@ mod tests {
                 .unsubscribe(&state, c.clone())
                 .expect("failed to unsubscribe");
         }
-        assert!(!conduit.borrow().connected);
+        assert_eq!(conduit.borrow().connected, None);
     }
 
     #[test]
     fn single_connection_subscribing_twice_errors() {
-        let (state, conn, _, property) = setup_without_connection();
+        let (state, _, conn, _, property) = setup_without_connection();
         property
             .subscribe(&state, conn[0])
             .expect("failed to subscribe");
@@ -282,7 +302,7 @@ mod tests {
 
     #[test]
     fn unsubscribing_with_connection_not_subscribed_errors() {
-        let (state, conn, _, property) = setup_without_connection();
+        let (state, _, conn, _, property) = setup_without_connection();
         assert!(property.unsubscribe(&state, conn[0]).is_err());
     }
 
