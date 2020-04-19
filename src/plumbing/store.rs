@@ -32,6 +32,12 @@ impl<T: PartialEq> Store<T> {
         }
     }
 
+    /// Prefer set() where possible, because that can save work when value is unchanged
+    pub fn value_mut(&mut self, updates: &PendingUpdates) -> &mut T {
+        self.update_source.send_updates(updates);
+        &mut self.inner
+    }
+
     pub fn connect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
         self.update_source.connect(target)
     }
@@ -63,6 +69,17 @@ mod tests {
         let props = mock_keys(1);
         store.connect(props[0]).expect("connecting failed");
         store.set(&pending, 5);
+        assert_eq!(pending.read().unwrap().len(), 1);
+        assert!(pending.read().unwrap().contains(&props[0]));
+    }
+
+    #[test]
+    fn always_updates_connected_property_when_value_mut_accessed() {
+        let mut store = Store::new(7);
+        let pending = RwLock::new(HashSet::new());
+        let props = mock_keys(1);
+        store.connect(props[0]).expect("connecting failed");
+        store.value_mut(&pending);
         assert_eq!(pending.read().unwrap().len(), 1);
         assert!(pending.read().unwrap().contains(&props[0]));
     }
