@@ -150,65 +150,73 @@ mod tests {
         }
     }
 
+	struct Test {
+		proto: Rc<RefCell<MockProtocol>>,
+		conn: ConnectionImpl,
+		entity: EntityKey,
+		obj_id: ObjectId,
+		entities: Vec<EntityKey>,
+	}
+	
+	impl Test {
+		fn new() -> Self {
+			let proto = MockProtocol::new();
+			let conn = ConnectionImpl::new(
+	            ConnectionKey::null(),
+	            Box::new(proto.clone()),
+	            Box::new(Vec::new()),
+	        );
+			let mut entities = mock_keys(4);
+			let entity = entities.pop().unwrap();
+			let obj_id = conn.objects.lock().unwrap().register_entity(entity);
+			Self {
+				proto,
+				conn,
+				entity,
+				obj_id,
+				entities,
+			}
+		}
+	}
+
     #[test]
     fn serializes_normal_property_update() {
-        let proto = MockProtocol::new();
-        let conn = ConnectionImpl::new(
-            ConnectionKey::null(),
-            Box::new(proto.clone()),
-            Box::new(Vec::new()),
-        );
-        let e = mock_keys(1);
-        let o = conn.objects.lock().unwrap().register_entity(e[0]);
-        conn.property_changed(e[0], "foo", &Value::Scaler(12.5))
+        let test = Test::new();
+        test.conn.property_changed(test.entity, "foo", &Value::Scaler(12.5))
             .expect("Error updating property");
         assert_eq!(
-            proto.borrow().log,
-            vec![(o, "foo".to_owned(), Value::Scaler(12.5))]
+            test.proto.borrow().log,
+            vec![(test.obj_id, "foo".to_owned(), Value::Scaler(12.5))]
         );
     }
 
     #[test]
     fn resolves_entity_value_to_object_id() {
-        let proto = MockProtocol::new();
-        let conn = ConnectionImpl::new(
-            ConnectionKey::null(),
-            Box::new(proto.clone()),
-            Box::new(Vec::new()),
-        );
-        let e = mock_keys(2);
-        let o0 = conn.objects.lock().unwrap().register_entity(e[0]);
-        conn.property_changed(e[0], "foo", &Value::Entity(e[1]))
+        let test = Test::new();
+        test.conn.property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
             .expect("Error updating property");
-        let o1 = conn.objects.lock().unwrap().get_object(e[1]).unwrap();
-        assert_ne!(o0, o1);
+        let obj_0 = test.conn.objects.lock().unwrap().get_object(test.entities[0]).unwrap();
+        assert_ne!(test.obj_id, obj_0);
         assert_eq!(
-            proto.borrow().log,
-            vec![(o0, "foo".to_owned(), Value::Integer(o1 as i64))]
+            test.proto.borrow().log,
+            vec![(test.obj_id, "foo".to_owned(), Value::Integer(obj_0 as i64))]
         );
     }
 
     #[test]
     fn resolves_the_same_entity_multiple_times() {
-        let proto = MockProtocol::new();
-        let conn = ConnectionImpl::new(
-            ConnectionKey::null(),
-            Box::new(proto.clone()),
-            Box::new(Vec::new()),
-        );
-        let e = mock_keys(2);
-        let o0 = conn.objects.lock().unwrap().register_entity(e[0]);
-        conn.property_changed(e[0], "foo", &Value::Entity(e[1]))
+        let test = Test::new();
+        test.conn.property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
             .expect("Error updating property");
-        conn.property_changed(e[0], "bar", &Value::Entity(e[1]))
+        test.conn.property_changed(test.entity, "bar", &Value::Entity(test.entities[0]))
             .expect("Error updating property");
-        let o1 = conn.objects.lock().unwrap().get_object(e[1]).unwrap();
-        assert_ne!(o0, o1);
+        let obj_0 = test.conn.objects.lock().unwrap().get_object(test.entities[0]).unwrap();
+        assert_ne!(test.obj_id, obj_0);
         assert_eq!(
-            proto.borrow().log,
+            test.proto.borrow().log,
             vec![
-                (o0, "foo".to_owned(), Value::Integer(o1 as i64)),
-                (o0, "bar".to_owned(), Value::Integer(o1 as i64))
+                (test.obj_id, "foo".to_owned(), Value::Integer(obj_0 as i64)),
+                (test.obj_id, "bar".to_owned(), Value::Integer(obj_0 as i64))
             ]
         );
     }
