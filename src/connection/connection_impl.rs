@@ -42,24 +42,15 @@ impl ConnectionImpl {
         }
     }
 
-    /// resolved_slot exists because I'm stubborn and refuse to copy the value unless I need to
-    /// The returned value must be a reference (so it can be the unmodified input in most cases)
-    /// But if the value needs to be modified, there needs to be a place to put the new value
-    /// Can't be a local because we're returning a reference to it, so make it a local of the calling function
-    fn resolve_value<'a>(
-        objects: &mut ObjectMap,
-        unresolved_value: &'a Value,
-        resolved_slot: &'a mut Value,
-    ) -> &'a Value {
+    /// Returns a "resolved" value if needed, or None if the unresolved value is fine
+    /// Entities and collections containing them need to be resolved to object IDs
+    fn resolve_value<'a>(objects: &mut ObjectMap, unresolved_value: &'a Value) -> Option<Value> {
         match unresolved_value {
-            Value::Entity(entity) => {
-                *resolved_slot = Value::Integer(match objects.get_object(*entity) {
-                    Some(o) => o,
-                    None => objects.register_entity(*entity),
-                } as i64);
-                resolved_slot
-            }
-            value => value,
+            Value::Entity(entity) => Some(Value::Integer(match objects.get_object(*entity) {
+                Some(o) => o,
+                None => objects.register_entity(*entity),
+            } as i64)),
+            _ => None,
         }
     }
 
@@ -80,11 +71,12 @@ impl Connection for ConnectionImpl {
         unresolved_value: &Value,
     ) -> Result<(), Box<Error>> {
         let operation = "update"; // used for error messages
-        let mut resolved_slot = Value::Null; // not directly accessed, just exists for lifetime reasons
+        let resolved_value; // not used directly, only exists for lifetime reasons
         let (object, value) = {
             let mut objects = self.objects.lock().expect("Failed to read object map");
             let object = Self::resolve_object(&mut objects, entity, operation)?;
-            let value = Self::resolve_value(&mut objects, unresolved_value, &mut resolved_slot);
+            resolved_value = Self::resolve_value(&mut objects, unresolved_value);
+            let value = resolved_value.as_ref().unwrap_or(unresolved_value);
             (object, value)
         };
         let buffer = self
@@ -150,39 +142,63 @@ mod tests {
         }
     }
 
-	struct Test {
-		proto: Rc<RefCell<MockProtocol>>,
-		conn: ConnectionImpl,
-		entity: EntityKey,
-		obj_id: ObjectId,
-		entities: Vec<EntityKey>,
-	}
-	
-	impl Test {
-		fn new() -> Self {
-			let proto = MockProtocol::new();
-			let conn = ConnectionImpl::new(
-	            ConnectionKey::null(),
-	            Box::new(proto.clone()),
-	            Box::new(Vec::new()),
-	        );
-			let mut entities = mock_keys(4);
-			let entity = entities.pop().unwrap();
-			let obj_id = conn.objects.lock().unwrap().register_entity(entity);
-			Self {
-				proto,
-				conn,
-				entity,
-				obj_id,
-				entities,
-			}
-		}
-	}
+    struct Test {
+        proto: Rc<RefCell<MockProtocol>>,
+        conn: ConnectionImpl,
+        entity: EntityKey,
+        obj_id: ObjectId,
+        entities: Vec<EntityKey>,
+    }
+
+    impl Test {
+        fn new() -> Self {
+            let proto = MockProtocol::new();
+            let conn = ConnectionImpl::new(
+                ConnectionKey::null(),
+                Box::new(proto.clone()),
+                Box::new(Vec::new()),
+            );
+            let mut entities = mock_keys(4);
+            let entity = entities.pop().unwrap();
+            let obj_id = conn.objects.lock().unwrap().register_entity(entity);
+            Self {
+                proto,
+                conn,
+                entity,
+                obj_id,
+                entities,
+            }
+        }
+
+        fn lookup_obj_0(&self) -> ObjectId {
+            self.conn
+                .objects
+                .lock()
+                .unwrap()
+                .get_object(self.entities[0])
+                .unwrap()
+        }
+
+        fn lookup_obj_ids(&self) -> Vec<ObjectId> {
+            self.entities
+                .iter()
+                .map(|e_key| {
+                    self.conn
+                        .objects
+                        .lock()
+                        .unwrap()
+                        .get_object(*e_key)
+                        .unwrap()
+                })
+                .collect()
+        }
+    }
 
     #[test]
     fn serializes_normal_property_update() {
         let test = Test::new();
-        test.conn.property_changed(test.entity, "foo", &Value::Scaler(12.5))
+        test.conn
+            .property_changed(test.entity, "foo", &Value::Scaler(12.5))
             .expect("Error updating property");
         assert_eq!(
             test.proto.borrow().log,
@@ -191,11 +207,28 @@ mod tests {
     }
 
     #[test]
+    fn serializes_list_property_update() {
+        let proto = MockProtocol::new();
+        let conn = ConnectionImpl::new(
+            ConnectionKey::null(),
+            Box::new(proto.clone()),
+            Box::new(Vec::new()),
+        );
+        let e = mock_keys(1);
+        let value = Value::List(vec![Value::Integer(7), Value::Integer(12)]);
+        let o = conn.objects.lock().unwrap().register_entity(e[0]);
+        conn.property_changed(e[0], "foo", &value)
+            .expect("Error updating property");
+        assert_eq!(proto.borrow().log, vec![(o, "foo".to_owned(), value)],);
+    }
+
+    #[test]
     fn resolves_entity_value_to_object_id() {
         let test = Test::new();
-        test.conn.property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
+        test.conn
+            .property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
             .expect("Error updating property");
-        let obj_0 = test.conn.objects.lock().unwrap().get_object(test.entities[0]).unwrap();
+        let obj_0 = test.lookup_obj_0();
         assert_ne!(test.obj_id, obj_0);
         assert_eq!(
             test.proto.borrow().log,
@@ -206,11 +239,13 @@ mod tests {
     #[test]
     fn resolves_the_same_entity_multiple_times() {
         let test = Test::new();
-        test.conn.property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
+        test.conn
+            .property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
             .expect("Error updating property");
-        test.conn.property_changed(test.entity, "bar", &Value::Entity(test.entities[0]))
+        test.conn
+            .property_changed(test.entity, "bar", &Value::Entity(test.entities[0]))
             .expect("Error updating property");
-        let obj_0 = test.conn.objects.lock().unwrap().get_object(test.entities[0]).unwrap();
+        let obj_0 = test.lookup_obj_0();
         assert_ne!(test.obj_id, obj_0);
         assert_eq!(
             test.proto.borrow().log,
