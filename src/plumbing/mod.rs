@@ -5,10 +5,12 @@ mod conduit_property;
 mod property;
 mod store;
 mod store_conduit;
+mod update_source;
 
 use conduit::Conduit;
 use conduit_property::ConduitProperty;
 use store_conduit::StoreConduit;
+use update_source::UpdateSource;
 
 pub use property::Property;
 pub use store::Store;
