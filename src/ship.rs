@@ -80,14 +80,15 @@ impl Controller for ShipBodyController {
 }
 
 pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
+    let entity = state.entities.insert(Entity::new());
     let ship = state.ships.insert(Ship::new(10.0));
     let body = state.add_body(
         Body::new()
+            .with_entity(entity)
             .with_position(position)
             .with_sphere_shape(1.0)
             .with_controller(Box::new(ShipBodyController { ship })),
     );
-    let entity = state.entities.insert(Entity::new());
     state.entities[entity].register_body(body);
     state.entities[entity].register_ship(ship);
     new_property(state, entity, "position", move |state: &State| {

@@ -1,7 +1,8 @@
 use cgmath::*;
+use slotmap::Key;
 
 use crate::plumbing::Store;
-use crate::state::{BodyKey, State};
+use crate::state::{BodyKey, EntityKey, State};
 
 /// Collision shape
 #[derive(Clone, Copy, PartialEq)]
@@ -21,6 +22,7 @@ impl Shape {
 
 /// Any physics object in space
 pub struct Body {
+    pub entity: EntityKey,
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
@@ -42,6 +44,7 @@ pub struct Body {
 impl Body {
     pub fn new() -> Self {
         Self {
+            entity: EntityKey::null(),
             position: Store::new(Point3::origin()),
             velocity: Store::new(Vector3::zero()),
             shape: Store::new(Shape::Point),
@@ -49,6 +52,11 @@ impl Body {
             gravity_well: Store::new(false),
             controller: Box::new(()),
         }
+    }
+
+    pub fn with_entity(mut self, entity: EntityKey) -> Self {
+        self.entity = entity;
+        self
     }
 
     pub fn with_position(mut self, position: Point3<f64>) -> Self {
