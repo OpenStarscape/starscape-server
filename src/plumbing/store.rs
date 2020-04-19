@@ -62,11 +62,17 @@ mod tests {
     use std::collections::HashSet;
     use std::sync::RwLock;
 
+	fn setup() -> (Store<i64>, PendingUpdates, Vec<PropertyKey>) {
+		(
+			Store::new(7),
+			RwLock::new(HashSet::new()),
+			mock_keys(2),
+		)
+	}
+
     #[test]
     fn updates_connected_property_when_changed() {
-        let mut store = Store::new(7);
-        let pending = RwLock::new(HashSet::new());
-        let props = mock_keys(1);
+        let (mut store, pending, props) = setup();
         store.connect(props[0]).expect("connecting failed");
         store.set(&pending, 5);
         assert_eq!(pending.read().unwrap().len(), 1);
@@ -75,9 +81,7 @@ mod tests {
 
     #[test]
     fn always_updates_connected_property_when_value_mut_accessed() {
-        let mut store = Store::new(7);
-        let pending = RwLock::new(HashSet::new());
-        let props = mock_keys(1);
+        let (mut store, pending, props) = setup();
         store.connect(props[0]).expect("connecting failed");
         store.value_mut(&pending);
         assert_eq!(pending.read().unwrap().len(), 1);
@@ -86,9 +90,7 @@ mod tests {
 
     #[test]
     fn does_not_update_property_when_set_to_same_value() {
-        let mut store = Store::new(7);
-        let pending = RwLock::new(HashSet::new());
-        let props = mock_keys(1);
+        let (mut store, pending, props) = setup();
         store.connect(props[0]).expect("connecting failed");
         store.set(&pending, 7);
         assert_eq!(pending.read().unwrap().len(), 0);
@@ -96,9 +98,7 @@ mod tests {
 
     #[test]
     fn disconnecting_stops_updates() {
-        let mut store = Store::new(7);
-        let pending = RwLock::new(HashSet::new());
-        let props = mock_keys(2);
+        let (mut store, pending, props) = setup();
         props
             .iter()
             .for_each(|p| store.connect(*p).expect("connecting failed"));

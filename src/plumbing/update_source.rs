@@ -53,19 +53,24 @@ mod tests {
     use crate::state::mock_keys;
     use std::collections::HashSet;
 
+	fn setup() -> (UpdateSource, PendingUpdates, Vec<PropertyKey>) {
+		(
+			UpdateSource::new(),
+			RwLock::new(HashSet::new()),
+			mock_keys(2),
+		)
+	}
+
     #[test]
     fn can_update_without_connected_properties() {
-        let source = UpdateSource::new();
-        let pending = RwLock::new(HashSet::new());
+        let (source, pending, _) = setup();
         source.send_updates(&pending);
         assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
     fn updates_multiple_connected_properties() {
-        let source = UpdateSource::new();
-        let pending = RwLock::new(HashSet::new());
-        let props = mock_keys(2);
+        let (source, pending, props) = setup();
         props
             .iter()
             .for_each(|p| source.connect(*p).expect("connecting failed"));
@@ -78,17 +83,14 @@ mod tests {
 
     #[test]
     fn connecting_same_property_twice_errors() {
-        let source = UpdateSource::new();
-        let props = mock_keys(1);
+        let (source, _, props) = setup();
         source.connect(props[0]).expect("connecting failed");
         assert!(source.connect(props[0]).is_err());
     }
 
     #[test]
     fn disconnecting_stops_updates() {
-        let source = UpdateSource::new();
-        let pending = RwLock::new(HashSet::new());
-        let props = mock_keys(2);
+        let (source, pending, props) = setup();
         props
             .iter()
             .for_each(|p| source.connect(*p).expect("connecting failed"));
@@ -101,8 +103,7 @@ mod tests {
 
     #[test]
     fn disconnecting_when_not_connected_errors() {
-        let source = UpdateSource::new();
-        let props = mock_keys(2);
+        let (source, _, props) = setup();
         assert!(source.disconnect(props[0]).is_err());
         source.connect(props[0]).expect("connecting failed");
         assert!(source.disconnect(props[1]).is_err());
