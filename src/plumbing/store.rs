@@ -7,12 +7,12 @@ use crate::state::{PendingUpdates, PropertyKey};
 /// A value that can be connected to 0, 1 or more properties
 /// Updates are not dispatched to connected properties immediatly,
 /// Property keys are stored until it is time to dispatch all updates
-pub struct Store<T: PartialEq> {
+pub struct Store<T> {
     inner: T,
     update_source: UpdateSource,
 }
 
-impl<T: PartialEq> Store<T> {
+impl<T> Store<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -23,13 +23,6 @@ impl<T: PartialEq> Store<T> {
     /// Same as the Deref impl, but a named method can be easier to use sometimes
     pub fn value(&self) -> &T {
         &self.inner
-    }
-
-    pub fn set(&mut self, updates: &PendingUpdates, value: T) {
-        if self.inner != value {
-            self.inner = value;
-            self.update_source.send_updates(updates);
-        }
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
@@ -47,7 +40,16 @@ impl<T: PartialEq> Store<T> {
     }
 }
 
-impl<T: PartialEq> Deref for Store<T> {
+impl<T: PartialEq> Store<T> {
+    pub fn set(&mut self, updates: &PendingUpdates, value: T) {
+        if self.inner != value {
+            self.inner = value;
+            self.update_source.send_updates(updates);
+        }
+    }
+}
+
+impl<T> Deref for Store<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
