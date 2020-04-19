@@ -26,6 +26,50 @@ impl ConnectionImpl {
             writer: Mutex::new(writer),
         }
     }
+
+    fn resolve_object(
+        objects: &mut ObjectMap,
+        entity: EntityKey,
+        operation: &str,
+    ) -> Result<ObjectId, Box<Error>> {
+        match objects.get_object(entity) {
+            Some(o_id) => Ok(o_id),
+            None => Err(format!(
+                "can not {}: {:?} does not have an object on this connection",
+                operation, entity,
+            )
+            .into()),
+        }
+    }
+
+    /// resolved_slot exists because I'm stubborn and refuse to copy the value unless I need to
+    /// The returned value must be a reference (so it can be the unmodified input in most cases)
+    /// But if the value needs to be modified, there needs to be a place to put the new value
+    /// Can't be a local because we're returning a reference to it, so make it a local of the calling function
+    fn resolve_value<'a>(
+        objects: &mut ObjectMap,
+        unresolved_value: &'a Value,
+        resolved_slot: &'a mut Value,
+    ) -> &'a Value {
+        match unresolved_value {
+            Value::Entity(entity) => {
+                *resolved_slot = Value::Integer(match objects.get_object(*entity) {
+                    Some(o) => o,
+                    None => objects.register_entity(*entity),
+                } as i64);
+                resolved_slot
+            }
+            value => value,
+        }
+    }
+
+    fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<Error>> {
+        let mut writer = self.writer.lock().expect("Failed to lock writer");
+        match writer.write(&buffer) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("can not {}; error writing to writer: {}", operation, e).into()),
+        }
+    }
 }
 
 impl Connection for ConnectionImpl {
@@ -35,45 +79,19 @@ impl Connection for ConnectionImpl {
         property: &str,
         unresolved_value: &Value,
     ) -> Result<(), Box<Error>> {
-        let object: ObjectId;
-        let resolved_value: Value;
-        let value: &Value;
-        {
+        let operation = "update"; // used for error messages
+        let mut resolved_slot = Value::Null; // not directly accessed, just exists for lifetime reasons
+        let (object, value) = {
             let mut objects = self.objects.lock().expect("Failed to read object map");
-            object = match objects.get_object(entity) {
-                Some(o) => o,
-                None => {
-                    return Err(format!(
-                        "Updated entity {:?} does not have an object on this connection",
-                        entity
-                    )
-                    .into())
-                }
-            };
-            value = match unresolved_value {
-                Value::Entity(entity) => {
-                    resolved_value = Value::Integer(match objects.get_object(*entity) {
-                        Some(o) => o,
-                        None => objects.register_entity(*entity),
-                    } as i64);
-                    &resolved_value
-                }
-                value => value,
-            };
-        }
-        match self
+            let object = Self::resolve_object(&mut objects, entity, operation)?;
+            let value = Self::resolve_value(&mut objects, unresolved_value, &mut resolved_slot);
+            (object, value)
+        };
+        let buffer = self
             .protocol
-            .serialize_property_update(object, property, value)
-        {
-            Ok(buffer) => {
-                let mut writer = self.writer.lock().expect("Failed to lock writer");
-                match writer.write(&buffer) {
-                    Ok(_) => Ok(()),
-                    Err(e) => Err(format!("Error writing to writer: {}", e).into()),
-                }
-            }
-            Err(e) => Err(format!("{}", e).into()),
-        }
+            .serialize_property_update(object, property, value)?;
+        self.write_buffer(&buffer, operation)?;
+        Ok(())
     }
 
     fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
