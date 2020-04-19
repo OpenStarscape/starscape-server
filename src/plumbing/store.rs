@@ -21,8 +21,14 @@ impl<T> Store<T> {
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
-    pub fn value_mut(&mut self, updates: &PendingUpdates) -> &mut T {
+    pub fn get_mut(&mut self, updates: &PendingUpdates) -> &mut T {
         self.update_source.send_updates(updates);
+        &mut self.inner
+    }
+
+    /// This is useful, for example, when iterating over a slotmap and modifying elements,
+    /// but not adding or removing them
+    pub fn get_mut_without_sending_updates(&mut self) -> &mut T {
         &mut self.inner
     }
 
@@ -59,13 +65,9 @@ mod tests {
     use std::collections::HashSet;
     use std::sync::RwLock;
 
-	fn setup() -> (Store<i64>, PendingUpdates, Vec<PropertyKey>) {
-		(
-			Store::new(7),
-			RwLock::new(HashSet::new()),
-			mock_keys(2),
-		)
-	}
+    fn setup() -> (Store<i64>, PendingUpdates, Vec<PropertyKey>) {
+        (Store::new(7), RwLock::new(HashSet::new()), mock_keys(2))
+    }
 
     #[test]
     fn updates_connected_property_when_changed() {
@@ -80,9 +82,17 @@ mod tests {
     fn always_updates_connected_property_when_value_mut_accessed() {
         let (mut store, pending, props) = setup();
         store.connect(props[0]).expect("connecting failed");
-        store.value_mut(&pending);
+        store.get_mut(&pending);
         assert_eq!(pending.read().unwrap().len(), 1);
         assert!(pending.read().unwrap().contains(&props[0]));
+    }
+
+    #[test]
+    fn does_not_send_updates_on_get_mut_without_sending_updates() {
+        let (mut store, pending, props) = setup();
+        store.connect(props[0]).expect("connecting failed");
+        store.get_mut_without_sending_updates();
+        assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
