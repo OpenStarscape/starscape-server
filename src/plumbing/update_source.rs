@@ -53,13 +53,13 @@ mod tests {
     use crate::state::mock_keys;
     use std::collections::HashSet;
 
-	fn setup() -> (UpdateSource, PendingUpdates, Vec<PropertyKey>) {
-		(
-			UpdateSource::new(),
-			RwLock::new(HashSet::new()),
-			mock_keys(2),
-		)
-	}
+    fn setup() -> (UpdateSource, PendingUpdates, Vec<PropertyKey>) {
+        (
+            UpdateSource::new(),
+            RwLock::new(HashSet::new()),
+            mock_keys(2),
+        )
+    }
 
     #[test]
     fn can_update_without_connected_properties() {

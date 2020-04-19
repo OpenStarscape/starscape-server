@@ -25,17 +25,22 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
         })
         .collect();
     let pending_updates = &state.pending_updates;
-    state.bodies.values_mut().for_each(|body| {
-        wells.iter().for_each(|well| {
-            let distance2 = well.position.distance2(*body.position);
-            if distance2 > EPSILON {
-                let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
-                let delta_vel = (well.position - *body.position).normalize_to(acceleration * dt);
-                body.velocity
-                    .set(pending_updates, *body.velocity + delta_vel);
-            }
-        })
-    });
+    state
+        .bodies
+        .get_mut_without_sending_updates()
+        .values_mut()
+        .for_each(|body| {
+            wells.iter().for_each(|well| {
+                let distance2 = well.position.distance2(*body.position);
+                if distance2 > EPSILON {
+                    let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
+                    let delta_vel =
+                        (well.position - *body.position).normalize_to(acceleration * dt);
+                    body.velocity
+                        .set(pending_updates, *body.velocity + delta_vel);
+                }
+            })
+        });
 }
 
 #[allow(clippy::many_single_char_names)]
@@ -92,7 +97,7 @@ pub fn apply_collisions(state: &State, dt: f64) {
 }
 
 pub fn apply_motion(state: &mut State, dt: f64) {
-    for body in state.bodies.values_mut() {
+    for body in state.bodies.get_mut_without_sending_updates().values_mut() {
         body.position
             .set(&state.pending_updates, *body.position + dt * *body.velocity);
     }
