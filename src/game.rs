@@ -3,6 +3,7 @@ use std::io;
 
 use crate::body::Body;
 use crate::connection::new_json_connection;
+use crate::god::create_god;
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
 use crate::ship::create_ship;
 use crate::state::State;
@@ -22,6 +23,12 @@ impl Game {
             step_dt: 1.0 / 60.0,
             state: State::new(),
         };
+        let connection = game
+            .state
+            .connections
+            .insert_with_key(|key| new_json_connection(key, Box::new(io::stdout())));
+        let god = create_god(&mut game.state);
+        game.state.connections[connection].subscribe_to(&game.state, god, "bodies");
         let ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
         create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
         game.state.add_body(
@@ -30,10 +37,6 @@ impl Game {
                 .with_mass(1.0e+18)
                 .with_gravity(),
         );
-        let connection = game
-            .state
-            .connections
-            .insert_with_key(|key| new_json_connection(key, Box::new(io::stdout())));
         game.state.connections[connection].subscribe_to(&game.state, ship_a, "position");
         game
     }

@@ -5,6 +5,7 @@ mod body;
 mod connection;
 mod entity;
 mod game;
+mod god;
 mod physics;
 mod plumbing;
 mod ship;
