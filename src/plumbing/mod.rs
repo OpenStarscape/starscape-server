@@ -29,9 +29,10 @@ pub fn new_property<T, F: 'static>(
 {
     let property = state.properties.insert_with_key(|key| {
         Box::new(ConduitProperty::new(
+            key,
             entity,
             name,
-            Box::new(StoreConduit::new(key, store_getter)),
+            Box::new(StoreConduit::new(store_getter)),
         ))
     });
     state.entities[entity].register_property(name, property);
