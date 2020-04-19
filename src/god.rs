@@ -8,7 +8,7 @@ struct BodyListConduit {}
 impl Conduit for BodyListConduit {
     fn get_value(&self, state: &State) -> Result<Value, String> {
         let entities: Vec<EntityKey> = state.bodies.values().map(|body| body.entity).collect();
-        Ok(Value::Integer(entities.len() as i64))
+        Ok(entities.into())
     }
 
     fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
