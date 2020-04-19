@@ -5,7 +5,7 @@ use std::sync::RwLock;
 use crate::body::Body;
 use crate::connection::Connection;
 use crate::entity::Entity;
-use crate::plumbing::Property;
+use crate::plumbing::{Property, Store};
 use crate::ship::Ship;
 
 new_key_type! {
@@ -25,7 +25,7 @@ pub struct State {
     /// An entity ties together the pieces of a complex object
     pub entities: DenseSlotMap<EntityKey, Entity>,
     /// All physics objects in the game
-    pub bodies: DenseSlotMap<BodyKey, Body>,
+    pub bodies: Store<DenseSlotMap<BodyKey, Body>>,
     /// Keys to the bodies which have a gravitational force
     /// For performence reasons, only significantly massive bodies should be included
     pub gravity_wells: Vec<BodyKey>,
@@ -44,7 +44,7 @@ impl State {
         State {
             time: 0.0,
             entities: DenseSlotMap::with_key(),
-            bodies: DenseSlotMap::with_key(),
+            bodies: Store::new(DenseSlotMap::with_key()),
             gravity_wells: Vec::new(),
             ships: DenseSlotMap::with_key(),
             pending_updates: RwLock::new(HashSet::new()),
@@ -57,7 +57,7 @@ impl State {
     /// A gravity well is automatically added if body.gravity_well is true
     pub fn add_body(&mut self, body: Body) -> BodyKey {
         let gravity = *body.gravity_well;
-        let key = self.bodies.insert(body);
+        let key = self.bodies.get_mut(&self.pending_updates).insert(body);
         if gravity {
             self.gravity_wells.push(key);
         }
@@ -67,7 +67,7 @@ impl State {
     /// Remove a body from the game state and do any needed cleanup
     /// TODO: test
     pub fn remove_body(&mut self, body_key: BodyKey) -> Result<(), ()> {
-        if let Some(body) = self.bodies.remove(body_key) {
+        if let Some(body) = self.bodies.get_mut(&self.pending_updates).remove(body_key) {
             if *body.gravity_well {
                 match self.gravity_wells.iter().position(|key| *key == body_key) {
                     None => eprintln!(
@@ -113,7 +113,7 @@ mod tests {
     #[test]
     fn add_body_adds_body() {
         let mut state = State::new();
-        assert_eq!(state.bodies.len(), 0);
+        assert_eq!((*state.bodies).len(), 0);
         state.add_body(Body::new());
         assert_eq!(state.bodies.len(), 1);
         let key = state.add_body(Body::new().with_position(Point3::new(7.0, 0.0, 0.0)));
