@@ -1,11 +1,10 @@
 use cgmath::*;
-use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::body::{Body, Collision, Controller};
 use crate::entity::Entity;
-use crate::plumbing::new_property;
-use crate::state::{BodyKey, EntityKey, PropertyKey, ShipKey, State};
+use crate::plumbing::new_store_property;
+use crate::state::{BodyKey, EntityKey, ShipKey, State};
 use crate::EPSILON;
 
 struct PendingUpdates {
@@ -91,7 +90,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     );
     state.entities[entity].register_body(body);
     state.entities[entity].register_ship(ship);
-    new_property(state, entity, "position", move |state: &State| {
+    new_store_property(state, entity, "position", move |state: &State| {
         Ok(&state.bodies[body].position)
     });
     entity
