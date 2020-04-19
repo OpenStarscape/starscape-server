@@ -20,11 +20,6 @@ impl<T> Store<T> {
         }
     }
 
-    /// Same as the Deref impl, but a named method can be easier to use sometimes
-    pub fn value(&self) -> &T {
-        &self.inner
-    }
-
     /// Prefer set() where possible, because that can save work when value is unchanged
     pub fn value_mut(&mut self, updates: &PendingUpdates) -> &mut T {
         self.update_source.send_updates(updates);
