@@ -33,7 +33,7 @@ where
     fn connect(&self, state: &State, property: PropertyKey) -> Result<(), String> {
         (self.store_getter)(state)?.connect(property).map_err(|e| {
             eprintln!("Error: {}", e);
-            format!("Internal server error: {}", e)
+            "server_error".into()
         })
     }
 
@@ -42,7 +42,7 @@ where
             .disconnect(property)
             .map_err(|e| {
                 eprintln!("Error: {}", e);
-                format!("Internal server error: {}", e)
+                "server_error".into()
             })
     }
 }
