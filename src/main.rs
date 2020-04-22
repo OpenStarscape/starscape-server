@@ -6,6 +6,7 @@ mod connection;
 mod entity;
 mod game;
 mod god;
+mod network;
 mod physics;
 mod plumbing;
 mod ship;
