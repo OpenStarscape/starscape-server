@@ -1,78 +1,35 @@
 use mio::net::{TcpListener, TcpStream};
 use mio::{Events, Poll, PollOpt, Ready, Registration, SetReadiness, Token};
+use std::error::Error;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::{spawn, JoinHandle};
 
 use super::*;
 
-fn handle_connection(stream: TcpStream) {
-    panic!("Tried to initiate connection");
+fn handle_connection(stream: TcpStream) -> Result<(), Box<dyn Error>> {
+    let _mio_poll_thread = new_mio_poll_thread(stream, |_| Ok(()))?;
+    Ok(())
 }
 
-fn run(quit_registration: Registration, should_quit: Arc<AtomicBool>) {
-    const TOKEN: Token = Token(0);
-    let addr: std::net::SocketAddr = "127.0.0.1:1212".parse().expect("Failed to parse addr");
-    let listener = TcpListener::bind(&addr).expect("Failed to bind to socket");
-    let poll = Poll::new().expect("Failed to create Poll");
-    poll.register(&listener, TOKEN, Ready::readable(), PollOpt::edge())
-        .unwrap();
-    poll.register(
-        &quit_registration,
-        TOKEN,
-        Ready::readable(),
-        PollOpt::edge(),
-    )
-    .unwrap();
-    let mut events = Events::with_capacity(1024);
-    loop {
-        poll.poll(&mut events, None).unwrap();
-        if should_quit.load(Ordering::Relaxed) {
-            break;
-        }
-        for event in events.iter() {
-            match event.token() {
-                TOKEN => match listener.accept() {
-                    Ok((stream, _peer_addr)) => handle_connection(stream),
-                    Err(e) => {
-                        if e.kind() != std::io::ErrorKind::WouldBlock {
-                            panic!("error connecting: {}", e);
-                        }
-                    }
-                },
-                token => panic!("unknown token {:?}", token),
-            }
-        }
+fn try_to_accept_connection(listener: &TcpListener) -> Result<(), Box<dyn Error>> {
+    match listener.accept() {
+        Ok((stream, _peer_addr)) => handle_connection(stream),
+        Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(()),
+        Err(e) => Err(e.into()),
     }
 }
 
 pub struct TcpServer {
-    should_quit: Arc<AtomicBool>,
-    quit_set_readiness: SetReadiness,
-    thread: Option<JoinHandle<()>>,
+    mio_poll_thread: Box<dyn Drop>,
 }
 
 impl TcpServer {
-    pub fn new() -> Self {
-        let (quit_registration, quit_set_readiness) = Registration::new2();
-        let should_quit = Arc::new(AtomicBool::new(false));
-        let thread = Some(spawn({
-            let should_quit = should_quit.clone();
-            || run(quit_registration, should_quit)
-        }));
-        Self {
-            should_quit,
-            quit_set_readiness,
-            thread,
-        }
-    }
-}
-
-impl Drop for TcpServer {
-    fn drop(&mut self) {
-        self.should_quit.store(true, Ordering::Relaxed);
-        self.quit_set_readiness.set_readiness(Ready::readable()).expect("failed to set readiness");
-        self.thread.take().unwrap().join().expect("server panicked");
+    pub fn new() -> Result<Self, Box<dyn Error>> {
+        let addr: std::net::SocketAddr = "127.0.0.1:1212".parse()?;
+        let listener = TcpListener::bind(&addr)?;
+        let mio_poll_thread = new_mio_poll_thread(listener, try_to_accept_connection)?;
+        Ok(Self { mio_poll_thread })
     }
 }
 
@@ -82,6 +39,9 @@ impl Server for TcpServer {}
 mod tests {
     use super::*;
     use std::{sync::mpsc, thread, time::Duration};
+
+    const LONG_TIME: Duration = Duration::from_secs(1);
+    const SHORT_TIME: Duration = Duration::from_millis(20);
 
     /// stolen from https://github.com/rust-lang/rfcs/issues/2798#issuecomment-552949300
     fn panic_after<T, F>(d: Duration, f: F) -> T
@@ -93,20 +53,29 @@ mod tests {
         let (done_tx, done_rx) = mpsc::channel();
         let handle = thread::spawn(move || {
             let val = f();
-            done_tx.send(()).expect("Unable to send completion signal");
+            done_tx.send(()).expect("unable to send completion signal");
             val
         });
 
         match done_rx.recv_timeout(d) {
-            Ok(_) => handle.join().expect("Thread panicked"),
-            Err(_) => panic!("Thread took too long"),
+            Ok(_) => handle.join().expect("thread panicked"),
+            Err(mpsc::RecvTimeoutError::Timeout) => panic!("thread timed out"),
+            Err(mpsc::RecvTimeoutError::Disconnected) => panic!("thread disconnected"),
         }
     }
 
     #[test]
-    fn can_start_and_stop() {
-        panic_after(Duration::from_secs(1), || {
+    fn can_start_and_stop_immediately() {
+        panic_after(LONG_TIME, || {
             let _server = TcpServer::new();
+        });
+    }
+
+    #[test]
+    fn can_start_and_stop_with_pause() {
+        panic_after(LONG_TIME, || {
+            let _server = TcpServer::new();
+            thread::sleep(SHORT_TIME);
         });
     }
 }
