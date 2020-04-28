@@ -147,13 +147,4 @@ mod run_with_timeout_tests {
         });
         unreachable!();
     }
-
-    #[test]
-    #[should_panic(expected = "this is fine")]
-    fn shows_string_panic_message() {
-        run_with_timeout(move || {
-            panic!(String::from("this is fine"));
-        });
-        unreachable!();
-    }
 }

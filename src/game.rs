@@ -46,7 +46,7 @@ impl Game {
         );
         game.state.connections[connection].subscribe_to(&game.state, ship_a, "position");
         game.servers.push(Box::new(
-            TcpServer::new(new_session_tx).expect("failed to create TCP server"),
+            TcpServer::new(new_session_tx, None, None).expect("failed to create TCP server"),
         ));
         game
     }
