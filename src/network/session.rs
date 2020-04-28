@@ -1,1 +1,1 @@
-pub trait Session {}
+pub trait Session: Send {}

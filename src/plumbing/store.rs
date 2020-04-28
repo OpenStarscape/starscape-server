@@ -115,5 +115,4 @@ mod tests {
         assert!(pending.read().unwrap().contains(&props[0]));
         assert!(!pending.read().unwrap().contains(&props[1]));
     }
-
 }
