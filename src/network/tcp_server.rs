@@ -39,7 +39,7 @@ impl Server for TcpServer {}
 #[cfg(test)]
 mod tests {
     use super::*;
-	use crate::util::run_with_timeout;
+    use crate::util::run_with_timeout;
     use std::sync::mpsc::channel;
     use std::{thread, time::Duration};
 
