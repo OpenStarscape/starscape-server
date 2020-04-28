@@ -87,7 +87,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-	use crate::util::run_with_timeout;
+    use crate::util::run_with_timeout;
     use std::sync::Mutex;
     use std::{thread, time::Duration};
 
