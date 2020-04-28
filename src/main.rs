@@ -11,6 +11,7 @@ mod physics;
 mod plumbing;
 mod ship;
 mod state;
+mod util;
 
 pub use state::EntityKey;
 
