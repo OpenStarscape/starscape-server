@@ -87,36 +87,15 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+	use crate::util::run_with_timeout;
     use std::sync::Mutex;
-    use std::{sync::mpsc, thread, time::Duration};
+    use std::{thread, time::Duration};
 
-    const LONG_TIME: Duration = Duration::from_secs(1);
     const SHORT_TIME: Duration = Duration::from_millis(20);
-
-    /// stolen from https://github.com/rust-lang/rfcs/issues/2798#issuecomment-552949300
-    fn panic_after<T, F>(d: Duration, f: F) -> T
-    where
-        T: Send + 'static,
-        F: FnOnce() -> T,
-        F: Send + 'static,
-    {
-        let (done_tx, done_rx) = mpsc::channel();
-        let handle = thread::spawn(move || {
-            let val = f();
-            done_tx.send(()).expect("unable to send completion signal");
-            val
-        });
-
-        match done_rx.recv_timeout(d) {
-            Ok(_) => handle.join().expect("thread panicked"),
-            Err(mpsc::RecvTimeoutError::Timeout) => panic!("thread timed out"),
-            Err(mpsc::RecvTimeoutError::Disconnected) => panic!("thread disconnected"),
-        }
-    }
 
     #[test]
     fn can_start_and_stop_quickly() {
-        panic_after(LONG_TIME, || {
+        run_with_timeout(|| {
             let (registration, _set_readiness) = Registration::new2();
             let _thread = new_mio_poll_thread(registration, |_| Ok(()));
         });
@@ -124,7 +103,7 @@ mod tests {
 
     #[test]
     fn can_start_and_stop_with_pause() {
-        panic_after(LONG_TIME, || {
+        run_with_timeout(|| {
             let (registration, _set_readiness) = Registration::new2();
             let _thread = new_mio_poll_thread(registration, |_| Ok(()));
             thread::sleep(SHORT_TIME);
@@ -135,7 +114,7 @@ mod tests {
     fn does_not_process_event_when_there_is_none() {
         let count = Arc::new(Mutex::new(0));
         let final_count = count.clone();
-        panic_after(LONG_TIME, || {
+        run_with_timeout(|| {
             let (registration, _set_readiness) = Registration::new2();
             let _thread = new_mio_poll_thread(registration, move |_| {
                 *count.lock().expect("failed to lock count") += 1;
@@ -150,7 +129,7 @@ mod tests {
     fn can_process_event() {
         let count = Arc::new(Mutex::new(0));
         let final_count = count.clone();
-        panic_after(LONG_TIME, || {
+        run_with_timeout(|| {
             let (registration, set_readiness) = Registration::new2();
             let _thread = new_mio_poll_thread(registration, move |_| {
                 *count.lock().expect("failed to lock count") += 1;
@@ -168,7 +147,7 @@ mod tests {
     fn can_process_several_events() {
         let count = Arc::new(Mutex::new(0));
         let final_count = count.clone();
-        panic_after(LONG_TIME, || {
+        run_with_timeout(|| {
             let (registration, set_readiness) = Registration::new2();
             let _thread = new_mio_poll_thread(registration, move |_| {
                 *count.lock().expect("failed to lock count") += 1;
