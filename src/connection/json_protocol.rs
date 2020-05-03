@@ -1,7 +1,7 @@
 use serde::ser::{SerializeStruct, Serializer};
 use std::error::Error;
 
-use super::{ObjectId, Protocol, Value};
+use super::*;
 
 pub struct JsonProtocol {}
 
@@ -11,8 +11,8 @@ impl JsonProtocol {
     }
 }
 
-impl Protocol for JsonProtocol {
-    fn serialize_property_update(
+impl Encoder for JsonProtocol {
+    fn encode_property_update(
         &self,
         object: ObjectId,
         property: &str,
@@ -49,7 +49,7 @@ mod json_tests {
         let prop = "foobar";
         let value = Value::Scaler(12.5);
         assert_json_eq(
-            &p.serialize_property_update(obj, prop, &value)
+            &p.encode_property_update(obj, prop, &value)
                 .expect("Failed to serialize property update"),
             "{
 				\"mtype\": \"update\",
