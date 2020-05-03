@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use super::Value;
+use super::*;
 use crate::state::{EntityKey, State};
 
 pub trait Connection {
@@ -8,7 +8,7 @@ pub trait Connection {
         &self,
         entity: EntityKey,
         property: &str,
-        value: &Value,
+        value: &Encodable,
     ) -> Result<(), Box<dyn Error>>;
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str);

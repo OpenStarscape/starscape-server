@@ -1,5 +1,5 @@
 use super::{Conduit, Store};
-use crate::connection::Value;
+use crate::connection::Encodable;
 use crate::state::{PropertyKey, State};
 
 /// Connects a store to a server property
@@ -9,7 +9,7 @@ pub struct StoreConduit<F> {
 
 impl<T, F> StoreConduit<F>
 where
-    T: Into<Value> + PartialEq + Clone,
+    T: Into<Encodable> + PartialEq + Clone,
     for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
 {
     pub fn new(store_getter: F) -> Self {
@@ -19,10 +19,10 @@ where
 
 impl<T, F> Conduit for StoreConduit<F>
 where
-    T: Into<Value> + PartialEq + Clone,
+    T: Into<Encodable> + PartialEq + Clone,
     for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
 {
-    fn get_value(&self, state: &State) -> Result<Value, String> {
+    fn get_value(&self, state: &State) -> Result<Encodable, String> {
         Ok((*(self.store_getter)(state)?).clone().into())
     }
 

@@ -3,98 +3,98 @@ use cgmath::*;
 use serde::ser::{Serialize, Serializer};
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum Value {
+pub enum Encodable {
     Vector(Vector3<f64>),
     Scaler(f64),
     Integer(i64),
     /// Entity needs to be transformed into an object ID before serialization
     Entity(EntityKey),
-    List(Vec<Value>),
+    List(Vec<Encodable>),
     Null,
 }
 
-impl From<Point3<f64>> for Value {
+impl From<Point3<f64>> for Encodable {
     fn from(point: Point3<f64>) -> Self {
-        Value::Vector(point.to_vec())
+        Encodable::Vector(point.to_vec())
     }
 }
 
-impl From<Vector3<f64>> for Value {
+impl From<Vector3<f64>> for Encodable {
     fn from(vector: Vector3<f64>) -> Self {
-        Value::Vector(vector)
+        Encodable::Vector(vector)
     }
 }
 
-impl From<f64> for Value {
+impl From<f64> for Encodable {
     fn from(value: f64) -> Self {
-        Value::Scaler(value)
+        Encodable::Scaler(value)
     }
 }
 
-impl From<f32> for Value {
+impl From<f32> for Encodable {
     fn from(value: f32) -> Self {
-        Value::Scaler(f64::from(value))
+        Encodable::Scaler(f64::from(value))
     }
 }
 
-impl From<i64> for Value {
+impl From<i64> for Encodable {
     fn from(value: i64) -> Self {
-        Value::Integer(value)
+        Encodable::Integer(value)
     }
 }
 
-impl From<i32> for Value {
+impl From<i32> for Encodable {
     fn from(value: i32) -> Self {
-        Value::Integer(i64::from(value))
+        Encodable::Integer(i64::from(value))
     }
 }
 
-impl From<u64> for Value {
+impl From<u64> for Encodable {
     fn from(value: u64) -> Self {
-        Value::Integer(value as i64)
+        Encodable::Integer(value as i64)
     }
 }
 
-impl From<u32> for Value {
+impl From<u32> for Encodable {
     fn from(value: u32) -> Self {
-        Value::Integer(i64::from(value))
+        Encodable::Integer(i64::from(value))
     }
 }
 
-impl From<EntityKey> for Value {
+impl From<EntityKey> for Encodable {
     fn from(entity: EntityKey) -> Self {
-        Value::Entity(entity)
+        Encodable::Entity(entity)
     }
 }
 
-impl<T> From<Vec<T>> for Value
+impl<T> From<Vec<T>> for Encodable
 where
-    Value: From<T>,
+    Encodable: From<T>,
 {
     fn from(vec: Vec<T>) -> Self {
-        Value::List(vec.into_iter().map(From::from).collect())
+        Encodable::List(vec.into_iter().map(From::from).collect())
     }
 }
 
-impl From<()> for Value {
+impl From<()> for Encodable {
     fn from(_: ()) -> Self {
-        Value::Null
+        Encodable::Null
     }
 }
 
-impl<T: Into<Value>> From<Option<T>> for Value {
+impl<T: Into<Encodable>> From<Option<T>> for Encodable {
     fn from(opt: Option<T>) -> Self {
         match opt {
             Some(value) => value.into(),
-            None => Value::Null,
+            None => Encodable::Null,
         }
     }
 }
 
-impl Serialize for Value {
+impl Serialize for Encodable {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self {
-            Value::Vector(vector) => {
+            Encodable::Vector(vector) => {
                 use serde::ser::SerializeTuple;
                 let mut tuple = serializer.serialize_tuple(3)?;
                 tuple.serialize_element(&vector.x)?;
@@ -102,15 +102,15 @@ impl Serialize for Value {
                 tuple.serialize_element(&vector.z)?;
                 tuple.end()
             }
-            Value::Scaler(value) => serializer.serialize_f64(*value),
-            Value::Integer(value) => serializer.serialize_i64(*value),
-            Value::Entity(entity) => {
+            Encodable::Scaler(value) => serializer.serialize_f64(*value),
+            Encodable::Integer(value) => serializer.serialize_i64(*value),
+            Encodable::Entity(entity) => {
                 panic!(
                     "Can not serialize {:?}; entity should have been replaced by object ID",
                     entity
                 );
             }
-            Value::List(list) => {
+            Encodable::List(list) => {
                 use serde::ser::SerializeSeq;
                 let mut seq = serializer.serialize_seq(Some(list.len()))?;
                 for elem in list {
@@ -118,7 +118,7 @@ impl Serialize for Value {
                 }
                 seq.end()
             }
-            Value::Null => serializer.serialize_none(),
+            Encodable::Null => serializer.serialize_none(),
         }
     }
 }
@@ -128,7 +128,7 @@ mod json_tests {
     use super::*;
     use crate::state::mock_keys;
 
-    fn assert_json_eq(value: Value, json: &str) {
+    fn assert_json_eq(value: Encodable, json: &str) {
         let expected: serde_json::Value =
             serde_json::from_str(json).expect("failed to parse test JSON");
         let actual: serde_json::Value =

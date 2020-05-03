@@ -2,7 +2,7 @@ use std::error::Error;
 use std::sync::{Mutex, RwLock};
 
 use super::{Conduit, Property};
-use crate::connection::Value;
+use crate::connection::Encodable;
 use crate::state::{ConnectionKey, EntityKey, PropertyKey, State};
 
 /// The default property implementation
@@ -10,7 +10,7 @@ pub struct ConduitProperty {
     self_key: PropertyKey,
     entity: EntityKey,
     name: &'static str,
-    cached_value: Mutex<Value>,
+    cached_value: Mutex<Encodable>,
     conduit: Box<dyn Conduit>,
     /// Conceptually a set, but due to characteristics (few elements, infrequent modification)
     /// a Vec should perform better in most cases
@@ -28,7 +28,7 @@ impl ConduitProperty {
             self_key,
             entity,
             name,
-            cached_value: Mutex::new(Value::Null),
+            cached_value: Mutex::new(Encodable::Null),
             conduit,
             subscribers: RwLock::new(Vec::new()),
         }
@@ -41,7 +41,7 @@ impl Property for ConduitProperty {
         let mut cached = self
             .cached_value
             .lock()
-            .expect("Failed to lock cached value mutex");
+            .expect("Failed to lock cached Encodable mutex");
         if *cached != value {
             *cached = value.clone();
             let subscribers = self.subscribers.read().expect("Failed to read subscribers");
@@ -109,7 +109,7 @@ mod tests {
     use std::rc::Rc;
 
     struct MockConnection {
-        log: Vec<(EntityKey, String, Value)>,
+        log: Vec<(EntityKey, String, Encodable)>,
     }
 
     impl MockConnection {
@@ -123,7 +123,7 @@ mod tests {
             &self,
             entity: EntityKey,
             property: &str,
-            value: &Value,
+            value: &Encodable,
         ) -> Result<(), Box<dyn Error>> {
             self.borrow_mut()
                 .log
@@ -141,21 +141,21 @@ mod tests {
     }
 
     struct MockConduit {
-        value_to_get: Result<Value, String>,
+        value_to_get: Result<Encodable, String>,
         connected: Option<PropertyKey>,
     }
 
     impl MockConduit {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self {
-                value_to_get: Err("No value yet".to_owned()),
+                value_to_get: Err("No Encodable yet".to_owned()),
                 connected: None,
             }))
         }
     }
 
     impl Conduit for Rc<RefCell<MockConduit>> {
-        fn get_value(&self, _sate: &State) -> Result<Value, String> {
+        fn get_value(&self, _sate: &State) -> Result<Encodable, String> {
             self.borrow().value_to_get.clone()
         }
 
@@ -310,13 +310,13 @@ mod tests {
     fn when_updated_sends_correct_data() {
         let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
         property.subscribers.write().unwrap().push(conn_key);
-        conduit.borrow_mut().value_to_get = Ok(Value::Integer(42));
+        conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
         property
             .send_updates(&state)
             .expect("failed to send updates");
         assert_eq!(
             mock_conn.borrow().log,
-            vec![(entity_key, "foo".to_owned(), Value::Integer(42))]
+            vec![(entity_key, "foo".to_owned(), Encodable::Integer(42))]
         );
     }
 
@@ -324,19 +324,19 @@ mod tests {
     fn sends_multiple_values_on_change() {
         let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
         property.subscribers.write().unwrap().push(conn_key);
-        conduit.borrow_mut().value_to_get = Ok(Value::Integer(42));
+        conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
         property
             .send_updates(&state)
             .expect("failed to send updates");
-        conduit.borrow_mut().value_to_get = Ok(Value::Integer(69));
+        conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(69));
         property
             .send_updates(&state)
             .expect("failed to send updates");
         assert_eq!(
             mock_conn.borrow().log,
             vec![
-                (entity_key, "foo".to_owned(), Value::Integer(42)),
-                (entity_key, "foo".to_owned(), Value::Integer(69)),
+                (entity_key, "foo".to_owned(), Encodable::Integer(42)),
+                (entity_key, "foo".to_owned(), Encodable::Integer(69)),
             ]
         );
     }
@@ -345,7 +345,7 @@ mod tests {
     fn does_not_send_same_data_twice() {
         let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
         property.subscribers.write().unwrap().push(conn_key);
-        conduit.borrow_mut().value_to_get = Ok(Value::Integer(42));
+        conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
         property
             .send_updates(&state)
             .expect("failed to send updates");
@@ -354,7 +354,7 @@ mod tests {
             .expect("failed to send updates");
         assert_eq!(
             mock_conn.borrow().log,
-            vec![(entity_key, "foo".to_owned(), Value::Integer(42))]
+            vec![(entity_key, "foo".to_owned(), Encodable::Integer(42))]
         );
     }
 }
