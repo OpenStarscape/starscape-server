@@ -11,9 +11,9 @@ fn poll_loop<F>(
     poll: Poll,
     _quit_registration: Registration,
     should_quit: Arc<AtomicBool>,
-    process_event: F,
+    mut process_event: F,
 ) where
-    F: Fn() -> Result<(), Box<dyn Error>>,
+    F: FnMut() -> Result<(), Box<dyn Error>>,
 {
     let mut events = Events::with_capacity(256);
     loop {
@@ -57,10 +57,13 @@ impl Drop for MioPollThread {
     }
 }
 
-pub fn new_mio_poll_thread<F, T>(e: T, process_event: F) -> Result<Box<dyn Drop>, Box<Error>>
+pub fn new_mio_poll_thread<F, T>(
+    mut e: T,
+    mut process_event: F,
+) -> Result<Box<dyn Drop + Send>, Box<dyn Error>>
 where
     T: Evented + Send + 'static,
-    F: Fn(&T) -> Result<(), Box<dyn Error>> + Send + 'static,
+    F: FnMut(&mut T) -> Result<(), Box<dyn Error>> + Send + 'static,
 {
     let poll = Poll::new()?;
     poll.register(&e, TOKEN, Ready::readable(), PollOpt::edge())?;
@@ -74,7 +77,7 @@ where
     let should_quit = Arc::new(AtomicBool::new(false));
     let join_handle = {
         let should_quit = should_quit.clone();
-        let process_event = move || process_event(&e);
+        let process_event = move || process_event(&mut e);
         spawn(|| poll_loop(poll, quit_registration, should_quit, process_event))
     };
     Ok(Box::new(MioPollThread {

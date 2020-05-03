@@ -13,7 +13,7 @@ fn handle_connection(stream: TcpStream) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn try_to_accept_connection(listener: &TcpListener) -> Result<(), Box<dyn Error>> {
+fn try_to_accept_connection(listener: &mut TcpListener) -> Result<(), Box<dyn Error>> {
     match listener.accept() {
         Ok((stream, _peer_addr)) => handle_connection(stream),
         Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(()),
