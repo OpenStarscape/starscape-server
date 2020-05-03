@@ -2,26 +2,22 @@ use std::error::Error;
 use std::io::Write;
 use std::sync::Mutex;
 
-use super::{Connection, ObjectId, ObjectMap, Protocol, Value};
+use super::{Connection, Encoder, ObjectId, ObjectMap, Value};
 use crate::state::{ConnectionKey, State};
 use crate::EntityKey;
 
 pub struct ConnectionImpl {
     self_key: ConnectionKey,
-    protocol: Box<dyn Protocol>,
+    encoder: Box<dyn Encoder>,
     objects: Mutex<ObjectMap>,
     writer: Mutex<Box<dyn Write>>,
 }
 
 impl ConnectionImpl {
-    pub fn new(
-        self_key: ConnectionKey,
-        protocol: Box<dyn Protocol>,
-        writer: Box<dyn Write>,
-    ) -> Self {
+    pub fn new(self_key: ConnectionKey, encoder: Box<dyn Encoder>, writer: Box<dyn Write>) -> Self {
         Self {
             self_key,
-            protocol,
+            encoder,
             objects: Mutex::new(ObjectMap::new()),
             writer: Mutex::new(writer),
         }
@@ -105,8 +101,8 @@ impl Connection for ConnectionImpl {
             (object, value)
         };
         let buffer = self
-            .protocol
-            .serialize_property_update(object, property, value)?;
+            .encoder
+            .encode_property_update(object, property, value)?;
         self.write_buffer(&buffer, operation)?;
         Ok(())
     }
@@ -143,18 +139,18 @@ mod tests {
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    struct MockProtocol {
+    struct MockEncoder {
         log: Vec<(ObjectId, String, Value)>,
     }
 
-    impl MockProtocol {
+    impl MockEncoder {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self { log: Vec::new() }))
         }
     }
 
-    impl Protocol for Rc<RefCell<MockProtocol>> {
-        fn serialize_property_update(
+    impl Encoder for Rc<RefCell<MockEncoder>> {
+        fn encode_property_update(
             &self,
             object: ObjectId,
             property: &str,
@@ -168,7 +164,7 @@ mod tests {
     }
 
     struct Test {
-        proto: Rc<RefCell<MockProtocol>>,
+        proto: Rc<RefCell<MockEncoder>>,
         conn: ConnectionImpl,
         entity: EntityKey,
         obj_id: ObjectId,
@@ -177,7 +173,7 @@ mod tests {
 
     impl Test {
         fn new() -> Self {
-            let proto = MockProtocol::new();
+            let proto = MockEncoder::new();
             let conn = ConnectionImpl::new(
                 ConnectionKey::null(),
                 Box::new(proto.clone()),
@@ -233,10 +229,10 @@ mod tests {
 
     #[test]
     fn serializes_list_property_update() {
-        let proto = MockProtocol::new();
+        let encoder = MockEncoder::new();
         let conn = ConnectionImpl::new(
             ConnectionKey::null(),
-            Box::new(proto.clone()),
+            Box::new(encoder.clone()),
             Box::new(Vec::new()),
         );
         let e = mock_keys(1);
@@ -244,7 +240,7 @@ mod tests {
         let o = conn.objects.lock().unwrap().register_entity(e[0]);
         conn.property_changed(e[0], "foo", &value)
             .expect("Error updating property");
-        assert_eq!(proto.borrow().log, vec![(o, "foo".to_owned(), value)],);
+        assert_eq!(encoder.borrow().log, vec![(o, "foo".to_owned(), value)],);
     }
 
     #[test]

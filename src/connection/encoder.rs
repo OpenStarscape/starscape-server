@@ -2,8 +2,8 @@ use std::error::Error;
 
 use super::{ObjectId, Value};
 
-pub trait Protocol {
-    fn serialize_property_update(
+pub trait Encoder {
+    fn encode_property_update(
         &self,
         object: ObjectId,
         property: &str,
