@@ -124,7 +124,7 @@ mod tests {
             entity: EntityKey,
             property: &str,
             value: &Value,
-        ) -> Result<(), Box<Error>> {
+        ) -> Result<(), Box<dyn Error>> {
             self.borrow_mut()
                 .log
                 .push((entity, property.to_owned(), value.clone()));

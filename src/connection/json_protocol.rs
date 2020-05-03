@@ -17,7 +17,7 @@ impl Protocol for JsonProtocol {
         object: ObjectId,
         property: &str,
         value: &Value,
-    ) -> Result<Vec<u8>, Box<Error>> {
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
         let buffer = Vec::with_capacity(128);
         let mut serializer = serde_json::Serializer::new(buffer);
         let mut message = serializer.serialize_struct("Message", 4)?;

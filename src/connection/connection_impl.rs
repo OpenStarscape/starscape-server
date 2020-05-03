@@ -31,7 +31,7 @@ impl ConnectionImpl {
         objects: &mut ObjectMap,
         entity: EntityKey,
         operation: &str,
-    ) -> Result<ObjectId, Box<Error>> {
+    ) -> Result<ObjectId, Box<dyn Error>> {
         match objects.get_object(entity) {
             Some(o_id) => Ok(o_id),
             None => Err(format!(
@@ -79,7 +79,7 @@ impl ConnectionImpl {
         }
     }
 
-    fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<Error>> {
+    fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
         let mut writer = self.writer.lock().expect("Failed to lock writer");
         match writer.write(&buffer) {
             Ok(_) => Ok(()),
@@ -94,7 +94,7 @@ impl Connection for ConnectionImpl {
         entity: EntityKey,
         property: &str,
         unresolved_value: &Value,
-    ) -> Result<(), Box<Error>> {
+    ) -> Result<(), Box<dyn Error>> {
         let operation = "update"; // used for error messages
         let resolved_value; // not used directly, only exists for lifetime reasons
         let (object, value) = {
@@ -159,7 +159,7 @@ mod tests {
             object: ObjectId,
             property: &str,
             value: &Value,
-        ) -> Result<Vec<u8>, Box<Error>> {
+        ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()
                 .log
                 .push((object, property.to_owned(), (*value).clone()));

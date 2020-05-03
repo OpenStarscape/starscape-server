@@ -25,7 +25,7 @@ impl UpdateSource {
         }
     }
 
-    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
+    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
         let mut connections = self.connections.write().unwrap();
         if connections.contains(&target) {
             Err(format!("already connected to {:?}", target).into())
@@ -35,7 +35,7 @@ impl UpdateSource {
         }
     }
 
-    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
+    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
         let mut connections = self.connections.write().unwrap();
         match connections.iter().position(|key| *key == target) {
             None => Err(format!("{:?} is not connected", target).into()),
