@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use crate::body::{Body, Collision, Controller};
 use crate::entity::Entity;
 use crate::plumbing::new_store_property;
-use crate::state::{BodyKey, EntityKey, ShipKey, State};
+use crate::state::{EntityKey, ShipKey, State};
 use crate::EPSILON;
 
 struct PendingUpdates {

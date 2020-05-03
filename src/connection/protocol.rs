@@ -8,5 +8,5 @@ pub trait Protocol {
         object: ObjectId,
         property: &str,
         value: &Value,
-    ) -> Result<Vec<u8>, Box<Error>>;
+    ) -> Result<Vec<u8>, Box<dyn Error>>;
 }

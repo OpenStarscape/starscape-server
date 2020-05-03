@@ -9,7 +9,7 @@ pub trait Connection {
         entity: EntityKey,
         property: &str,
         value: &Value,
-    ) -> Result<(), Box<Error>>;
+    ) -> Result<(), Box<dyn Error>>;
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str);
 }

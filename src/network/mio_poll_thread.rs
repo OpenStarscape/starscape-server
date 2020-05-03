@@ -25,7 +25,7 @@ fn poll_loop<F>(
             match event.token() {
                 TOKEN => {
                     if let Err(e) = process_event() {
-                        eprintln!("Error processing Mio event: {}", e);
+                        eprintln!("Error while processing Mio event: {}", e);
                     }
                 }
                 token => {

@@ -32,11 +32,11 @@ impl<T> Store<T> {
         &mut self.inner
     }
 
-    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
+    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
         self.update_source.connect(target)
     }
 
-    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<Error>> {
+    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
         self.update_source.disconnect(target)
     }
 }
