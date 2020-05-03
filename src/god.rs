@@ -1,4 +1,4 @@
-use crate::connection::Value;
+use crate::connection::Encodable;
 use crate::entity::Entity;
 use crate::plumbing::{new_conduit_property, Conduit};
 use crate::state::{EntityKey, PropertyKey, State};
@@ -6,7 +6,7 @@ use crate::state::{EntityKey, PropertyKey, State};
 struct BodyListConduit {}
 
 impl Conduit for BodyListConduit {
-    fn get_value(&self, state: &State) -> Result<Value, String> {
+    fn get_value(&self, state: &State) -> Result<Encodable, String> {
         let entities: Vec<EntityKey> = state.bodies.values().map(|body| body.entity).collect();
         Ok(entities.into())
     }

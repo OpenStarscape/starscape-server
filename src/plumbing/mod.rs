@@ -15,7 +15,7 @@ pub use conduit::Conduit;
 pub use property::Property;
 pub use store::Store;
 
-use crate::connection::Value;
+use crate::connection::Encodable;
 use crate::state::{EntityKey, State};
 
 pub fn new_conduit_property(
@@ -36,7 +36,7 @@ pub fn new_store_property<T, F: 'static>(
     name: &'static str,
     store_getter: F,
 ) where
-    T: Into<Value> + PartialEq + Clone,
+    T: Into<Encodable> + PartialEq + Clone,
     for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
 {
     new_conduit_property(

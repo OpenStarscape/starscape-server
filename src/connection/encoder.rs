@@ -1,12 +1,12 @@
 use std::error::Error;
 
-use super::{ObjectId, Value};
+use super::*;
 
 pub trait Encoder {
     fn encode_property_update(
         &self,
         object: ObjectId,
         property: &str,
-        value: &Value,
+        value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>>;
 }

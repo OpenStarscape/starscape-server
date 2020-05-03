@@ -16,7 +16,7 @@ impl Encoder for JsonProtocol {
         &self,
         object: ObjectId,
         property: &str,
-        value: &Value,
+        value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>> {
         let buffer = Vec::with_capacity(128);
         let mut serializer = serde_json::Serializer::new(buffer);
@@ -47,7 +47,7 @@ mod json_tests {
         let p = JsonProtocol::new();
         let obj = 42;
         let prop = "foobar";
-        let value = Value::Scaler(12.5);
+        let value = Encodable::Scaler(12.5);
         assert_json_eq(
             &p.encode_property_update(obj, prop, &value)
                 .expect("Failed to serialize property update"),

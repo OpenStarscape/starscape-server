@@ -3,10 +3,10 @@ mod connection_trait;
 mod encoder;
 mod json_protocol;
 mod object_map;
-mod value;
+mod encodable;
 
 pub use connection_trait::Connection;
-pub use value::Value;
+pub use encodable::Encodable;
 
 use connection_impl::ConnectionImpl;
 use encoder::*;

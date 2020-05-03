@@ -2,7 +2,7 @@ use std::error::Error;
 use std::io::Write;
 use std::sync::Mutex;
 
-use super::{Connection, Encoder, ObjectId, ObjectMap, Value};
+use super::*;
 use crate::state::{ConnectionKey, State};
 use crate::EntityKey;
 
@@ -38,17 +38,22 @@ impl ConnectionImpl {
         }
     }
 
-    /// Returns a "resolved" value if needed, or None if the unresolved value is fine
+    /// Returns a "resolved" encodable if needed, or None if the unresolved encodable is fine
     /// Entities and collections containing them need to be resolved to object IDs
-    fn resolve_value<'a>(objects: &mut ObjectMap, unresolved_value: &'a Value) -> Option<Value> {
+    fn resolve_value<'a>(
+        objects: &mut ObjectMap,
+        unresolved_value: &'a Encodable,
+    ) -> Option<Encodable> {
         match unresolved_value {
-            // if the value is an entity, we need to look up the connection-specific object ID
-            Value::Entity(entity) => Some(Value::Integer(match objects.get_object(*entity) {
-                Some(o) => o,
-                None => objects.register_entity(*entity),
-            } as i64)),
-            // if this value is a list, it could contain entities that should be resolved
-            Value::List(list) => {
+            // if the encodable is an entity, we need to look up the connection-specific object ID
+            Encodable::Entity(entity) => {
+                Some(Encodable::Integer(match objects.get_object(*entity) {
+                    Some(o) => o,
+                    None => objects.register_entity(*entity),
+                } as i64))
+            }
+            // if this encodable is a list, it could contain entities that should be resolved
+            Encodable::List(list) => {
                 // Search throug the list, looking for an element that need to be resolved
                 match list.iter().enumerate().find_map(|(i, element)| {
                     Self::resolve_value(objects, element).map(|resolved| (i, resolved))
@@ -65,7 +70,7 @@ impl ConnectionImpl {
                                 Self::resolve_value(objects, element)
                                     .unwrap_or_else(|| element.clone())
                             }));
-                        Some(Value::List(with_rest.collect()))
+                        Some(Encodable::List(with_rest.collect()))
                     }
                     // otherwise, no elements need to be resolved
                     None => None,
@@ -89,7 +94,7 @@ impl Connection for ConnectionImpl {
         &self,
         entity: EntityKey,
         property: &str,
-        unresolved_value: &Value,
+        unresolved_value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
         let operation = "update"; // used for error messages
         let resolved_value; // not used directly, only exists for lifetime reasons
@@ -138,9 +143,10 @@ mod tests {
     use slotmap::Key;
     use std::cell::RefCell;
     use std::rc::Rc;
+    use Encodable::*;
 
     struct MockEncoder {
-        log: Vec<(ObjectId, String, Value)>,
+        log: Vec<(ObjectId, String, Encodable)>,
     }
 
     impl MockEncoder {
@@ -154,7 +160,7 @@ mod tests {
             &self,
             object: ObjectId,
             property: &str,
-            value: &Value,
+            value: &Encodable,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()
                 .log
@@ -219,11 +225,11 @@ mod tests {
     fn serializes_normal_property_update() {
         let test = Test::new();
         test.conn
-            .property_changed(test.entity, "foo", &Value::Scaler(12.5))
+            .property_changed(test.entity, "foo", &Scaler(12.5))
             .expect("Error updating property");
         assert_eq!(
             test.proto.borrow().log,
-            vec![(test.obj_id, "foo".to_owned(), Value::Scaler(12.5))]
+            vec![(test.obj_id, "foo".to_owned(), Scaler(12.5))]
         );
     }
 
@@ -236,7 +242,7 @@ mod tests {
             Box::new(Vec::new()),
         );
         let e = mock_keys(1);
-        let value = Value::List(vec![Value::Integer(7), Value::Integer(12)]);
+        let value = List(vec![Integer(7), Integer(12)]);
         let o = conn.objects.lock().unwrap().register_entity(e[0]);
         conn.property_changed(e[0], "foo", &value)
             .expect("Error updating property");
@@ -247,13 +253,13 @@ mod tests {
     fn resolves_entity_value_to_object_id() {
         let test = Test::new();
         test.conn
-            .property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
+            .property_changed(test.entity, "foo", &Entity(test.entities[0]))
             .expect("Error updating property");
         let obj_0 = test.lookup_obj_0();
         assert_ne!(test.obj_id, obj_0);
         assert_eq!(
             test.proto.borrow().log,
-            vec![(test.obj_id, "foo".to_owned(), Value::Integer(obj_0 as i64))]
+            vec![(test.obj_id, "foo".to_owned(), Integer(obj_0 as i64))]
         );
     }
 
@@ -261,18 +267,18 @@ mod tests {
     fn resolves_the_same_entity_multiple_times() {
         let test = Test::new();
         test.conn
-            .property_changed(test.entity, "foo", &Value::Entity(test.entities[0]))
+            .property_changed(test.entity, "foo", &Entity(test.entities[0]))
             .expect("Error updating property");
         test.conn
-            .property_changed(test.entity, "bar", &Value::Entity(test.entities[0]))
+            .property_changed(test.entity, "bar", &Entity(test.entities[0]))
             .expect("Error updating property");
         let obj_0 = test.lookup_obj_0();
         assert_ne!(test.obj_id, obj_0);
         assert_eq!(
             test.proto.borrow().log,
             vec![
-                (test.obj_id, "foo".to_owned(), Value::Integer(obj_0 as i64)),
-                (test.obj_id, "bar".to_owned(), Value::Integer(obj_0 as i64))
+                (test.obj_id, "foo".to_owned(), Integer(obj_0 as i64)),
+                (test.obj_id, "bar".to_owned(), Integer(obj_0 as i64))
             ]
         );
     }
@@ -297,11 +303,7 @@ mod tests {
             .property_changed(
                 test.entity,
                 "foo",
-                &Value::List(vec![
-                    Value::Integer(42),
-                    Value::Entity(test.entities[0]),
-                    Value::Null,
-                ]),
+                &List(vec![Integer(42), Entity(test.entities[0]), Null]),
             )
             .expect("Error updating property");
         let obj_0 = test.lookup_obj_0();
@@ -310,11 +312,7 @@ mod tests {
             vec![(
                 test.obj_id,
                 "foo".to_owned(),
-                Value::List(vec![
-                    Value::Integer(42),
-                    Value::Integer(obj_0 as i64),
-                    Value::Null
-                ])
+                List(vec![Integer(42), Integer(obj_0 as i64), Null])
             )],
         );
     }
@@ -323,11 +321,7 @@ mod tests {
     fn resolves_list_with_single_entity() {
         let test = Test::new();
         test.conn
-            .property_changed(
-                test.entity,
-                "foo",
-                &Value::List(vec![Value::Entity(test.entities[0])]),
-            )
+            .property_changed(test.entity, "foo", &List(vec![Entity(test.entities[0])]))
             .expect("Error updating property");
         let obj_0 = test.lookup_obj_0();
         assert_eq!(
@@ -335,7 +329,7 @@ mod tests {
             vec![(
                 test.obj_id,
                 "foo".to_owned(),
-                Value::List(vec![Value::Integer(obj_0 as i64),])
+                List(vec![Integer(obj_0 as i64),])
             )],
         );
     }
@@ -347,14 +341,14 @@ mod tests {
             .property_changed(
                 test.entity,
                 "foo",
-                &Value::List(vec![
-                    Value::List(vec![Value::List(vec![
-                        Value::Entity(test.entities[1]),
-                        Value::Entity(test.entities[2]),
-                        Value::Null,
+                &List(vec![
+                    List(vec![List(vec![
+                        Entity(test.entities[1]),
+                        Entity(test.entities[2]),
+                        Null,
                     ])]),
-                    Value::Integer(42),
-                    Value::Entity(test.entities[0]),
+                    Integer(42),
+                    Entity(test.entities[0]),
                 ]),
             )
             .expect("Error updating property");
@@ -364,14 +358,14 @@ mod tests {
             vec![(
                 test.obj_id,
                 "foo".to_owned(),
-                Value::List(vec![
-                    Value::List(vec![Value::List(vec![
-                        Value::Integer(obj_ids[1] as i64),
-                        Value::Integer(obj_ids[2] as i64),
-                        Value::Null,
+                List(vec![
+                    List(vec![List(vec![
+                        Integer(obj_ids[1] as i64),
+                        Integer(obj_ids[2] as i64),
+                        Null,
                     ]),]),
-                    Value::Integer(42),
-                    Value::Integer(obj_ids[0] as i64),
+                    Integer(42),
+                    Integer(obj_ids[0] as i64),
                 ]),
             )],
         );
