@@ -1,11 +1,13 @@
 mod connection_impl;
 mod connection_trait;
+mod decodable;
+mod encodable;
 mod encoder;
 mod json_protocol;
 mod object_map;
-mod encodable;
 
 pub use connection_trait::Connection;
+pub use decodable::Decodable;
 pub use encodable::Encodable;
 
 use connection_impl::ConnectionImpl;
