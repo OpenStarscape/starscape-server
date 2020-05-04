@@ -1,5 +1,6 @@
 mod connection_impl;
 mod connection_trait;
+mod datagram_splitter;
 mod decodable;
 mod encodable;
 mod encoder;
@@ -11,6 +12,7 @@ pub use decodable::Decodable;
 pub use encodable::Encodable;
 
 use connection_impl::ConnectionImpl;
+use datagram_splitter::DatagramSplitter;
 use encoder::*;
 use json_protocol::JsonProtocol;
 use object_map::{ObjectId, ObjectMap};
