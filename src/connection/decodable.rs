@@ -3,100 +3,91 @@ use std::fmt::Debug;
 
 use crate::state::EntityKey;
 
+/// A value received from a client
+/// Prefer to use the accessor methods or simply .decode() rather than matching on directly
+#[derive(Debug, PartialEq, Clone)]
+pub enum Decodable {
+    Scaler(f64),
+    Integer(i64),
+    Entity(EntityKey),
+    List(Vec<Decodable>),
+    Null,
+}
+
 pub trait DecodableAs<T> {
     fn decode(&self) -> Result<T, String>;
 }
 
 pub type DecodableResult<T> = Result<T, String>;
 
-pub trait Decodable: Debug {
-    fn vector(&self) -> DecodableResult<Vector3<f64>> {
-        Err(format!("{:?} is not a 3D vector", self))
+impl Decodable {
+    pub fn vector(&self) -> DecodableResult<Vector3<f64>> {
+        match self {
+            Decodable::List(list) if list.len() == 3 => Ok(Vector3::new(
+                list[0].scaler()?,
+                list[1].scaler()?,
+                list[2].scaler()?,
+            )),
+            _ => Err(format!("{:?} is not a 3D vector", self)),
+        }
     }
-    fn scaler(&self) -> DecodableResult<f64> {
-        Err(format!("{:?} is not a scaler", self))
+    pub fn scaler(&self) -> DecodableResult<f64> {
+        match self {
+            Decodable::Scaler(value) => Ok(*value),
+            Decodable::Integer(value) => Ok(*value as f64),
+            _ => Err(format!("{:?} is not a number", self)),
+        }
     }
-    fn integer(&self) -> DecodableResult<i64> {
-        Err(format!("{:?} is not an integer", self))
+    pub fn integer(&self) -> DecodableResult<i64> {
+        match self {
+            Decodable::Scaler(value) => Ok(*value as i64),
+            Decodable::Integer(value) => Ok(*value),
+            _ => Err(format!("{:?} is not a number", self)),
+        }
     }
-    fn entity(&self) -> DecodableResult<EntityKey> {
+    pub fn entity(&self) -> DecodableResult<EntityKey> {
+        // TODO: include an option object map Arc with the integer
         Err(format!("{:?} is not an object", self))
     }
-    fn list<'a>(&'a self) -> DecodableResult<Box<dyn Iterator<Item = &'a dyn Decodable> + 'a>> {
-        Err(format!("{:?} is not a list", self))
+    pub fn list<'a>(&'a self) -> DecodableResult<Box<dyn Iterator<Item = &Decodable> + 'a>> {
+        match self {
+            Decodable::List(list) => Ok(Box::new(list.iter())),
+            _ => Err(format!("{:?} is not a list", self)),
+        }
     }
-    fn is_null(&self) -> bool {
-        false
-    }
-}
-
-impl Decodable for Vector3<f64> {
-    fn vector(&self) -> DecodableResult<Vector3<f64>> {
-        Ok(*self)
-    }
-}
-
-impl Decodable for Point3<f64> {
-    fn vector(&self) -> DecodableResult<Vector3<f64>> {
-        Ok(self.to_vec())
+    pub fn is_null(&self) -> bool {
+        match self {
+            Null => true,
+            _ => false,
+        }
     }
 }
 
-impl Decodable for f64 {
-    fn scaler(&self) -> DecodableResult<f64> {
-        Ok(*self)
-    }
-    fn integer(&self) -> DecodableResult<i64> {
-        Ok(self.round() as i64)
-    }
-}
-
-impl Decodable for i64 {
-    fn scaler(&self) -> DecodableResult<f64> {
-        Ok(*self as f64)
-    }
-    fn integer(&self) -> DecodableResult<i64> {
-        Ok(*self)
-    }
-}
-
-impl Decodable for Vec<Box<dyn Decodable>> {
-    fn list<'a>(&'a self) -> DecodableResult<Box<dyn Iterator<Item = &'a dyn Decodable> + 'a>> {
-        Ok(Box::new(self.iter().map(|d| &**d)))
-    }
-}
-
-impl Decodable for () {
-    fn is_null(&self) -> bool {
-        true
-    }
-}
-
-impl<'a> DecodableAs<Vector3<f64>> for dyn Decodable + 'a {
+impl DecodableAs<Vector3<f64>> for Decodable {
     fn decode(&self) -> Result<Vector3<f64>, String> {
         self.vector()
     }
 }
 
-impl<'a> DecodableAs<Point3<f64>> for dyn Decodable + 'a {
+impl DecodableAs<Point3<f64>> for Decodable {
     fn decode(&self) -> Result<Point3<f64>, String> {
         self.vector().map(Point3::from_vec)
     }
 }
 
-impl<'a> DecodableAs<f64> for dyn Decodable + 'a {
+impl DecodableAs<f64> for Decodable {
     fn decode(&self) -> Result<f64, String> {
         self.scaler()
     }
 }
 
-impl<'a> DecodableAs<i64> for dyn Decodable + 'a {
+impl DecodableAs<i64> for Decodable {
     fn decode(&self) -> Result<i64, String> {
         self.integer()
     }
 }
 
-impl<'a> DecodableAs<u64> for dyn Decodable + 'a {
+impl DecodableAs<u64> for Decodable {
     fn decode(&self) -> Result<u64, String> {
         match self.integer().map(std::convert::TryFrom::try_from) {
             Ok(Ok(i)) => Ok(i),
@@ -105,7 +96,7 @@ impl<'a> DecodableAs<u64> for dyn Decodable + 'a {
     }
 }
 
-impl<'a> DecodableAs<EntityKey> for dyn Decodable + 'a {
+impl DecodableAs<EntityKey> for Decodable {
     fn decode(&self) -> Result<EntityKey, String> {
         match self.entity() {
             Ok(e) => Ok(e),
@@ -121,7 +112,7 @@ impl<'a> DecodableAs<EntityKey> for dyn Decodable + 'a {
     }
 }
 
-impl<'a> DecodableAs<()> for dyn Decodable + 'a {
+impl DecodableAs<()> for Decodable {
     fn decode(&self) -> Result<(), String> {
         if self.is_null() {
             Ok(())
@@ -134,11 +125,12 @@ impl<'a> DecodableAs<()> for dyn Decodable + 'a {
 #[cfg(test)]
 mod json_tests {
     use super::*;
+    use Decodable::*;
 
-    fn assert_decodes_to<'a, T>(decodable: &'a dyn Decodable, expected: T)
+    fn assert_decodes_to<T>(decodable: &Decodable, expected: T)
     where
         T: PartialEq + Debug,
-        dyn Decodable + 'a: DecodableAs<T>,
+        Decodable: DecodableAs<T>,
     {
         let actual: T = decodable.decode().expect("failed to decode");
         assert_eq!(actual, expected);
@@ -149,33 +141,30 @@ mod json_tests {
         let i: i64 = 7;
         let u: u64 = 7;
         let f: f64 = 7.0;
-        assert_decodes_to(&i, i);
-        assert_decodes_to(&i, f);
-        assert_decodes_to(&i, u);
-        assert_decodes_to(&f, i);
-        assert_decodes_to(&f, f);
-        assert_decodes_to(&f, u);
+        assert_decodes_to(&Integer(i), i);
+        assert_decodes_to(&Integer(i), f);
+        assert_decodes_to(&Integer(i), u);
+        assert_decodes_to(&Scaler(f), i);
+        assert_decodes_to(&Scaler(f), f);
+        assert_decodes_to(&Scaler(f), u);
     }
 
     #[test]
     fn vectors_and_points_decode_correctly() {
-        let point = Point3::new(1.0, 2.0, -3.0);
-        let vector = Vector3::new(1.0, 2.0, -3.0);
-        assert_decodes_to(&point, point);
-        assert_decodes_to(&vector, point);
-        assert_decodes_to(&point, vector);
-        assert_decodes_to(&vector, vector);
+        let point = Point3::new(1.0, 2.5, -3.0);
+        let vector = point.to_vec();
+        let decodable = List(vec![Scaler(point.x), Scaler(point.y), Scaler(point.z)]);
+        let mismatched_typed_decodable = List(vec![Integer(1), Scaler(point.y), Scaler(point.z)]);
+        assert_decodes_to(&decodable, point);
+        assert_decodes_to(&decodable, vector);
+        assert_decodes_to(&mismatched_typed_decodable, vector);
     }
 
     #[test]
     fn can_decode_vec_of_ints() {
         let values = vec![7, 8, 9];
-        let decodables: Vec<Box<dyn Decodable>> = values
-            .iter()
-            .map(|i| Box::new(*i) as Box<dyn Decodable>)
-            .collect();
-        let decodable: Box<dyn Decodable> = Box::new(decodables);
-        let result: Vec<i64> = (*decodable)
+        let decodable = List(values.iter().map(|i| Integer(*i)).collect());
+        let result: Vec<i64> = decodable
             .list()
             .expect("failed to decode as list")
             .map(|d| {
