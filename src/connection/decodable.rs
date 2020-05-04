@@ -57,7 +57,7 @@ impl Decodable {
     }
     pub fn is_null(&self) -> bool {
         match self {
-            Null => true,
+            Decodable::Null => true,
             _ => false,
         }
     }
