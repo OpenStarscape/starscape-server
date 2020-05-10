@@ -23,63 +23,6 @@ impl ConnectionImpl {
         }
     }
 
-    fn resolve_object(
-        objects: &mut ObjectMap,
-        entity: EntityKey,
-        operation: &str,
-    ) -> Result<ObjectId, Box<dyn Error>> {
-        match objects.get_object(entity) {
-            Some(o_id) => Ok(o_id),
-            None => Err(format!(
-                "can not {}: {:?} does not have an object on this connection",
-                operation, entity,
-            )
-            .into()),
-        }
-    }
-
-    /// Returns a "resolved" encodable if needed, or None if the unresolved encodable is fine
-    /// Entities and collections containing them need to be resolved to object IDs
-    fn resolve_value<'a>(
-        objects: &mut ObjectMap,
-        unresolved_value: &'a Encodable,
-    ) -> Option<Encodable> {
-        match unresolved_value {
-            // if the encodable is an entity, we need to look up the connection-specific object ID
-            Encodable::Entity(entity) => {
-                Some(Encodable::Integer(match objects.get_object(*entity) {
-                    Some(o) => o,
-                    None => objects.register_entity(*entity),
-                } as i64))
-            }
-            // if this encodable is a list, it could contain entities that should be resolved
-            Encodable::List(list) => {
-                // Search throug the list, looking for an element that need to be resolved
-                match list.iter().enumerate().find_map(|(i, element)| {
-                    Self::resolve_value(objects, element).map(|resolved| (i, resolved))
-                }) {
-                    // if we find one
-                    Some((i, first_resolved)) => {
-                        // clone the first part of the vec that didn't have any resolvable elements
-                        let first_part = list.iter().take(i).cloned();
-                        // insert the element we resolved
-                        let with_first_resolved = first_part.chain(std::iter::once(first_resolved));
-                        // and resolve or clone the rest of the vec as needed
-                        let with_rest =
-                            with_first_resolved.chain(list[i + 1..].iter().map(|element| {
-                                Self::resolve_value(objects, element)
-                                    .unwrap_or_else(|| element.clone())
-                            }));
-                        Some(Encodable::List(with_rest.collect()))
-                    }
-                    // otherwise, no elements need to be resolved
-                    None => None,
-                }
-            }
-            _ => None,
-        }
-    }
-
     fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
         let mut writer = self.writer.lock().expect("Failed to lock writer");
         match writer.write(&buffer) {
@@ -96,19 +39,23 @@ impl Connection for ConnectionImpl {
         property: &str,
         unresolved_value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
-        let operation = "update"; // used for error messages
         let resolved_value; // not used directly, only exists for lifetime reasons
         let (object, value) = {
             let mut objects = self.objects.lock().expect("Failed to read object map");
-            let object = Self::resolve_object(&mut objects, entity, operation)?;
-            resolved_value = Self::resolve_value(&mut objects, unresolved_value);
+            let object = objects.get_object(entity).ok_or_else(|| {
+                format!(
+                    "property_changed() with entity {:?} not in object map",
+                    entity
+                )
+            })?;
+            resolved_value = objects.resolve(unresolved_value);
             let value = resolved_value.as_ref().unwrap_or(unresolved_value);
             (object, value)
         };
         let buffer = self
             .encoder
             .encode_property_update(object, property, value)?;
-        self.write_buffer(&buffer, operation)?;
+        self.write_buffer(&buffer, "update")?;
         Ok(())
     }
 
