@@ -1,1 +1,12 @@
-pub trait Session: Send {}
+use std::{error::Error, fmt::Debug};
+
+pub trait SessionBuilder: Send {
+    fn build(
+        self: Box<Self>,
+        handle_incoming_data: Box<dyn Fn(&[u8]) -> () + Send>,
+    ) -> Result<Box<dyn Session>, Box<dyn Error>>;
+}
+
+pub trait Session: Send + Debug {
+    fn send(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>>;
+}

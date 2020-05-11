@@ -11,12 +11,12 @@ use super::*;
 
 fn try_to_accept_connections(
     listener: &TcpListener,
-    new_session_tx: &Sender<Box<dyn Session>>,
+    new_session_tx: &Sender<Box<dyn SessionBuilder>>,
 ) -> Result<(), Box<dyn Error>> {
     loop {
         match listener.accept() {
-            Ok((stream, peer_addr)) => {
-                let session = TcpSession::new(stream, peer_addr)?;
+            Ok((stream, _)) => {
+                let session = TcpSessionBuilder::new(stream);
                 if let Err(e) = new_session_tx.send(Box::new(session)) {
                     eprintln!("Failed to send TCP session: {}", e);
                 }
@@ -35,7 +35,7 @@ pub struct TcpServer {
 
 impl TcpServer {
     pub fn new(
-        new_session_tx: Sender<Box<dyn Session>>,
+        new_session_tx: Sender<Box<dyn SessionBuilder>>,
         requested_addr: Option<IpAddr>,
         requested_port: Option<u16>,
     ) -> Result<Self, Box<dyn Error>> {
@@ -108,7 +108,7 @@ mod tests {
             let _server = TcpServer::new(tx, LOOPBACK, None).expect("failed to create TCP server");
             thread::sleep(SHORT_TIME);
         });
-        let sessions: Vec<Box<dyn Session>> = rx.try_iter().collect();
+        let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
         assert_eq!(sessions.len(), 0);
     }
 
@@ -120,7 +120,7 @@ mod tests {
             let _client = TcpStream::connect(&server.address).expect("failed to connect");
             thread::sleep(SHORT_TIME);
         });
-        let sessions: Vec<Box<dyn Session>> = rx.try_iter().collect();
+        let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
         assert_eq!(sessions.len(), 1);
     }
 
@@ -136,7 +136,7 @@ mod tests {
             let _client_d = TcpStream::connect(&server.address).expect("failed to connect");
             thread::sleep(SHORT_TIME);
         });
-        let sessions: Vec<Box<dyn Session>> = rx.try_iter().collect();
+        let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
         assert_eq!(sessions.len(), 4);
     }
 }

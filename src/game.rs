@@ -5,7 +5,7 @@ use std::sync::mpsc::{channel, Receiver};
 use crate::body::Body;
 use crate::connection::new_json_connection;
 use crate::god::create_god;
-use crate::network::{Server, Session, TcpServer};
+use crate::network::{Server, SessionBuilder, TcpServer};
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
 use crate::ship::create_ship;
 use crate::state::State;
@@ -17,7 +17,7 @@ pub struct Game {
     /// The entire game state
     state: State,
     servers: Vec<Box<dyn Server>>,
-    new_session_rx: Receiver<Box<dyn Session>>,
+    new_session_rx: Receiver<Box<dyn SessionBuilder>>,
 }
 
 impl Game {
