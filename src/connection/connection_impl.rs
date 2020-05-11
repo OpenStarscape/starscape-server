@@ -193,7 +193,7 @@ mod tests {
         let o = conn.objects.lock().unwrap().register_entity(e[0]);
         conn.property_changed(e[0], "foo", &value)
             .expect("Error updating property");
-        assert_eq!(encoder.borrow().log, vec![(o, "foo".to_owned(), value)],);
+        assert_eq!(encoder.borrow().log, vec![(o, "foo".to_owned(), value)]);
     }
 
     #[test]
@@ -211,26 +211,6 @@ mod tests {
     }
 
     #[test]
-    fn resolves_the_same_entity_multiple_times() {
-        let test = Test::new();
-        test.conn
-            .property_changed(test.entity, "foo", &Entity(test.entities[0]))
-            .expect("Error updating property");
-        test.conn
-            .property_changed(test.entity, "bar", &Entity(test.entities[0]))
-            .expect("Error updating property");
-        let obj_0 = test.lookup_obj_0();
-        assert_ne!(test.obj_id, obj_0);
-        assert_eq!(
-            test.proto.borrow().log,
-            vec![
-                (test.obj_id, "foo".to_owned(), Integer(obj_0 as i64)),
-                (test.obj_id, "bar".to_owned(), Integer(obj_0 as i64))
-            ]
-        );
-    }
-
-    #[test]
     fn resolves_list_of_entites_to_object_ids() {
         let test = Test::new();
         test.conn
@@ -240,81 +220,6 @@ mod tests {
         assert_eq!(
             test.proto.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), obj_ids.into())]
-        );
-    }
-
-    #[test]
-    fn resolves_list_with_entity_and_other_stuff() {
-        let test = Test::new();
-        test.conn
-            .property_changed(
-                test.entity,
-                "foo",
-                &List(vec![Integer(42), Entity(test.entities[0]), Null]),
-            )
-            .expect("Error updating property");
-        let obj_0 = test.lookup_obj_0();
-        assert_eq!(
-            test.proto.borrow().log,
-            vec![(
-                test.obj_id,
-                "foo".to_owned(),
-                List(vec![Integer(42), Integer(obj_0 as i64), Null])
-            )],
-        );
-    }
-
-    #[test]
-    fn resolves_list_with_single_entity() {
-        let test = Test::new();
-        test.conn
-            .property_changed(test.entity, "foo", &List(vec![Entity(test.entities[0])]))
-            .expect("Error updating property");
-        let obj_0 = test.lookup_obj_0();
-        assert_eq!(
-            test.proto.borrow().log,
-            vec![(
-                test.obj_id,
-                "foo".to_owned(),
-                List(vec![Integer(obj_0 as i64),])
-            )],
-        );
-    }
-
-    #[test]
-    fn resolves_nested_lists_with_entities() {
-        let test = Test::new();
-        test.conn
-            .property_changed(
-                test.entity,
-                "foo",
-                &List(vec![
-                    List(vec![List(vec![
-                        Entity(test.entities[1]),
-                        Entity(test.entities[2]),
-                        Null,
-                    ])]),
-                    Integer(42),
-                    Entity(test.entities[0]),
-                ]),
-            )
-            .expect("Error updating property");
-        let obj_ids = test.lookup_obj_ids();
-        assert_eq!(
-            test.proto.borrow().log,
-            vec![(
-                test.obj_id,
-                "foo".to_owned(),
-                List(vec![
-                    List(vec![List(vec![
-                        Integer(obj_ids[1] as i64),
-                        Integer(obj_ids[2] as i64),
-                        Null,
-                    ]),]),
-                    Integer(42),
-                    Integer(obj_ids[0] as i64),
-                ]),
-            )],
         );
     }
 }
