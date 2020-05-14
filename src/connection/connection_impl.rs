@@ -1,31 +1,75 @@
-use std::error::Error;
-use std::io::Write;
-use std::sync::Mutex;
+use std::{
+    error::Error,
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Mutex,
+    },
+};
 
 use super::*;
-use crate::state::{ConnectionKey, State};
-use crate::EntityKey;
+use crate::{
+    network::{Session, SessionBuilder},
+    state::{ConnectionKey, State},
+};
+
+struct IncomingHandler {
+    connection_key: ConnectionKey,
+    decoder: Box<dyn Decoder>,
+    request_tx: Sender<Request>,
+}
+
+impl IncomingHandler {
+    pub fn handle_incoming_data(&mut self, data: &[u8]) {
+        match self.decoder.decode(data.to_owned()) {
+            Ok(requests) => {
+                requests.into_iter().for_each(|request| {
+                    // dropping requests is fine if the channel is disconnected
+                    let _ = self.request_tx.send(request);
+                });
+            }
+            Err(e) => {
+                eprintln!("Error decoding incoming data: {}", e);
+                // TODO: kill session?
+            }
+        }
+    }
+}
 
 pub struct ConnectionImpl {
     self_key: ConnectionKey,
     encoder: Box<dyn Encoder>,
     objects: Mutex<ObjectMap>,
-    writer: Mutex<Box<dyn Write>>,
+    session: Mutex<Box<dyn Session>>,
+    request_rx: Receiver<Request>,
 }
 
 impl ConnectionImpl {
-    pub fn new(self_key: ConnectionKey, encoder: Box<dyn Encoder>, writer: Box<dyn Write>) -> Self {
-        Self {
+    pub fn new(
+        self_key: ConnectionKey,
+        encoder: Box<dyn Encoder>,
+        decoder: Box<dyn Decoder>,
+        session_builder: Box<dyn SessionBuilder>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (request_tx, request_rx) = channel();
+        let mut handler = IncomingHandler {
+            connection_key: self_key,
+            decoder,
+            request_tx,
+        };
+        let session =
+            session_builder.build(Box::new(move |data| handler.handle_incoming_data(data)))?;
+        Ok(Self {
             self_key,
             encoder,
             objects: Mutex::new(ObjectMap::new()),
-            writer: Mutex::new(writer),
-        }
+            session: Mutex::new(session),
+            request_rx,
+        })
     }
 
     fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
-        let mut writer = self.writer.lock().expect("Failed to lock writer");
-        match writer.write(&buffer) {
+        let mut session = self.session.lock().expect("Failed to lock writer");
+        match session.send(&buffer) {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("can not {}; error writing to writer: {}", operation, e).into()),
         }
@@ -82,7 +126,7 @@ impl Connection for ConnectionImpl {
         }
     }
 }
-
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,3 +267,4 @@ mod tests {
         );
     }
 }
+*/
