@@ -21,17 +21,19 @@ use json_protocol::*;
 use object_map::{ObjectId, ObjectMap};
 use request::*;
 
+use crate::network::SessionBuilder;
 use crate::state::EntityKey;
+use std::error::Error;
 
-/*
 pub fn new_json_connection(
     self_key: crate::state::ConnectionKey,
-    writer: Box<dyn std::io::Write>,
-) -> Box<dyn Connection> {
-    Box::new(ConnectionImpl::new(
+    session_builder: Box<dyn SessionBuilder>,
+) -> Result<Box<dyn Connection>, Box<dyn Error>> {
+    let conn = ConnectionImpl::new(
         self_key,
         Box::new(JsonEncoder::new()),
-        writer,
-    ))
+        Box::new(JsonDecoder::new()),
+        session_builder,
+    )?;
+    Ok(Box::new(conn))
 }
-*/
