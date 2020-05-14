@@ -3,7 +3,7 @@ use std::io;
 use std::sync::mpsc::{channel, Receiver};
 
 use crate::body::Body;
-//use crate::connection::new_json_connection;
+use crate::connection::new_json_connection;
 use crate::god::create_god;
 use crate::network::{Server, SessionBuilder, TcpServer};
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
@@ -30,12 +30,7 @@ impl Game {
             servers: Vec::new(),
             new_session_rx,
         };
-        /*let connection = game
-        .state
-        .connections
-        .insert_with_key(|key| new_json_connection(key, Box::new(io::stdout())));*/
         let god = create_god(&mut game.state);
-        //game.state.connections[connection].subscribe_to(&game.state, god, "bodies");
         let ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
         create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
         game.state.add_body(
@@ -44,7 +39,6 @@ impl Game {
                 .with_mass(1.0e+18)
                 .with_gravity(),
         );
-        //game.state.connections[connection].subscribe_to(&game.state, ship_a, "position");
         game.servers.push(Box::new(
             TcpServer::new(new_session_tx, None, None).expect("failed to create TCP server"),
         ));
@@ -54,6 +48,14 @@ impl Game {
     /// Runs a single iteration of the game loop
     /// Returns if to continue the game
     pub fn step(&mut self) -> bool {
+        while let Ok(session_builder) = self.new_session_rx.try_recv() {
+            //println!("New session: {:?}", session_builder);
+            let _ = self.state.connections.insert_with_key(|key| {
+                new_json_connection(key, session_builder)
+                    .expect("Failed to create connection, TODO: this should be a non-fatal error")
+            });
+        }
+
         println!(" -- Game time: {}", self.state.time);
 
         apply_gravity(&mut self.state, self.step_dt);
