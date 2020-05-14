@@ -23,6 +23,7 @@ use request::*;
 
 use crate::state::EntityKey;
 
+/*
 pub fn new_json_connection(
     self_key: crate::state::ConnectionKey,
     writer: Box<dyn std::io::Write>,
@@ -33,3 +34,4 @@ pub fn new_json_connection(
         writer,
     ))
 }
+*/

@@ -9,7 +9,7 @@ use super::*;
 
 fn try_to_read_data(
     stream: &mut TcpStream,
-    handle_incoming_data: &dyn Fn(&[u8]) -> (),
+    handle_incoming_data: &mut dyn FnMut(&[u8]) -> (),
 ) -> Result<(), Box<dyn Error>> {
     let mut buffer = [0 as u8; 1024];
     loop {
@@ -41,10 +41,10 @@ impl TcpSessionBuilder {
 impl SessionBuilder for TcpSessionBuilder {
     fn build(
         self: Box<Self>,
-        handle_incoming_data: Box<dyn Fn(&[u8]) -> () + Send>,
+        mut handle_incoming_data: Box<dyn FnMut(&[u8]) -> () + Send>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
         let thread = new_mio_poll_thread(self.stream.try_clone()?, move |listener| {
-            try_to_read_data(listener, &*handle_incoming_data)
+            try_to_read_data(listener, &mut *handle_incoming_data)
         })?;
         Ok(Box::new(TcpSession {
             stream: self.stream,
