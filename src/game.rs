@@ -1,5 +1,9 @@
 use cgmath::*;
-use std::sync::mpsc::{channel, Receiver};
+use std::{
+    sync::mpsc::{channel, Receiver},
+    thread::sleep,
+    time::Duration,
+};
 
 use crate::body::Body;
 use crate::connection::new_json_connection;
@@ -9,9 +13,11 @@ use crate::physics::{apply_collisions, apply_gravity, apply_motion};
 use crate::ship::create_ship;
 use crate::state::State;
 
+const STEPS_PER_SEC: u64 = 30;
+
 pub struct Game {
     should_quit: bool,
-    /// Delta-time for each game step
+    /// In-game delta-time for each game step
     step_dt: f64,
     /// The entire game state
     state: State,
@@ -24,7 +30,7 @@ impl Game {
         let (new_session_tx, new_session_rx) = channel();
         let mut game = Game {
             should_quit: false,
-            step_dt: 1.0 / 60.0,
+            step_dt: 1.0 / STEPS_PER_SEC as f64,
             state: State::new(),
             servers: Vec::new(),
             new_session_rx,
@@ -63,11 +69,11 @@ impl Game {
     /// Runs a single iteration of the game loop
     /// Returns if to continue the game
     pub fn step(&mut self) -> bool {
+        sleep(Duration::from_micros(1_000_000 / STEPS_PER_SEC));
+
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_build_connection(session_builder);
         }
-
-        println!(" -- Game time: {}", self.state.time);
 
         apply_gravity(&mut self.state, self.step_dt);
         apply_collisions(&self.state, self.step_dt);
@@ -90,7 +96,7 @@ impl Game {
         }
 
         self.state.time += self.step_dt;
-        if self.state.time > 10.0 {
+        if self.state.time > 20.0 {
             self.should_quit = true;
         }
         !self.should_quit
