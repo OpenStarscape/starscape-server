@@ -28,6 +28,7 @@ fn try_to_read_data(
     }
 }
 
+#[derive(Debug)]
 pub struct TcpSessionBuilder {
     stream: TcpStream,
 }

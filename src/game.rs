@@ -1,5 +1,4 @@
 use cgmath::*;
-use std::io;
 use std::sync::mpsc::{channel, Receiver};
 
 use crate::body::Body;
@@ -45,15 +44,27 @@ impl Game {
         game
     }
 
+    // TODO: abstract this out and test it
+    fn try_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
+        eprintln!("New session: {:?}", builder);
+        // hack to get around slotmap only giving us a key after creation
+        let key = self.state.connections.insert(Box::new(()));
+        match new_json_connection(key, builder) {
+            Ok(c) => {
+                self.state.connections[key] = c;
+            }
+            Err(e) => {
+                self.state.connections.remove(key);
+                eprintln!("Error building connection: {}", e);
+            }
+        }
+    }
+
     /// Runs a single iteration of the game loop
     /// Returns if to continue the game
     pub fn step(&mut self) -> bool {
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
-            //println!("New session: {:?}", session_builder);
-            let _ = self.state.connections.insert_with_key(|key| {
-                new_json_connection(key, session_builder)
-                    .expect("Failed to create connection, TODO: this should be a non-fatal error")
-            });
+            self.try_build_connection(session_builder);
         }
 
         println!(" -- Game time: {}", self.state.time);

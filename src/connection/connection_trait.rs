@@ -13,3 +13,16 @@ pub trait Connection {
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
     fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str);
 }
+
+/// Used when we need a slotmap key before creating a connection
+impl Connection for () {
+    fn property_changed(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
+        panic!("property_changed() called on stub connection");
+    }
+    fn entity_destroyed(&self, _: &State, _: EntityKey) {
+        panic!("entity_destroyed() called on stub connection");
+    }
+    fn subscribe_to(&self, _: &State, _: EntityKey, _: &str) {
+        panic!("subscribe_to() called on stub connection");
+    }
+}
