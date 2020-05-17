@@ -1,12 +1,12 @@
+mod listener;
 mod mio_poll_thread;
-mod server;
 mod session;
-mod tcp_server;
+mod tcp_listener;
 mod tcp_session;
 
-pub use server::Server;
+pub use listener::Listener;
 pub use session::{Session, SessionBuilder};
-pub use tcp_server::TcpServer;
+pub use tcp_listener::TcpListener;
 
 use mio_poll_thread::new_mio_poll_thread;
 use tcp_session::TcpSessionBuilder;
