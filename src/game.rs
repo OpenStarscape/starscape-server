@@ -8,7 +8,7 @@ use std::{
 use crate::body::Body;
 use crate::connection::new_json_connection;
 use crate::god::create_god;
-use crate::network::{Server, SessionBuilder, TcpServer};
+use crate::network::{Listener, SessionBuilder, TcpListener};
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
 use crate::ship::create_ship;
 use crate::state::State;
@@ -21,7 +21,7 @@ pub struct Game {
     step_dt: f64,
     /// The entire game state
     state: State,
-    servers: Vec<Box<dyn Server>>,
+    servers: Vec<Box<dyn Listener>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
 }
 
@@ -45,7 +45,7 @@ impl Game {
                 .with_gravity(),
         );
         game.servers.push(Box::new(
-            TcpServer::new(new_session_tx, None, None).expect("failed to create TCP server"),
+            TcpListener::new(new_session_tx, None, None).expect("failed to create TCP server"),
         ));
         game
     }

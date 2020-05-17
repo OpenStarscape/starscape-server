@@ -1,4 +1,3 @@
-use mio::net::TcpListener;
 use std::{
     error::Error,
     fmt::{Debug, Formatter},
@@ -10,7 +9,7 @@ use std::{
 use super::*;
 
 fn try_to_accept_connections(
-    listener: &TcpListener,
+    listener: &mio::net::TcpListener,
     new_session_tx: &Sender<Box<dyn SessionBuilder>>,
 ) -> Result<(), Box<dyn Error>> {
     loop {
@@ -28,12 +27,12 @@ fn try_to_accept_connections(
     }
 }
 
-pub struct TcpServer {
+pub struct TcpListener {
     address: SocketAddr,
     _mio_poll_thread: Box<dyn Drop>,
 }
 
-impl TcpServer {
+impl TcpListener {
     pub fn new(
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
         requested_addr: Option<IpAddr>,
@@ -43,7 +42,7 @@ impl TcpServer {
         for i in 0..20 {
             let port = requested_port.unwrap_or(55_000 + i * 10);
             let socket_addr = SocketAddr::new(addr, port);
-            match TcpListener::bind(&socket_addr) {
+            match mio::net::TcpListener::bind(&socket_addr) {
                 Ok(listener) => {
                     let thread = new_mio_poll_thread(listener, move |listener| {
                         try_to_accept_connections(listener, &new_session_tx)
@@ -66,13 +65,13 @@ impl TcpServer {
     }
 }
 
-impl Debug for TcpServer {
+impl Debug for TcpListener {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "TcpServer on {:?}", self.address)
+        write!(f, "TcpListener on {:?}", self.address)
     }
 }
 
-impl Server for TcpServer {}
+impl Listener for TcpListener {}
 
 #[cfg(test)]
 mod tests {
@@ -84,11 +83,15 @@ mod tests {
     const SHORT_TIME: Duration = Duration::from_millis(20);
     const LOOPBACK: Option<IpAddr> = Some(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
 
+    fn build(tx: Sender<Box<dyn SessionBuilder>>) -> TcpListener {
+        TcpListener::new(tx, LOOPBACK, None).expect("failed to create TCP listener")
+    }
+
     #[test]
     fn can_start_and_stop_immediately() {
         run_with_timeout(|| {
             let (tx, _rx) = channel();
-            let _server = TcpServer::new(tx, LOOPBACK, None).expect("failed to create TCP server");
+            let _listener = build(tx);
         });
     }
 
@@ -96,7 +99,7 @@ mod tests {
     fn can_start_and_stop_with_pause() {
         let (tx, _rx) = channel();
         run_with_timeout(move || {
-            let _server = TcpServer::new(tx, LOOPBACK, None).expect("failed to create TCP server");
+            let _listener = build(tx);
             thread::sleep(SHORT_TIME);
         });
     }
@@ -105,7 +108,7 @@ mod tests {
     fn does_not_create_session_by_default() {
         let (tx, rx) = channel();
         run_with_timeout(|| {
-            let _server = TcpServer::new(tx, LOOPBACK, None).expect("failed to create TCP server");
+            let _listener = build(tx);
             thread::sleep(SHORT_TIME);
         });
         let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
@@ -116,8 +119,8 @@ mod tests {
     fn ceates_session_on_connection() {
         let (tx, rx) = channel();
         run_with_timeout(|| {
-            let server = TcpServer::new(tx, LOOPBACK, None).expect("failed to create TCP server");
-            let _client = TcpStream::connect(&server.address).expect("failed to connect");
+            let listener = build(tx);
+            let _client = TcpStream::connect(&listener.address).expect("failed to connect");
             thread::sleep(SHORT_TIME);
         });
         let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
@@ -128,12 +131,12 @@ mod tests {
     fn can_create_multiple_sessions() {
         let (tx, rx) = channel();
         run_with_timeout(|| {
-            let server = TcpServer::new(tx, LOOPBACK, None).expect("failed to create TCP server");
-            let _client_a = TcpStream::connect(&server.address).expect("failed to connect");
-            let _client_b = TcpStream::connect(&server.address).expect("failed to connect");
-            let _client_c = TcpStream::connect(&server.address).expect("failed to connect");
+            let listener = build(tx);
+            let _client_a = TcpStream::connect(&listener.address).expect("failed to connect");
+            let _client_b = TcpStream::connect(&listener.address).expect("failed to connect");
+            let _client_c = TcpStream::connect(&listener.address).expect("failed to connect");
             thread::sleep(SHORT_TIME);
-            let _client_d = TcpStream::connect(&server.address).expect("failed to connect");
+            let _client_d = TcpStream::connect(&listener.address).expect("failed to connect");
             thread::sleep(SHORT_TIME);
         });
         let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
