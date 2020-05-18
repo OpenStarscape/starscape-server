@@ -12,8 +12,8 @@ pub enum RequestData {
 }
 
 pub struct Request {
-    connection: ConnectionKey,
-    data: RequestData,
+    pub connection: ConnectionKey,
+    pub data: RequestData,
 }
 
 impl Request {

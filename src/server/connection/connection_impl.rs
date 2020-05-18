@@ -1,9 +1,6 @@
 use std::{
     error::Error,
-    sync::{
-        mpsc::{channel, Receiver, Sender},
-        Mutex,
-    },
+    sync::{mpsc::Sender, Mutex},
 };
 
 use super::*;
@@ -131,8 +128,7 @@ mod tests {
     use super::*;
     use crate::state::mock_keys;
     use slotmap::Key;
-    use std::cell::RefCell;
-    use std::rc::Rc;
+    use std::{cell::RefCell, rc::Rc, sync::mpsc::channel};
     use Encodable::*;
 
     struct MockEncoder {
