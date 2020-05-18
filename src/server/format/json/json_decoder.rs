@@ -61,7 +61,7 @@ impl JsonDecoder {
         Ok((obj, prop))
     }
 
-    fn decode_datagram(&self, bytes: &[u8]) -> Result<Request, Box<dyn Error>> {
+    fn decode_datagram(&self, bytes: &[u8]) -> Result<RequestData, Box<dyn Error>> {
         // serde doesn't handle internally tagged enums terribly well
         // (https://github.com/serde-rs/serde/issues/1495)
         // and this is unlikely to be a bottleneck so easier to just deserialize into a Value
@@ -75,7 +75,7 @@ impl JsonDecoder {
             .as_str()
             .ok_or("request type is not a string")?;
         Ok(match mtype {
-            "set" => Request::Set(
+            "set" => RequestData::Set(
                 Self::decode_obj_prop(&datagram)?,
                 datagram
                     .get("value")
@@ -83,16 +83,16 @@ impl JsonDecoder {
                     .clone()
                     .try_into()?,
             ),
-            "get" => Request::Get(Self::decode_obj_prop(&datagram)?),
-            "subscribe" => Request::Subscribe(Self::decode_obj_prop(&datagram)?),
-            "unsubscribe" => Request::Unsubscribe(Self::decode_obj_prop(&datagram)?),
+            "get" => RequestData::Get(Self::decode_obj_prop(&datagram)?),
+            "subscribe" => RequestData::Subscribe(Self::decode_obj_prop(&datagram)?),
+            "unsubscribe" => RequestData::Unsubscribe(Self::decode_obj_prop(&datagram)?),
             _ => return Err("request has invalid mtype".into()),
         })
     }
 }
 
 impl Decoder for JsonDecoder {
-    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<Request>, Box<dyn Error>> {
+    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<RequestData>, Box<dyn Error>> {
         let mut requests = Vec::new();
         for datagram in self.splitter.data(bytes) {
             requests.push(self.decode_datagram(&datagram)?);
@@ -104,8 +104,9 @@ impl Decoder for JsonDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use RequestData::*;
 
-    fn assert_results_in_request(json: &str, request: Request) {
+    fn assert_results_in_request(json: &str, request: RequestData) {
         let mut decoder = JsonDecoder::new();
         let result = decoder
             .decode(json.as_bytes().to_owned())
@@ -132,7 +133,7 @@ mod tests {
                 \"object\": 42, \
                 \"property\": \"foobar\" \
             }\n",
-            Request::Get((42, "foobar".to_owned())),
+            Get((42, "foobar".to_owned())),
         );
     }
 
@@ -145,7 +146,7 @@ mod tests {
                 \"property\": \"xyz\", \
 				\"value\": null \
             }\n",
-            Request::Set((17, "xyz".to_owned()), Decodable::Null),
+            Set((17, "xyz".to_owned()), Decodable::Null),
         );
     }
 
@@ -157,7 +158,7 @@ mod tests {
                 \"object\": 38, \
                 \"property\": \"abc\" \
             }\n",
-            Request::Subscribe((38, "abc".to_owned())),
+            Subscribe((38, "abc".to_owned())),
         );
     }
 
@@ -169,7 +170,7 @@ mod tests {
                 \"object\": 38, \
                 \"property\": \"abc\" \
             }\n",
-            Request::Unsubscribe((38, "abc".to_owned())),
+            Unsubscribe((38, "abc".to_owned())),
         );
     }
 
@@ -205,9 +206,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Request::Get((42, "foobar".to_owned())),
-                Request::Set((102, "abc".to_owned()), Decodable::Integer(12)),
-                Request::Subscribe((17, "xyz".to_owned()))
+                Get((42, "foobar".to_owned())),
+                Set((102, "abc".to_owned()), Decodable::Integer(12)),
+                Subscribe((17, "xyz".to_owned()))
             ]
         );
     }
@@ -237,9 +238,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Request::Get((42, "foobar".to_owned())),
-                Request::Set((102, "abc".to_owned()), Decodable::Integer(12)),
-                Request::Subscribe((17, "xyz".to_owned()))
+                Get((42, "foobar".to_owned())),
+                Set((102, "abc".to_owned()), Decodable::Integer(12)),
+                Subscribe((17, "xyz".to_owned()))
             ]
         );
     }
@@ -277,9 +278,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Request::Get((42, "foobar".to_owned())),
-                Request::Set((102, "abc".to_owned()), Decodable::Integer(12)),
-                Request::Subscribe((17, "xyz".to_owned()))
+                Get((42, "foobar".to_owned())),
+                Set((102, "abc".to_owned()), Decodable::Integer(12)),
+                Subscribe((17, "xyz".to_owned()))
             ]
         );
     }

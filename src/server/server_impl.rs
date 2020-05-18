@@ -12,6 +12,8 @@ pub struct ServerImpl {
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
     _listeners: Vec<Box<dyn Listener>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
+    request_tx: Sender<Request>,
+    request_rx: Receiver<Request>,
 }
 
 impl ServerImpl {
@@ -20,10 +22,13 @@ impl ServerImpl {
         F: Fn(Sender<Box<dyn SessionBuilder>>) -> Vec<Box<dyn Listener>>,
     {
         let (new_session_tx, new_session_rx) = channel();
+        let (request_tx, request_rx) = channel();
         ServerImpl {
             connections: DenseSlotMap::with_key(),
             _listeners: build_listeners(new_session_tx),
             new_session_rx,
+            request_tx,
+            request_rx,
         }
     }
 }
@@ -34,7 +39,7 @@ impl ServerImpl {
         // hack to get around slotmap only giving us a key after creation
         let key = self.connections.insert(Box::new(()));
         let (encoder, decoder) = json_protocol_impls();
-        match ConnectionImpl::new(key, encoder, decoder, builder) {
+        match ConnectionImpl::new(key, encoder, decoder, builder, self.request_tx.clone()) {
             Ok(c) => {
                 self.connections[key] = Box::new(c);
             }
