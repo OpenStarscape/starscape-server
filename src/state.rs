@@ -35,9 +35,9 @@ pub struct State {
     pub properties: DenseSlotMap<PropertyKey, Box<dyn Property>>,
 }
 
-impl State {
-    pub fn new() -> Self {
-        State {
+impl Default for State {
+    fn default() -> Self {
+        Self {
             time: 0.0,
             entities: DenseSlotMap::with_key(),
             bodies: Store::new(DenseSlotMap::with_key()),
@@ -46,6 +46,12 @@ impl State {
             pending_updates: RwLock::new(HashSet::new()),
             properties: DenseSlotMap::with_key(),
         }
+    }
+}
+
+impl State {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Add a body to the game state

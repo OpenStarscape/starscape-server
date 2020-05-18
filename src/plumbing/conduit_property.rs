@@ -198,7 +198,7 @@ mod tests {
         Rc<RefCell<MockConduit>>,
         ConduitProperty,
     ) {
-        let mut state = State::new();
+        let state = State::new();
         let entity_keys = mock_keys(1);
         let mock_sink = MockSink::new();
         let conn_keys = mock_keys(1);

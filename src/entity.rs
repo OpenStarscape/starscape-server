@@ -14,12 +14,18 @@ pub struct Entity {
     properties: HashMap<&'static str, PropertyKey>,
 }
 
-impl Entity {
-    pub fn new() -> Self {
+impl Default for Entity {
+    fn default() -> Self {
         Self {
             components: Vec::new(),
             properties: HashMap::new(),
         }
+    }
+}
+
+impl Entity {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Called by the state
