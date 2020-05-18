@@ -15,7 +15,7 @@ pub use conduit::Conduit;
 pub use property::Property;
 pub use store::Store;
 
-use crate::connection::Encodable;
+use crate::server::Encodable;
 use crate::state::{EntityKey, State};
 
 pub fn new_conduit_property(

@@ -3,9 +3,9 @@ use std::collections::HashSet;
 use std::sync::RwLock;
 
 use crate::body::Body;
-use crate::connection::Connection;
 use crate::entity::Entity;
 use crate::plumbing::{Property, Store};
+use crate::server::Connection;
 use crate::ship::Ship;
 
 new_key_type! {

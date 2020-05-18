@@ -1,5 +1,5 @@
 use super::{Conduit, Store};
-use crate::connection::Encodable;
+use crate::server::Encodable;
 use crate::state::{PropertyKey, State};
 
 /// Connects a store to a server property
