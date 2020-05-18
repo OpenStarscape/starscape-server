@@ -5,7 +5,6 @@ use std::sync::RwLock;
 use crate::body::Body;
 use crate::entity::Entity;
 use crate::plumbing::{Property, Store};
-use crate::server::Connection;
 use crate::ship::Ship;
 
 new_key_type! {
@@ -13,7 +12,6 @@ new_key_type! {
     pub struct BodyKey;
     pub struct ShipKey;
     pub struct PropertyKey;
-    pub struct ConnectionKey;
 }
 
 pub type PendingUpdates = RwLock<HashSet<PropertyKey>>;
@@ -35,8 +33,6 @@ pub struct State {
     pub pending_updates: PendingUpdates,
     /// Object properties that may be subscribed to changes
     pub properties: DenseSlotMap<PropertyKey, Box<dyn Property>>,
-    /// Network connections to clients
-    pub connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
 }
 
 impl State {
@@ -49,7 +45,6 @@ impl State {
             ships: DenseSlotMap::with_key(),
             pending_updates: RwLock::new(HashSet::new()),
             properties: DenseSlotMap::with_key(),
-            connections: DenseSlotMap::with_key(),
         }
     }
 
@@ -93,7 +88,6 @@ impl State {
         assert!(self.ships.is_empty());
         // pending_updates intentionally not checked
         assert!(self.properties.is_empty());
-        assert!(self.connections.is_empty());
     }
 }
 
