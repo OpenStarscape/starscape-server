@@ -9,24 +9,28 @@ use std::{
 use super::*;
 use crate::{EntityKey, State};
 
-struct IncomingHandler {
+struct IncomingDataHandler {
     connection_key: ConnectionKey,
     decoder: Box<dyn Decoder>,
     request_tx: Sender<Request>,
 }
 
-impl IncomingHandler {
+impl IncomingDataHandler {
     pub fn handle_incoming_data(&mut self, data: &[u8]) {
         match self.decoder.decode(data.to_owned()) {
             Ok(requests) => {
-                requests.into_iter().for_each(|request| {
+                requests.into_iter().for_each(|data| {
                     // dropping requests is fine if the channel is disconnected
-                    let _ = self.request_tx.send(request);
+                    let _ = self
+                        .request_tx
+                        .send(Request::new(self.connection_key, data));
                 });
             }
             Err(e) => {
                 eprintln!("Error decoding incoming data: {}", e);
-                // TODO: kill session?
+                let _ = self
+                    .request_tx
+                    .send(Request::new(self.connection_key, RequestData::Close));
             }
         }
     }
@@ -37,7 +41,6 @@ pub struct ConnectionImpl {
     encoder: Box<dyn Encoder>,
     objects: Mutex<ObjectMap>,
     session: Mutex<Box<dyn Session>>,
-    request_rx: Receiver<Request>,
 }
 
 impl ConnectionImpl {
@@ -46,9 +49,9 @@ impl ConnectionImpl {
         encoder: Box<dyn Encoder>,
         decoder: Box<dyn Decoder>,
         session_builder: Box<dyn SessionBuilder>,
+        request_tx: Sender<Request>,
     ) -> Result<Self, Box<dyn Error>> {
-        let (request_tx, request_rx) = channel();
-        let mut handler = IncomingHandler {
+        let mut handler = IncomingDataHandler {
             connection_key: self_key,
             decoder,
             request_tx,
@@ -60,7 +63,6 @@ impl ConnectionImpl {
             encoder,
             objects: Mutex::new(ObjectMap::new()),
             session: Mutex::new(session),
-            request_rx,
         })
     }
 
@@ -160,7 +162,7 @@ mod tests {
     struct MockDecoder;
 
     impl Decoder for MockDecoder {
-        fn decode(&mut self, _bytes: Vec<u8>) -> Result<Vec<Request>, Box<dyn Error>> {
+        fn decode(&mut self, _bytes: Vec<u8>) -> Result<Vec<RequestData>, Box<dyn Error>> {
             panic!("unexpected call");
         }
     }
@@ -197,11 +199,13 @@ mod tests {
     impl Test {
         fn new() -> Self {
             let encoder = MockEncoder::new();
+            let (tx, _) = channel();
             let conn = ConnectionImpl::new(
                 ConnectionKey::null(),
                 Box::new(encoder.clone()),
                 Box::new(MockDecoder),
                 Box::new(MockSessionBuilder),
+                tx,
             )
             .expect("failed to construct connection");
             let mut entities = mock_keys(4);
@@ -255,11 +259,13 @@ mod tests {
     #[test]
     fn serializes_list_property_update() {
         let encoder = MockEncoder::new();
+        let (tx, _) = channel();
         let conn = ConnectionImpl::new(
             ConnectionKey::null(),
             Box::new(encoder.clone()),
             Box::new(MockDecoder),
             Box::new(MockSessionBuilder),
+            tx,
         )
         .expect("failed to construct connection");
         let e = mock_keys(1);
