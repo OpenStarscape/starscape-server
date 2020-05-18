@@ -10,7 +10,7 @@ new_key_type! {
 
 pub struct ServerImpl {
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
-    listeners: Vec<Box<dyn Listener>>,
+    _listeners: Vec<Box<dyn Listener>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
 }
 
@@ -24,7 +24,7 @@ impl ServerImpl {
         };
         ServerImpl {
             connections: DenseSlotMap::with_key(),
-            listeners,
+            _listeners: listeners,
             new_session_rx,
         }
     }

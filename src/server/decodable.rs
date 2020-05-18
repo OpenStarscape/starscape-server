@@ -4,12 +4,11 @@ use std::fmt::Debug;
 use crate::state::EntityKey;
 
 /// A value received from a client
-/// Prefer to use the accessor methods or simply .decode() rather than matching on directly
+/// Prefer the accessor methods or simply .decode() rather than matching directly
 #[derive(Debug, PartialEq, Clone)]
 pub enum Decodable {
     Scaler(f64),
     Integer(i64),
-    Entity(EntityKey),
     List(Vec<Decodable>),
     Null,
 }
@@ -31,6 +30,7 @@ impl Decodable {
             _ => Err(format!("{:?} is not a 3D vector", self)),
         }
     }
+
     pub fn scaler(&self) -> DecodableResult<f64> {
         match self {
             Decodable::Scaler(value) => Ok(*value),
@@ -38,6 +38,7 @@ impl Decodable {
             _ => Err(format!("{:?} is not a number", self)),
         }
     }
+
     pub fn integer(&self) -> DecodableResult<i64> {
         match self {
             Decodable::Scaler(value) => Ok(*value as i64),
@@ -45,16 +46,20 @@ impl Decodable {
             _ => Err(format!("{:?} is not a number", self)),
         }
     }
+
     pub fn entity(&self) -> DecodableResult<EntityKey> {
         // TODO: include an option object map Arc with the integer
         Err(format!("{:?} is not an object", self))
     }
+
+    #[allow(dead_code)]
     pub fn list<'a>(&'a self) -> DecodableResult<Box<dyn Iterator<Item = &Decodable> + 'a>> {
         match self {
             Decodable::List(list) => Ok(Box::new(list.iter())),
             _ => Err(format!("{:?} is not a list", self)),
         }
     }
+
     pub fn is_null(&self) -> bool {
         match self {
             Decodable::Null => true,

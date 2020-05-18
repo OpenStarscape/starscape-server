@@ -1,5 +1,4 @@
 use serde::ser::{SerializeStruct, Serializer};
-use serde_json::Value;
 use std::error::Error;
 
 use super::*;
@@ -34,6 +33,7 @@ impl Encoder for JsonEncoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
 
     fn assert_json_eq(message: &[u8], json: &str) {
         let expected: Value = serde_json::from_str(json).expect("failed to parse test JSON");

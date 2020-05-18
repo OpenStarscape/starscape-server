@@ -41,8 +41,8 @@ pub struct Body {
     pub controller: Box<dyn Controller>,
 }
 
-impl Body {
-    pub fn new() -> Self {
+impl Default for Body {
+    fn default() -> Self {
         Self {
             entity: EntityKey::null(),
             position: Store::new(Point3::origin()),
@@ -52,6 +52,12 @@ impl Body {
             gravity_well: Store::new(false),
             controller: Box::new(()),
         }
+    }
+}
+
+impl Body {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn with_entity(mut self, entity: EntityKey) -> Self {

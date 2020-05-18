@@ -27,8 +27,8 @@ impl Game {
             state: State::new(),
             server: Server::new_impl(),
         };
-        let god = create_god(&mut game.state);
-        let ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
+        let _god = create_god(&mut game.state);
+        let _ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
         create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
         game.state.add_body(
             Body::new()
