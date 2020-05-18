@@ -84,19 +84,25 @@ mod tests {
     use super::*;
     use std::sync::{Arc, Mutex, Weak};
 
-    impl Session for () {
+    #[derive(Debug)]
+    struct MockSession;
+
+    impl Session for MockSession {
         fn send(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
             panic!("Unecpected call");
         }
     }
 
-    impl SessionBuilder for bool {
+    #[derive(Debug)]
+    struct MockSessionBuilder(bool);
+
+    impl SessionBuilder for MockSessionBuilder {
         fn build(
             self: Box<Self>,
             _handle_incoming_data: Box<dyn FnMut(&[u8]) -> () + Send>,
         ) -> Result<Box<dyn Session>, Box<dyn Error>> {
-            if *self {
-                Ok(Box::new(()))
+            if self.0 {
+                Ok(Box::new(MockSession))
             } else {
                 Err("Session builder is supposed to error for test".into())
             }
@@ -135,7 +141,7 @@ mod tests {
             *new_session_tx.lock().unwrap() = Some(tx);
             vec![]
         });
-        let builder: Box<dyn SessionBuilder> = Box::new(true);
+        let builder = Box::new(MockSessionBuilder(true));
         new_session_tx
             .lock()
             .unwrap()
@@ -156,8 +162,8 @@ mod tests {
             *new_session_tx.lock().unwrap() = Some(tx);
             vec![]
         });
-        // Creating session will fails because false    vvvvv
-        let builder: Box<dyn SessionBuilder> = Box::new(false);
+        // False means building session will fail vvvvv
+        let builder = Box::new(MockSessionBuilder(false));
         new_session_tx
             .lock()
             .unwrap()

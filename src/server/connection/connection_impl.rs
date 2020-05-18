@@ -123,7 +123,7 @@ impl Connection for ConnectionImpl {
         }
     }
 }
-/*
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -157,8 +157,37 @@ mod tests {
         }
     }
 
+    struct MockDecoder;
+
+    impl Decoder for MockDecoder {
+        fn decode(&mut self, _bytes: Vec<u8>) -> Result<Vec<Request>, Box<dyn Error>> {
+            panic!("unexpected call");
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockSession;
+
+    impl Session for MockSession {
+        fn send(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
+            Ok(())
+        }
+    }
+
+    #[derive(Debug)]
+    struct MockSessionBuilder;
+
+    impl SessionBuilder for MockSessionBuilder {
+        fn build(
+            self: Box<Self>,
+            _handle_incoming_data: Box<dyn FnMut(&[u8]) -> () + Send>,
+        ) -> Result<Box<dyn Session>, Box<dyn Error>> {
+            Ok(Box::new(MockSession))
+        }
+    }
+
     struct Test {
-        proto: Rc<RefCell<MockEncoder>>,
+        encoder: Rc<RefCell<MockEncoder>>,
         conn: ConnectionImpl,
         entity: EntityKey,
         obj_id: ObjectId,
@@ -167,17 +196,19 @@ mod tests {
 
     impl Test {
         fn new() -> Self {
-            let proto = MockEncoder::new();
+            let encoder = MockEncoder::new();
             let conn = ConnectionImpl::new(
                 ConnectionKey::null(),
-                Box::new(proto.clone()),
-                Box::new(Vec::new()),
-            );
+                Box::new(encoder.clone()),
+                Box::new(MockDecoder),
+                Box::new(MockSessionBuilder),
+            )
+            .expect("failed to construct connection");
             let mut entities = mock_keys(4);
             let entity = entities.pop().unwrap();
             let obj_id = conn.objects.lock().unwrap().register_entity(entity);
             Self {
-                proto,
+                encoder,
                 conn,
                 entity,
                 obj_id,
@@ -216,7 +247,7 @@ mod tests {
             .property_changed(test.entity, "foo", &Scaler(12.5))
             .expect("Error updating property");
         assert_eq!(
-            test.proto.borrow().log,
+            test.encoder.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), Scaler(12.5))]
         );
     }
@@ -227,8 +258,10 @@ mod tests {
         let conn = ConnectionImpl::new(
             ConnectionKey::null(),
             Box::new(encoder.clone()),
-            Box::new(Vec::new()),
-        );
+            Box::new(MockDecoder),
+            Box::new(MockSessionBuilder),
+        )
+        .expect("failed to construct connection");
         let e = mock_keys(1);
         let value = List(vec![Integer(7), Integer(12)]);
         let o = conn.objects.lock().unwrap().register_entity(e[0]);
@@ -246,7 +279,7 @@ mod tests {
         let obj_0 = test.lookup_obj_0();
         assert_ne!(test.obj_id, obj_0);
         assert_eq!(
-            test.proto.borrow().log,
+            test.encoder.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), Integer(obj_0 as i64))]
         );
     }
@@ -259,9 +292,8 @@ mod tests {
             .expect("Error updating property");
         let obj_ids = test.lookup_obj_ids();
         assert_eq!(
-            test.proto.borrow().log,
+            test.encoder.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), obj_ids.into())]
         );
     }
 }
-*/
