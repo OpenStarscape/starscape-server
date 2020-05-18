@@ -47,6 +47,7 @@ impl TcpListener {
                     let thread = new_mio_poll_thread(listener, move |listener| {
                         try_to_accept_connections(listener, &new_session_tx)
                     })?;
+                    eprintln!("Created TCP listener on {}", socket_addr);
                     return Ok(Self {
                         address: socket_addr,
                         _mio_poll_thread: thread,
