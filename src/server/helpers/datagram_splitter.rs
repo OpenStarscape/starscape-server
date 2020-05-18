@@ -24,7 +24,7 @@ impl DatagramSplitter {
             .chain(datagrams.map(|d| d.to_owned()))
             .collect();
         self.pending_data = result.pop().unwrap();
-        result
+        result.into_iter().filter(|d| !d.is_empty()).collect()
     }
 }
 
@@ -54,11 +54,6 @@ mod decoder_tests {
     #[test]
     fn single_datagram() {
         assert_splits_to(vec![("abc|", vec!["abc"])]);
-    }
-
-    #[test]
-    fn start_with_delimiter_makes_empty() {
-        assert_splits_to(vec![("|", vec![""])]);
     }
 
     #[test]
@@ -97,5 +92,20 @@ mod decoder_tests {
             ("", vec![]),
             ("z|", vec!["xyz"]),
         ]);
+    }
+
+    #[test]
+    fn start_with_delimiter_is_ignored() {
+        assert_splits_to(vec![("|", vec![])]);
+    }
+
+    #[test]
+    fn ignores_empty_datagram() {
+        assert_splits_to(vec![("abc||", vec!["abc"])]);
+    }
+
+    #[test]
+    fn ignores_empty_datagrams_across_multiple_calls() {
+        assert_splits_to(vec![("abc|", vec!["abc"]), ("|xyz|||", vec!["xyz"])]);
     }
 }
