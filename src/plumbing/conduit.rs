@@ -1,4 +1,4 @@
-use crate::connection::Encodable;
+use crate::server::Encodable;
 use crate::state::{PropertyKey, State};
 
 /// The interface between a property and the state

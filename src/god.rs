@@ -1,6 +1,6 @@
-use crate::connection::Encodable;
 use crate::entity::Entity;
 use crate::plumbing::{new_conduit_property, Conduit};
+use crate::server::Encodable;
 use crate::state::{EntityKey, PropertyKey, State};
 
 struct BodyListConduit {}

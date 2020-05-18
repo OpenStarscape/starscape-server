@@ -2,7 +2,7 @@ use std::error::Error;
 use std::sync::{Mutex, RwLock};
 
 use super::{Conduit, Property};
-use crate::connection::Encodable;
+use crate::server::Encodable;
 use crate::state::{ConnectionKey, EntityKey, PropertyKey, State};
 
 /// The default property implementation
@@ -103,7 +103,7 @@ impl Property for ConduitProperty {
 #[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use crate::connection::Connection;
+    use crate::server::Connection;
     use crate::state::mock_keys;
     use std::cell::RefCell;
     use std::rc::Rc;

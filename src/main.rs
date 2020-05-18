@@ -2,13 +2,12 @@
 extern crate slotmap;
 
 mod body;
-mod connection;
 mod entity;
 mod game;
 mod god;
-mod network;
 mod physics;
 mod plumbing;
+mod server;
 mod ship;
 mod state;
 mod util;

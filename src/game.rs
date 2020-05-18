@@ -6,10 +6,10 @@ use std::{
 };
 
 use crate::body::Body;
-use crate::connection::new_json_connection;
 use crate::god::create_god;
-use crate::network::{Listener, SessionBuilder, TcpListener};
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
+use crate::server::new_json_connection;
+use crate::server::{Listener, SessionBuilder, TcpListener};
 use crate::ship::create_ship;
 use crate::state::State;
 
