@@ -25,7 +25,7 @@ impl Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
             state: State::new(),
-            server: Server::new_impl(),
+            server: Server::new_impl(true),
         };
         let _god = create_god(&mut game.state);
         let _ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
