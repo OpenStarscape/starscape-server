@@ -7,6 +7,7 @@ use std::{
 };
 
 use super::*;
+use crate::{EntityKey, State};
 
 struct IncomingHandler {
     connection_key: ConnectionKey,

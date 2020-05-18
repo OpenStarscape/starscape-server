@@ -12,7 +12,7 @@ mod ship;
 mod state;
 mod util;
 
-pub use state::EntityKey;
+pub use state::{EntityKey, State};
 
 pub const EPSILON: f64 = 0.000_001;
 

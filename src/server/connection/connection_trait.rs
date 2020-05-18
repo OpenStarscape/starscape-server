@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use super::*;
 use crate::state::{EntityKey, State};
 

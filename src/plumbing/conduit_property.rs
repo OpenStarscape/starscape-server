@@ -2,8 +2,10 @@ use std::error::Error;
 use std::sync::{Mutex, RwLock};
 
 use super::{Conduit, Property};
-use crate::server::Encodable;
-use crate::state::{ConnectionKey, EntityKey, PropertyKey, State};
+use crate::{
+    server::{ConnectionKey, Encodable, PropertyUpdateSink},
+    state::{EntityKey, PropertyKey, State},
+};
 
 /// The default property implementation
 pub struct ConduitProperty {
@@ -36,7 +38,11 @@ impl ConduitProperty {
 }
 
 impl Property for ConduitProperty {
-    fn send_updates(&self, state: &State) -> Result<(), Box<dyn Error>> {
+    fn send_updates(
+        &self,
+        state: &State,
+        sink: &dyn PropertyUpdateSink,
+    ) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
         let mut cached = self
             .cached_value
@@ -46,17 +52,12 @@ impl Property for ConduitProperty {
             *cached = value.clone();
             let subscribers = self.subscribers.read().expect("Failed to read subscribers");
             for connection_key in &*subscribers {
-                if let Some(connection) = state.connections.get(*connection_key) {
-                    if let Err(e) = connection.property_changed(self.entity, self.name, &value) {
-                        eprintln!(
-                            "Error updating property {:?}.{}: {}",
-                            self.entity, self.name, e
-                        );
-                    }
-                } else {
+                if let Err(e) =
+                    sink.property_changed(*connection_key, self.entity, self.name, &value)
+                {
                     eprintln!(
-                        "Error updating property {:?}.{}: connection {:?} has died",
-                        self.entity, self.name, connection_key
+                        "Error updating property {:?}.{}: {}",
+                        self.entity, self.name, e
                     );
                 }
             }
@@ -103,40 +104,32 @@ impl Property for ConduitProperty {
 #[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use crate::server::Connection;
     use crate::state::mock_keys;
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    struct MockConnection {
-        log: Vec<(EntityKey, String, Encodable)>,
+    struct MockSink {
+        log: Vec<(ConnectionKey, EntityKey, String, Encodable)>,
     }
 
-    impl MockConnection {
+    impl MockSink {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self { log: Vec::new() }))
         }
     }
 
-    impl Connection for Rc<RefCell<MockConnection>> {
+    impl PropertyUpdateSink for Rc<RefCell<MockSink>> {
         fn property_changed(
             &self,
+            connection: ConnectionKey,
             entity: EntityKey,
             property: &str,
             value: &Encodable,
         ) -> Result<(), Box<dyn Error>> {
             self.borrow_mut()
                 .log
-                .push((entity, property.to_owned(), value.clone()));
+                .push((connection, entity, property.to_owned(), value.clone()));
             Ok(())
-        }
-
-        fn entity_destroyed(&self, _state: &State, _entity: EntityKey) {
-            panic!("Unexpected call");
-        }
-
-        fn subscribe_to(&self, _state: &State, _entity: EntityKey, _property: &str) {
-            panic!("Unexpected call");
         }
     }
 
@@ -200,15 +193,15 @@ mod tests {
     fn setup_with_connection() -> (
         State,
         EntityKey,
-        Rc<RefCell<MockConnection>>,
+        Rc<RefCell<MockSink>>,
         ConnectionKey,
         Rc<RefCell<MockConduit>>,
         ConduitProperty,
     ) {
         let mut state = State::new();
         let entity_keys = mock_keys(1);
-        let mock_conn = MockConnection::new();
-        let conn_key = state.connections.insert(Box::new(mock_conn.clone()));
+        let mock_sink = MockSink::new();
+        let conn_keys = mock_keys(1);
         let prop_keys = mock_keys(1);
         let conduit = MockConduit::new();
         let property = ConduitProperty::new(
@@ -220,8 +213,8 @@ mod tests {
         (
             state,
             entity_keys[0],
-            mock_conn,
-            conn_key,
+            mock_sink,
+            conn_keys[0],
             conduit,
             property,
         )
@@ -308,53 +301,73 @@ mod tests {
 
     #[test]
     fn when_updated_sends_correct_data() {
-        let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
+        let (state, entity_key, mock_sink, conn_key, conduit, property) = setup_with_connection();
         property.subscribers.write().unwrap().push(conn_key);
         conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
         property
-            .send_updates(&state)
+            .send_updates(&state, &mock_sink)
             .expect("failed to send updates");
         assert_eq!(
-            mock_conn.borrow().log,
-            vec![(entity_key, "foo".to_owned(), Encodable::Integer(42))]
+            mock_sink.borrow().log,
+            vec![(
+                conn_key,
+                entity_key,
+                "foo".to_owned(),
+                Encodable::Integer(42)
+            )]
         );
     }
 
     #[test]
     fn sends_multiple_values_on_change() {
-        let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
+        let (state, entity_key, mock_sink, conn_key, conduit, property) = setup_with_connection();
         property.subscribers.write().unwrap().push(conn_key);
         conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
         property
-            .send_updates(&state)
+            .send_updates(&state, &mock_sink)
             .expect("failed to send updates");
         conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(69));
         property
-            .send_updates(&state)
+            .send_updates(&state, &mock_sink)
             .expect("failed to send updates");
         assert_eq!(
-            mock_conn.borrow().log,
+            mock_sink.borrow().log,
             vec![
-                (entity_key, "foo".to_owned(), Encodable::Integer(42)),
-                (entity_key, "foo".to_owned(), Encodable::Integer(69)),
+                (
+                    conn_key,
+                    entity_key,
+                    "foo".to_owned(),
+                    Encodable::Integer(42)
+                ),
+                (
+                    conn_key,
+                    entity_key,
+                    "foo".to_owned(),
+                    Encodable::Integer(69)
+                ),
             ]
         );
     }
 
     #[test]
     fn does_not_send_same_data_twice() {
-        let (state, entity_key, mock_conn, conn_key, conduit, property) = setup_with_connection();
+        let (state, entity_key, mock_sink, conn_key, conduit, property) = setup_with_connection();
         property.subscribers.write().unwrap().push(conn_key);
         conduit.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
         property
-            .send_updates(&state)
+            .send_updates(&state, &mock_sink)
             .expect("failed to send updates");
         property
-            .send_updates(&state)
+            .send_updates(&state, &mock_sink)
             .expect("failed to send updates");
         assert_eq!(
-            mock_conn.borrow().log,
-            vec![(entity_key, "foo".to_owned(), Encodable::Integer(42))]
+            mock_sink.borrow().log,
+            vec![(
+                conn_key,
+                entity_key,
+                "foo".to_owned(),
+                Encodable::Integer(42)
+            )]
         );
     }
 }
