@@ -69,9 +69,6 @@ impl Game {
         }
 
         self.state.time += self.step_dt;
-        if self.state.time > 20.0 {
-            self.should_quit = true;
-        }
         !self.should_quit
     }
 }
