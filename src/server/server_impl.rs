@@ -69,25 +69,33 @@ impl PropertyUpdateSink for ServerImpl {
 }
 
 impl Server for ServerImpl {
-    fn apply_updates(&mut self, _state: &mut State) {
+    fn apply_updates(&mut self, state: &mut State) {
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_build_connection(session_builder);
         }
         while let Ok(request) = self.request_rx.try_recv() {
-            match request.data {
-                RequestData::Set((obj, prop), value) => {
-                    eprintln!("{}.{} requested set to {:?}", obj, prop, value);
+            match request.request {
+                ConnectionRequest::Property((obj, prop), action) => {
+                    if let Some(connection) = self.connections.get(request.connection) {
+                        match action {
+                            PropertyRequest::Set(value) => {
+                                eprintln!("Request: set {}.{} to {:?}", obj, prop, value);
+                            }
+                            PropertyRequest::Get => {
+                                eprintln!("Request: get {}.{}", obj, prop);
+                            }
+                            PropertyRequest::Subscribe => {
+                                eprintln!("Request: subscribe to {}.{}", obj, prop);
+                            }
+                            PropertyRequest::Unsubscribe => {
+                                eprintln!("Request: unsubscribe from {}.{}", obj, prop);
+                            }
+                        }
+                    } else {
+                        eprintln!("Request on invalid connection: {:?}", request.connection);
+                    }
                 }
-                RequestData::Get((obj, prop)) => {
-                    eprintln!("Requested get of {}.{}", obj, prop);
-                }
-                RequestData::Subscribe((obj, prop)) => {
-                    eprintln!("Requested subscribe on {}.{}", obj, prop);
-                }
-                RequestData::Unsubscribe((obj, prop)) => {
-                    eprintln!("Requested unsubscribe on {}.{}", obj, prop);
-                }
-                RequestData::Close => {
+                ConnectionRequest::Close => {
                     eprintln!("Closing connection {:?}", request.connection);
                     self.connections.remove(request.connection);
                 }

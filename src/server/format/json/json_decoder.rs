@@ -61,7 +61,18 @@ impl JsonDecoder {
         Ok((obj, prop))
     }
 
-    fn decode_datagram(&self, bytes: &[u8]) -> Result<RequestData, Box<dyn Error>> {
+    fn wrap_property_request(
+        &self,
+        datagram: &serde_json::map::Map<String, Value>,
+        property_request: PropertyRequest,
+    ) -> Result<ConnectionRequest, Box<dyn Error>> {
+        Ok(ConnectionRequest::Property(
+            Self::decode_obj_prop(&datagram)?,
+            property_request,
+        ))
+    }
+
+    fn decode_datagram(&self, bytes: &[u8]) -> Result<ConnectionRequest, Box<dyn Error>> {
         // serde doesn't handle internally tagged enums terribly well
         // (https://github.com/serde-rs/serde/issues/1495)
         // and this is unlikely to be a bottleneck so easier to just deserialize into a Value
@@ -75,24 +86,26 @@ impl JsonDecoder {
             .as_str()
             .ok_or("request type is not a string")?;
         Ok(match mtype {
-            "set" => RequestData::Set(
-                Self::decode_obj_prop(&datagram)?,
-                datagram
-                    .get("value")
-                    .ok_or("set request does not have a value")?
-                    .clone()
-                    .try_into()?,
-            ),
-            "get" => RequestData::Get(Self::decode_obj_prop(&datagram)?),
-            "subscribe" => RequestData::Subscribe(Self::decode_obj_prop(&datagram)?),
-            "unsubscribe" => RequestData::Unsubscribe(Self::decode_obj_prop(&datagram)?),
+            "set" => self.wrap_property_request(
+                &datagram,
+                PropertyRequest::Set(
+                    datagram
+                        .get("value")
+                        .ok_or("set request does not have a value")?
+                        .clone()
+                        .try_into()?,
+                ),
+            )?,
+            "get" => self.wrap_property_request(&datagram, PropertyRequest::Get)?,
+            "subscribe" => self.wrap_property_request(&datagram, PropertyRequest::Subscribe)?,
+            "unsubscribe" => self.wrap_property_request(&datagram, PropertyRequest::Unsubscribe)?,
             _ => return Err("request has invalid mtype".into()),
         })
     }
 }
 
 impl Decoder for JsonDecoder {
-    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<RequestData>, Box<dyn Error>> {
+    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<ConnectionRequest>, Box<dyn Error>> {
         let mut requests = Vec::new();
         for datagram in self.splitter.data(bytes) {
             requests.push(self.decode_datagram(&datagram)?);
@@ -104,9 +117,10 @@ impl Decoder for JsonDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use RequestData::*;
+    use ConnectionRequest::*;
+    use PropertyRequest::*;
 
-    fn assert_results_in_request(json: &str, request: RequestData) {
+    fn assert_results_in_request(json: &str, request: ConnectionRequest) {
         let mut decoder = JsonDecoder::new();
         let result = decoder
             .decode(json.as_bytes().to_owned())
@@ -133,7 +147,7 @@ mod tests {
                 \"object\": 42, \
                 \"property\": \"foobar\" \
             }\n",
-            Get((42, "foobar".to_owned())),
+            Property((42, "foobar".to_owned()), Get),
         );
     }
 
@@ -146,7 +160,7 @@ mod tests {
                 \"property\": \"xyz\", \
 				\"value\": null \
             }\n",
-            Set((17, "xyz".to_owned()), Decodable::Null),
+            Property((17, "xyz".to_owned()), Set(Decodable::Null)),
         );
     }
 
@@ -158,7 +172,7 @@ mod tests {
                 \"object\": 38, \
                 \"property\": \"abc\" \
             }\n",
-            Subscribe((38, "abc".to_owned())),
+            Property((38, "abc".to_owned()), Subscribe),
         );
     }
 
@@ -170,7 +184,7 @@ mod tests {
                 \"object\": 38, \
                 \"property\": \"abc\" \
             }\n",
-            Unsubscribe((38, "abc".to_owned())),
+            Property((38, "abc".to_owned()), Unsubscribe),
         );
     }
 
@@ -206,9 +220,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Get((42, "foobar".to_owned())),
-                Set((102, "abc".to_owned()), Decodable::Integer(12)),
-                Subscribe((17, "xyz".to_owned()))
+                Property((42, "foobar".to_owned()), Get),
+                Property((102, "abc".to_owned()), Set(Decodable::Integer(12))),
+                Property((17, "xyz".to_owned()), Subscribe)
             ]
         );
     }
@@ -238,9 +252,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Get((42, "foobar".to_owned())),
-                Set((102, "abc".to_owned()), Decodable::Integer(12)),
-                Subscribe((17, "xyz".to_owned()))
+                Property((42, "foobar".to_owned()), Get),
+                Property((102, "abc".to_owned()), Set(Decodable::Integer(12))),
+                Property((17, "xyz".to_owned()), Subscribe)
             ]
         );
     }
@@ -278,9 +292,9 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Get((42, "foobar".to_owned())),
-                Set((102, "abc".to_owned()), Decodable::Integer(12)),
-                Subscribe((17, "xyz".to_owned()))
+                Property((42, "foobar".to_owned()), Get),
+                Property((102, "abc".to_owned()), Set(Decodable::Integer(12))),
+                Property((17, "xyz".to_owned()), Subscribe)
             ]
         );
     }

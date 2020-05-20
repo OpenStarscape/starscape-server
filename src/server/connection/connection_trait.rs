@@ -9,7 +9,7 @@ pub trait Connection {
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>>;
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
-    fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str);
+    fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey>;
 }
 
 /// Used when we need a slotmap key before creating a connection
@@ -20,7 +20,7 @@ impl Connection for () {
     fn entity_destroyed(&self, _: &State, _: EntityKey) {
         panic!("entity_destroyed() called on stub connection");
     }
-    fn subscribe_to(&self, _: &State, _: EntityKey, _: &str) {
-        panic!("subscribe_to() called on stub connection");
+    fn object_to_entity(&self, _: ObjectId) -> Option<EntityKey> {
+        panic!("object_to_entity() called on stub connection");
     }
 }

@@ -27,7 +27,7 @@ impl IncomingDataHandler {
                 eprintln!("Error decoding incoming data: {}", e);
                 let _ = self
                     .request_tx
-                    .send(Request::new(self.connection_key, RequestData::Close));
+                    .send(Request::new(self.connection_key, ConnectionRequest::Close));
             }
         }
     }
@@ -107,19 +107,11 @@ impl Connection for ConnectionImpl {
         // TODO: tell client object was destroyed
     }
 
-    fn subscribe_to(&self, state: &State, entity: EntityKey, property: &str) {
-        {
-            let mut objects = self.objects.lock().expect("Failed to read object map");
-            if objects.get_object(entity).is_none() {
-                objects.register_entity(entity);
-            }
-        }
-        let conduit = state.entities[entity]
-            .property(property)
-            .expect("Invalid property");
-        if let Err(e) = state.properties[conduit].subscribe(state, self.self_key) {
-            eprintln!("Error subscribing: {}", e);
-        }
+    fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey> {
+        self.objects
+            .lock()
+            .expect("Failed to write to object map")
+            .get_entity(object)
     }
 }
 
@@ -158,7 +150,7 @@ mod tests {
     struct MockDecoder;
 
     impl Decoder for MockDecoder {
-        fn decode(&mut self, _bytes: Vec<u8>) -> Result<Vec<RequestData>, Box<dyn Error>> {
+        fn decode(&mut self, _bytes: Vec<u8>) -> Result<Vec<ConnectionRequest>, Box<dyn Error>> {
             panic!("unexpected call");
         }
     }
