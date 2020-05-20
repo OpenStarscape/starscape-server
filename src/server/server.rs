@@ -1,3 +1,5 @@
+use std::{error::Error, sync::mpsc::Sender};
+
 use super::*;
 use crate::{EntityKey, State};
 
@@ -18,13 +20,20 @@ pub trait Server {
 }
 
 impl dyn Server {
+    fn new_tcp_listener(
+        new_session_tx: Sender<Box<dyn SessionBuilder>>,
+    ) -> Result<Box<dyn Listener>, Box<dyn Error>> {
+        let listener = TcpListener::new(new_session_tx, None, None)?;
+        Ok(Box::new(listener))
+    }
+
     pub fn new_impl(enable_tcp: bool) -> Box<dyn Server> {
         Box::new(ServerImpl::new(|new_session_tx| {
             let mut listeners: Vec<Box<dyn Listener>> = Vec::new();
             if enable_tcp {
-                match TcpListener::new(new_session_tx, None, None) {
-                    Ok(l) => listeners.push(Box::new(l)),
-                    Err(e) => eprintln!("Failed to create TCP server: {}", e),
+                match Self::new_tcp_listener(new_session_tx) {
+                    Ok(l) => listeners.push(l),
+                    Err(e) => eprintln!("Failed to create TCP listener: {}", e),
                 };
             }
             listeners
