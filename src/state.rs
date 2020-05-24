@@ -5,6 +5,7 @@ use std::sync::RwLock;
 use crate::body::Body;
 use crate::entity::Entity;
 use crate::plumbing::{Property, Store};
+use crate::server::{ConnectionKey, Decodable, Encodable, ServerState};
 use crate::ship::Ship;
 
 new_key_type! {
@@ -86,6 +87,21 @@ impl State {
         }
     }
 
+    fn get_property(&self, entity_key: EntityKey, property: &str) -> Result<&dyn Property, String> {
+        let entity = self
+            .entities
+            .get(entity_key)
+            .ok_or(format!("bad entity {:?}", entity_key))?;
+        let property_key = entity
+            .property(property)
+            .ok_or(format!("entity does not have property {:?}", property))?;
+        let property = self
+            .properties
+            .get(property_key)
+            .ok_or(format!("{:?}.{} deleted", entity_key, property))?;
+        Ok(&**property)
+    }
+
     #[cfg(test)]
     pub fn assert_is_empty(&self) {
         assert!(self.entities.is_empty());
@@ -94,6 +110,45 @@ impl State {
         assert!(self.ships.is_empty());
         // pending_updates intentionally not checked
         assert!(self.properties.is_empty());
+    }
+}
+
+impl ServerState for State {
+    fn set(&mut self, entity: EntityKey, property: &str, value: Decodable) -> Result<(), String> {
+        let _property = self.get_property(entity, property)?;
+        eprintln!(
+            "{:?}.{} = {:?} (set not implemented)",
+            entity, property, value
+        );
+        Err("set not implemented".into())
+    }
+
+    fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
+        let _property = self.get_property(entity, property)?;
+        eprintln!("{:?}.{} (get not implemented)", entity, property);
+        Err("get not implemented".into())
+    }
+
+    fn subscribe(
+        &mut self,
+        entity: EntityKey,
+        property: &str,
+        connection: ConnectionKey,
+    ) -> Result<(), String> {
+        let property = self.get_property(entity, property)?;
+        property.subscribe(self, connection)?;
+        Ok(())
+    }
+
+    fn unsubscribe(
+        &mut self,
+        entity: EntityKey,
+        property: &str,
+        connection: ConnectionKey,
+    ) -> Result<(), String> {
+        let property = self.get_property(entity, property)?;
+        property.unsubscribe(self, connection)?;
+        Ok(())
     }
 }
 
