@@ -17,12 +17,12 @@ pub enum ConnectionRequest {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Request {
+pub struct ServerRequest {
     pub connection: ConnectionKey,
     pub request: ConnectionRequest,
 }
 
-impl Request {
+impl ServerRequest {
     pub fn new(connection: ConnectionKey, request: ConnectionRequest) -> Self {
         Self {
             connection,
