@@ -9,7 +9,7 @@ use crate::{EntityKey, State};
 struct IncomingDataHandler {
     connection_key: ConnectionKey,
     decoder: Box<dyn Decoder>,
-    request_tx: Sender<Request>,
+    request_tx: Sender<ServerRequest>,
 }
 
 impl IncomingDataHandler {
@@ -20,14 +20,15 @@ impl IncomingDataHandler {
                     // dropping requests is fine if the channel is disconnected
                     let _ = self
                         .request_tx
-                        .send(Request::new(self.connection_key, data));
+                        .send(ServerRequest::new(self.connection_key, data));
                 });
             }
             Err(e) => {
                 eprintln!("Error decoding incoming data: {}", e);
-                let _ = self
-                    .request_tx
-                    .send(Request::new(self.connection_key, ConnectionRequest::Close));
+                let _ = self.request_tx.send(ServerRequest::new(
+                    self.connection_key,
+                    ConnectionRequest::Close,
+                ));
             }
         }
     }
@@ -46,7 +47,7 @@ impl ConnectionImpl {
         encoder: Box<dyn Encoder>,
         decoder: Box<dyn Decoder>,
         session_builder: Box<dyn SessionBuilder>,
-        request_tx: Sender<Request>,
+        request_tx: Sender<ServerRequest>,
     ) -> Result<Self, Box<dyn Error>> {
         let mut handler = IncomingDataHandler {
             connection_key: self_key,

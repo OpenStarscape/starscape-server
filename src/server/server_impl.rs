@@ -12,8 +12,8 @@ pub struct ServerImpl {
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
     _listeners: Vec<Box<dyn Listener>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
-    request_tx: Sender<Request>,
-    request_rx: Receiver<Request>,
+    request_tx: Sender<ServerRequest>,
+    request_rx: Receiver<ServerRequest>,
 }
 
 impl ServerImpl {
@@ -86,7 +86,7 @@ impl ServerImpl {
         Ok(())
     }
 
-    fn process_request(&mut self, state: &mut dyn ServerState, request: Request) {
+    fn process_request(&mut self, state: &mut dyn ServerState, request: ServerRequest) {
         match request.request {
             ConnectionRequest::Property((obj, prop), action) => {
                 if let Err(e) =
