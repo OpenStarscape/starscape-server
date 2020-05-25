@@ -31,6 +31,16 @@ impl ServerImpl {
             request_rx,
         }
     }
+
+    #[cfg(test)]
+    fn get_request_tx(&self) -> &Sender<ServerRequest> {
+        &self.request_tx
+    }
+
+    #[cfg(test)]
+    fn get_connections(&mut self) -> &mut DenseSlotMap<ConnectionKey, Box<dyn Connection>> {
+        &mut self.connections
+    }
 }
 
 impl ServerImpl {
@@ -144,6 +154,7 @@ impl Server for ServerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::mock_keys;
     use std::sync::{Arc, Mutex, Weak};
 
     #[derive(Debug)]
@@ -171,34 +182,75 @@ mod tests {
         }
     }
 
-    struct MockRequestHandler;
+    struct MockConnection(EntityKey);
+
+    impl Connection for MockConnection {
+        fn property_changed(
+            &self,
+            _entity: EntityKey,
+            _property: &str,
+            _value: &Encodable,
+        ) -> Result<(), Box<dyn Error>> {
+            Ok(())
+        }
+
+        fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
+
+        fn object_to_entity(&self, _object: ObjectId) -> Option<EntityKey> {
+            Some(self.0)
+        }
+    }
+
+    struct MockRequestHandler(Mutex<Vec<(String, EntityKey, String)>>);
+
+    impl Default for MockRequestHandler {
+        fn default() -> Self {
+            Self(Mutex::new(Vec::new()))
+        }
+    }
 
     impl RequestHandler for MockRequestHandler {
         fn set(
             &mut self,
-            _entity: EntityKey,
-            _property: &str,
+            entity: EntityKey,
+            property: &str,
             _value: Decodable,
         ) -> Result<(), String> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(("set".into(), entity, property.into()));
             Ok(())
         }
-        fn get(&self, _entity: EntityKey, _property: &str) -> Result<Encodable, String> {
+        fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(("get".into(), entity, property.into()));
             Ok(Encodable::Null)
         }
         fn subscribe(
             &mut self,
-            _entity: EntityKey,
-            _property: &str,
+            entity: EntityKey,
+            property: &str,
             _connection: ConnectionKey,
         ) -> Result<(), String> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(("subscribe".into(), entity, property.into()));
             Ok(())
         }
         fn unsubscribe(
             &mut self,
-            _entity: EntityKey,
-            _property: &str,
+            entity: EntityKey,
+            property: &str,
             _connection: ConnectionKey,
         ) -> Result<(), String> {
+            self.0
+                .lock()
+                .unwrap()
+                .push(("unsubscribe".into(), entity, property.into()));
             Ok(())
         }
     }
@@ -223,7 +275,7 @@ mod tests {
     fn has_no_connections_by_default() {
         let mut server = ServerImpl::new(|_| vec![]);
         assert_eq!(server.number_of_connections(), 0);
-        let mut handler = MockRequestHandler {};
+        let mut handler = MockRequestHandler::default();
         server.process_requests(&mut handler);
         assert_eq!(server.number_of_connections(), 0);
     }
@@ -243,7 +295,7 @@ mod tests {
             .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
-        let mut handler = MockRequestHandler {};
+        let mut handler = MockRequestHandler::default();
         assert_eq!(server.number_of_connections(), 0);
         server.process_requests(&mut handler);
         assert_eq!(server.number_of_connections(), 1);
@@ -265,8 +317,38 @@ mod tests {
             .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
-        let mut handler = MockRequestHandler {};
+        let mut handler = MockRequestHandler::default();
         server.process_requests(&mut handler);
         assert_eq!(server.number_of_connections(), 0);
+    }
+
+    #[test]
+    fn makes_requests() {
+        let mut server = ServerImpl::new(|_| vec![]);
+        let entities = mock_keys(1);
+        let conn_key = server
+            .get_connections()
+            .insert(Box::new(MockConnection(entities[0])));
+        for request in vec![
+            ServerRequest::new(
+                conn_key,
+                ConnectionRequest::Property((1, "foo".into()), PropertyRequest::Subscribe),
+            ),
+            ServerRequest::new(
+                conn_key,
+                ConnectionRequest::Property((1, "bar".into()), PropertyRequest::Get),
+            ),
+        ] {
+            server.get_request_tx().send(request).unwrap();
+        }
+        let mut handler = MockRequestHandler::default();
+        server.process_requests(&mut handler);
+        assert_eq!(
+            *handler.0.lock().unwrap(),
+            vec![
+                ("subscribe".into(), entities[0], "foo".into()),
+                ("get".into(), entities[0], "bar".into()),
+            ]
+        );
     }
 }
