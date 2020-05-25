@@ -1,4 +1,3 @@
-use crate::entity::Entity;
 use crate::plumbing::{new_conduit_property, Conduit};
 use crate::server::Encodable;
 use crate::state::{EntityKey, PropertyKey, State};
@@ -31,7 +30,7 @@ impl Conduit for BodyListConduit {
 }
 
 pub fn create_god(state: &mut State) -> EntityKey {
-    let entity = state.entities.insert(Entity::new());
+    let entity = state.entities.new_entity();
     new_conduit_property(state, entity, "bodies", Box::new(BodyListConduit {}));
     entity
 }
