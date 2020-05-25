@@ -2,7 +2,7 @@ use super::*;
 
 pub type ObjectProperty = (ObjectId, String);
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum PropertyRequest {
     Set(Decodable),
     Get,
@@ -10,13 +10,13 @@ pub enum PropertyRequest {
     Unsubscribe,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ConnectionRequest {
     Property(ObjectProperty, PropertyRequest),
     Close,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct ServerRequest {
     pub connection: ConnectionKey,
     pub request: ConnectionRequest,
