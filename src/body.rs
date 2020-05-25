@@ -1,7 +1,7 @@
 use cgmath::*;
 use slotmap::Key;
 
-use crate::plumbing::Store;
+use crate::plumbing::UpdateSource;
 use crate::state::{BodyKey, EntityKey, State};
 
 /// Collision shape
@@ -26,17 +26,17 @@ pub struct Body {
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
-    pub position: Store<Point3<f64>>,
+    pub position: UpdateSource<Point3<f64>>,
     /// Speed at which the object is moving (kilometers-per-second)
-    pub velocity: Store<Vector3<f64>>,
+    pub velocity: UpdateSource<Vector3<f64>>,
     /// Shape of this object (used for collision detection)
-    pub shape: Store<Shape>,
+    pub shape: UpdateSource<Shape>,
     /// Mass of this object (kilotonnes aka millions of kilograms)
-    pub mass: Store<f64>,
+    pub mass: UpdateSource<f64>,
     /// If this object should be a source of gravity
     /// Ideally all objects would have a gravitational effect on all other objects, but that is
     /// unnecessary and computationally expensive.
-    pub gravity_well: Store<bool>,
+    pub gravity_well: UpdateSource<bool>,
     /// The interface the physics system uses to talk to the controller of this object
     pub controller: Box<dyn Controller>,
 }
@@ -45,11 +45,11 @@ impl Default for Body {
     fn default() -> Self {
         Self {
             entity: EntityKey::null(),
-            position: Store::new(Point3::origin()),
-            velocity: Store::new(Vector3::zero()),
-            shape: Store::new(Shape::Point),
-            mass: Store::new(1.0),
-            gravity_well: Store::new(false),
+            position: UpdateSource::new(Point3::origin()),
+            velocity: UpdateSource::new(Vector3::zero()),
+            shape: UpdateSource::new(Shape::Point),
+            mass: UpdateSource::new(1.0),
+            gravity_well: UpdateSource::new(false),
             controller: Box::new(()),
         }
     }
@@ -66,27 +66,27 @@ impl Body {
     }
 
     pub fn with_position(mut self, position: Point3<f64>) -> Self {
-        self.position = Store::new(position);
+        self.position = UpdateSource::new(position);
         self
     }
 
     pub fn with_velocity(mut self, velocity: Vector3<f64>) -> Self {
-        self.velocity = Store::new(velocity);
+        self.velocity = UpdateSource::new(velocity);
         self
     }
 
     pub fn with_sphere_shape(mut self, radius: f64) -> Self {
-        self.shape = Store::new(Shape::Sphere { radius });
+        self.shape = UpdateSource::new(Shape::Sphere { radius });
         self
     }
 
     pub fn with_mass(mut self, mass: f64) -> Self {
-        self.mass = Store::new(mass);
+        self.mass = UpdateSource::new(mass);
         self
     }
 
     pub fn with_gravity(mut self) -> Self {
-        self.gravity_well = Store::new(true);
+        self.gravity_well = UpdateSource::new(true);
         self
     }
 

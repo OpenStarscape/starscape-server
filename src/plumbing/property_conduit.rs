@@ -1,26 +1,26 @@
-use super::{Conduit, Store};
+use super::{Conduit, UpdateSource};
 use crate::server::Encodable;
 use crate::state::{PropertyKey, State};
 
 /// Connects a store to a server property
-pub struct StoreConduit<F> {
+pub struct PropertyConduit<F> {
     store_getter: F,
 }
 
-impl<T, F> StoreConduit<F>
+impl<T, F> PropertyConduit<F>
 where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
+    for<'a> F: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
 {
     pub fn new(store_getter: F) -> Self {
         Self { store_getter }
     }
 }
 
-impl<T, F> Conduit for StoreConduit<F>
+impl<T, F> Conduit for PropertyConduit<F>
 where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
+    for<'a> F: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
 {
     fn get_value(&self, state: &State) -> Result<Encodable, String> {
         Ok((*(self.store_getter)(state)?).clone().into())

@@ -4,7 +4,7 @@ use std::sync::RwLock;
 
 use crate::body::Body;
 use crate::entity::Entity;
-use crate::plumbing::{Property, Store};
+use crate::plumbing::{Property, UpdateSource};
 use crate::server::{ConnectionKey, Decodable, Encodable, RequestHandler};
 use crate::ship::Ship;
 
@@ -24,7 +24,7 @@ pub struct State {
     /// An entity ties together the pieces of a complex object
     pub entities: DenseSlotMap<EntityKey, Entity>,
     /// All physics objects in the game
-    pub bodies: Store<DenseSlotMap<BodyKey, Body>>,
+    pub bodies: UpdateSource<DenseSlotMap<BodyKey, Body>>,
     /// Keys to the bodies which have a gravitational force
     /// For performence reasons, only significantly massive bodies should be included
     pub gravity_wells: Vec<BodyKey>,
@@ -41,7 +41,7 @@ impl Default for State {
         Self {
             time: 0.0,
             entities: DenseSlotMap::with_key(),
-            bodies: Store::new(DenseSlotMap::with_key()),
+            bodies: UpdateSource::new(DenseSlotMap::with_key()),
             gravity_wells: Vec::new(),
             ships: DenseSlotMap::with_key(),
             pending_updates: RwLock::new(HashSet::new()),

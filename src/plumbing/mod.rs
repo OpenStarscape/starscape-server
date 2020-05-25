@@ -4,16 +4,16 @@ mod conduit;
 mod conduit_property;
 mod notification_source;
 mod property;
-mod store;
-mod store_conduit;
+mod property_conduit;
+mod update_source;
 
 use conduit_property::ConduitProperty;
 use notification_source::NotificationSource;
-use store_conduit::StoreConduit;
+use property_conduit::PropertyConduit;
 
 pub use conduit::Conduit;
 pub use property::Property;
-pub use store::Store;
+pub use update_source::UpdateSource;
 
 use crate::server::Encodable;
 use crate::state::{EntityKey, State};
@@ -37,13 +37,13 @@ pub fn new_store_property<T, F: 'static>(
     store_getter: F,
 ) where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> F: Fn(&'a State) -> Result<&'a Store<T>, String>,
+    for<'a> F: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
 {
     new_conduit_property(
         state,
         entity,
         name,
-        Box::new(StoreConduit::new(store_getter)),
+        Box::new(PropertyConduit::new(store_getter)),
     )
 }
 
