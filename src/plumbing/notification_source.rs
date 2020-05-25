@@ -3,14 +3,14 @@ use std::sync::RwLock;
 
 use crate::state::{PendingUpdates, PropertyKey};
 
-pub struct UpdateSource {
+pub struct NotificationSource {
     // TODO: use an atomic bool to more quickly check if watchers is empty?
     /// The keys of watchers that want to be updated when value changes
     /// Is conceptually a set, but since length is almost always 0 or 1 use a low cost vec
     connections: RwLock<Vec<PropertyKey>>,
 }
 
-impl UpdateSource {
+impl NotificationSource {
     pub fn new() -> Self {
         Self {
             connections: RwLock::new(Vec::new()),
@@ -53,9 +53,9 @@ mod tests {
     use crate::state::mock_keys;
     use std::collections::HashSet;
 
-    fn setup() -> (UpdateSource, PendingUpdates, Vec<PropertyKey>) {
+    fn setup() -> (NotificationSource, PendingUpdates, Vec<PropertyKey>) {
         (
-            UpdateSource::new(),
+            NotificationSource::new(),
             RwLock::new(HashSet::new()),
             mock_keys(2),
         )

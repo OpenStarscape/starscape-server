@@ -2,14 +2,14 @@
 /// between the state and connections
 mod conduit;
 mod conduit_property;
+mod notification_source;
 mod property;
 mod store;
 mod store_conduit;
-mod update_source;
 
 use conduit_property::ConduitProperty;
+use notification_source::NotificationSource;
 use store_conduit::StoreConduit;
-use update_source::UpdateSource;
 
 pub use conduit::Conduit;
 pub use property::Property;

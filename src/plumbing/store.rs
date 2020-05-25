@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::ops::Deref;
 
-use super::UpdateSource;
+use super::NotificationSource;
 use crate::state::{PendingUpdates, PropertyKey};
 
 /// A value that can be connected to 0, 1 or more properties
@@ -9,20 +9,20 @@ use crate::state::{PendingUpdates, PropertyKey};
 /// Property keys are stored until it is time to dispatch all updates
 pub struct Store<T> {
     inner: T,
-    update_source: UpdateSource,
+    notification_source: NotificationSource,
 }
 
 impl<T> Store<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
-            update_source: UpdateSource::new(),
+            notification_source: NotificationSource::new(),
         }
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
     pub fn get_mut(&mut self, updates: &PendingUpdates) -> &mut T {
-        self.update_source.send_updates(updates);
+        self.notification_source.send_updates(updates);
         &mut self.inner
     }
 
@@ -33,11 +33,11 @@ impl<T> Store<T> {
     }
 
     pub fn connect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
-        self.update_source.connect(target)
+        self.notification_source.connect(target)
     }
 
     pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
-        self.update_source.disconnect(target)
+        self.notification_source.disconnect(target)
     }
 }
 
@@ -45,7 +45,7 @@ impl<T: PartialEq> Store<T> {
     pub fn set(&mut self, updates: &PendingUpdates, value: T) {
         if self.inner != value {
             self.inner = value;
-            self.update_source.send_updates(updates);
+            self.notification_source.send_updates(updates);
         }
     }
 }
