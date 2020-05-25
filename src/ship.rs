@@ -2,7 +2,6 @@ use cgmath::*;
 use std::sync::Mutex;
 
 use crate::body::{Body, Collision, Controller};
-use crate::entity::Entity;
 use crate::plumbing::new_store_property;
 use crate::state::{EntityKey, ShipKey, State};
 use crate::EPSILON;
@@ -79,7 +78,7 @@ impl Controller for ShipBodyController {
 }
 
 pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
-    let entity = state.entities.insert(Entity::new());
+    let entity = state.entities.new_entity();
     let ship = state.ships.insert(Ship::new(10.0));
     let body = state.add_body(
         Body::new()
@@ -88,8 +87,8 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
             .with_sphere_shape(1.0)
             .with_controller(Box::new(ShipBodyController { ship })),
     );
-    state.entities[entity].register_body(body);
-    state.entities[entity].register_ship(ship);
+    state.entities.register_body(entity, body);
+    state.entities.register_ship(entity, ship);
     new_store_property(state, entity, "position", move |state: &State| {
         Ok(&state.bodies[body].position)
     });

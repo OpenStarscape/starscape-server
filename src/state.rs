@@ -3,13 +3,14 @@ use std::collections::HashSet;
 use std::sync::RwLock;
 
 use crate::body::Body;
-use crate::entity::Entity;
+use crate::entity::EntityStore;
 use crate::plumbing::{Property, UpdateSource};
 use crate::server::{ConnectionKey, Decodable, Encodable, RequestHandler};
 use crate::ship::Ship;
 
+pub use crate::entity::EntityKey;
+
 new_key_type! {
-    pub struct EntityKey;
     pub struct BodyKey;
     pub struct ShipKey;
     pub struct PropertyKey;
@@ -21,8 +22,7 @@ pub type PendingUpdates = RwLock<HashSet<PropertyKey>>;
 pub struct State {
     /// Current time in seconds since the start of the game
     pub time: f64,
-    /// An entity ties together the pieces of a complex object
-    pub entities: DenseSlotMap<EntityKey, Entity>,
+    pub entities: Box<dyn EntityStore>,
     /// All physics objects in the game
     pub bodies: UpdateSource<DenseSlotMap<BodyKey, Body>>,
     /// Keys to the bodies which have a gravitational force
@@ -40,7 +40,7 @@ impl Default for State {
     fn default() -> Self {
         Self {
             time: 0.0,
-            entities: DenseSlotMap::with_key(),
+            entities: EntityStore::default_impl(),
             bodies: UpdateSource::new(DenseSlotMap::with_key()),
             gravity_wells: Vec::new(),
             ships: DenseSlotMap::with_key(),
@@ -88,13 +88,7 @@ impl State {
     }
 
     fn get_property(&self, entity_key: EntityKey, property: &str) -> Result<&dyn Property, String> {
-        let entity = self
-            .entities
-            .get(entity_key)
-            .ok_or(format!("bad entity {:?}", entity_key))?;
-        let property_key = entity
-            .property(property)
-            .ok_or(format!("entity does not have property {:?}", property))?;
+        let property_key = self.entities.property(entity_key, property)?;
         let property = self
             .properties
             .get(property_key)
@@ -104,7 +98,6 @@ impl State {
 
     #[cfg(test)]
     pub fn assert_is_empty(&self) {
-        assert!(self.entities.is_empty());
         assert!(self.bodies.is_empty());
         assert!(self.gravity_wells.is_empty());
         assert!(self.ships.is_empty());
