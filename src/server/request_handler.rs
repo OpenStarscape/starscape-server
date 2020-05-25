@@ -1,7 +1,7 @@
 use super::*;
 use crate::EntityKey;
 
-pub trait ServerState {
+pub trait RequestHandler {
     fn set(&mut self, entity: EntityKey, property: &str, value: Decodable) -> Result<(), String>;
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String>;
     fn subscribe(

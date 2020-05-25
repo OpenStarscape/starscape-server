@@ -14,7 +14,7 @@ pub trait PropertyUpdateSink {
 }
 
 pub trait Server {
-    fn apply_updates(&mut self, state: &mut dyn ServerState);
+    fn process_requests(&mut self, handler: &mut dyn RequestHandler);
     fn number_of_connections(&self) -> usize;
     fn property_update_sink(&self) -> &dyn PropertyUpdateSink;
 }

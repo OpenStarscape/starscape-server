@@ -52,7 +52,7 @@ impl ServerImpl {
 
     fn process_property_request(
         &self,
-        state: &mut dyn ServerState,
+        handler: &mut dyn RequestHandler,
         connection_key: ConnectionKey,
         object_id: ObjectId,
         property: &str,
@@ -67,30 +67,30 @@ impl ServerImpl {
             .ok_or("object not known to connection")?;
         match action {
             PropertyRequest::Set(value) => {
-                state.set(entity, property, value)?;
+                handler.set(entity, property, value)?;
             }
             PropertyRequest::Get => {
-                let value = state.get(entity, property)?;
+                let value = handler.get(entity, property)?;
                 eprintln!(
                     "get {}.{} returned {:?} (reply not implemented)",
                     object_id, property, value
                 );
             }
             PropertyRequest::Subscribe => {
-                state.subscribe(entity, property, connection_key)?;
+                handler.subscribe(entity, property, connection_key)?;
             }
             PropertyRequest::Unsubscribe => {
-                state.unsubscribe(entity, property, connection_key)?;
+                handler.unsubscribe(entity, property, connection_key)?;
             }
         };
         Ok(())
     }
 
-    fn process_request(&mut self, state: &mut dyn ServerState, request: ServerRequest) {
+    fn process_request(&mut self, handler: &mut dyn RequestHandler, request: ServerRequest) {
         match request.request {
             ConnectionRequest::Property((obj, prop), action) => {
                 if let Err(e) =
-                    self.process_property_request(state, request.connection, obj, &prop, action)
+                    self.process_property_request(handler, request.connection, obj, &prop, action)
                 {
                     eprintln!("Error processing request: {:?}", e);
                 }
@@ -123,12 +123,12 @@ impl PropertyUpdateSink for ServerImpl {
 }
 
 impl Server for ServerImpl {
-    fn apply_updates(&mut self, state: &mut dyn ServerState) {
+    fn process_requests(&mut self, handler: &mut dyn RequestHandler) {
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_build_connection(session_builder);
         }
         while let Ok(request) = self.request_rx.try_recv() {
-            self.process_request(state, request);
+            self.process_request(handler, request);
         }
     }
 
@@ -171,9 +171,9 @@ mod tests {
         }
     }
 
-    struct MockServerState;
+    struct MockRequestHandler;
 
-    impl ServerState for MockServerState {
+    impl RequestHandler for MockRequestHandler {
         fn set(
             &mut self,
             _entity: EntityKey,
@@ -223,8 +223,8 @@ mod tests {
     fn has_no_connections_by_default() {
         let mut server = ServerImpl::new(|_| vec![]);
         assert_eq!(server.number_of_connections(), 0);
-        let mut state = MockServerState {};
-        server.apply_updates(&mut state);
+        let mut handler = MockRequestHandler {};
+        server.process_requests(&mut handler);
         assert_eq!(server.number_of_connections(), 0);
     }
 
@@ -243,9 +243,9 @@ mod tests {
             .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
-        let mut state = MockServerState {};
+        let mut handler = MockRequestHandler {};
         assert_eq!(server.number_of_connections(), 0);
-        server.apply_updates(&mut state);
+        server.process_requests(&mut handler);
         assert_eq!(server.number_of_connections(), 1);
     }
 
@@ -265,8 +265,8 @@ mod tests {
             .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
-        let mut state = MockServerState {};
-        server.apply_updates(&mut state);
+        let mut handler = MockRequestHandler {};
+        server.process_requests(&mut handler);
         assert_eq!(server.number_of_connections(), 0);
     }
 }
