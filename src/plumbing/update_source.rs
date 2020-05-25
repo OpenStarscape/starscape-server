@@ -4,15 +4,15 @@ use std::ops::Deref;
 use super::NotificationSource;
 use crate::state::{PendingUpdates, PropertyKey};
 
-/// A value that can be connected to 0, 1 or more properties
-/// Updates are not dispatched to connected properties immediatly,
-/// Property keys are stored until it is time to dispatch all updates
-pub struct Store<T> {
+/// A value that produces updates whenever changed
+/// Updates are not dispatched to connected properties immediatly, instead
+///   property keys are stored until it is time to dispatch all updates
+pub struct UpdateSource<T> {
     inner: T,
     notification_source: NotificationSource,
 }
 
-impl<T> Store<T> {
+impl<T> UpdateSource<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -41,7 +41,7 @@ impl<T> Store<T> {
     }
 }
 
-impl<T: PartialEq> Store<T> {
+impl<T: PartialEq> UpdateSource<T> {
     pub fn set(&mut self, updates: &PendingUpdates, value: T) {
         if self.inner != value {
             self.inner = value;
@@ -50,7 +50,7 @@ impl<T: PartialEq> Store<T> {
     }
 }
 
-impl<T> Deref for Store<T> {
+impl<T> Deref for UpdateSource<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -65,8 +65,12 @@ mod tests {
     use std::collections::HashSet;
     use std::sync::RwLock;
 
-    fn setup() -> (Store<i64>, PendingUpdates, Vec<PropertyKey>) {
-        (Store::new(7), RwLock::new(HashSet::new()), mock_keys(2))
+    fn setup() -> (UpdateSource<i64>, PendingUpdates, Vec<PropertyKey>) {
+        (
+            UpdateSource::new(7),
+            RwLock::new(HashSet::new()),
+            mock_keys(2),
+        )
     }
 
     #[test]
