@@ -44,7 +44,7 @@ impl Game {
     pub fn step(&mut self) -> bool {
         sleep(Duration::from_micros(1_000_000 / STEPS_PER_SEC));
 
-        self.server.apply_updates(&mut self.state);
+        self.server.process_requests(&mut self.state);
 
         apply_gravity(&mut self.state, self.step_dt);
         apply_collisions(&self.state, self.step_dt);

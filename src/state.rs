@@ -5,7 +5,7 @@ use std::sync::RwLock;
 use crate::body::Body;
 use crate::entity::Entity;
 use crate::plumbing::{Property, Store};
-use crate::server::{ConnectionKey, Decodable, Encodable, ServerState};
+use crate::server::{ConnectionKey, Decodable, Encodable, RequestHandler};
 use crate::ship::Ship;
 
 new_key_type! {
@@ -113,7 +113,7 @@ impl State {
     }
 }
 
-impl ServerState for State {
+impl RequestHandler for State {
     fn set(&mut self, entity: EntityKey, property: &str, value: Decodable) -> Result<(), String> {
         let _property = self.get_property(entity, property)?;
         eprintln!(
