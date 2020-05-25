@@ -2,7 +2,7 @@ use slotmap::DenseSlotMap;
 use std::sync::mpsc::{channel, Receiver, Sender};
 
 use super::*;
-use crate::{EntityKey, State};
+use crate::EntityKey;
 
 new_key_type! {
     pub struct ConnectionKey;
@@ -49,6 +49,60 @@ impl ServerImpl {
             }
         }
     }
+
+    fn process_property_request(
+        &self,
+        state: &mut dyn ServerState,
+        connection_key: ConnectionKey,
+        object_id: ObjectId,
+        property: &str,
+        action: PropertyRequest,
+    ) -> Result<(), String> {
+        let connection = self
+            .connections
+            .get(connection_key)
+            .ok_or("request on invalid connection")?;
+        let entity = connection
+            .object_to_entity(object_id)
+            .ok_or("object not known to connection")?;
+        match action {
+            PropertyRequest::Set(value) => {
+                state.set(entity, property, value)?;
+            }
+            PropertyRequest::Get => {
+                let value = state.get(entity, property)?;
+                eprintln!(
+                    "get {}.{} returned {:?} (reply not implemented)",
+                    object_id, property, value
+                );
+            }
+            PropertyRequest::Subscribe => {
+                state.subscribe(entity, property, connection_key)?;
+            }
+            PropertyRequest::Unsubscribe => {
+                state.unsubscribe(entity, property, connection_key)?;
+            }
+        };
+        Ok(())
+    }
+
+    fn process_request(&mut self, state: &mut dyn ServerState, request: Request) {
+        match request.request {
+            ConnectionRequest::Property((obj, prop), action) => {
+                if let Err(e) =
+                    self.process_property_request(state, request.connection, obj, &prop, action)
+                {
+                    eprintln!("Error processing request: {:?}", e);
+                }
+            }
+            ConnectionRequest::Close => {
+                eprintln!("Closing connection {:?}", request.connection);
+                if self.connections.remove(request.connection).is_none() {
+                    eprintln!("Invalid connection closed: {:?}", request.connection);
+                }
+            }
+        };
+    }
 }
 
 impl PropertyUpdateSink for ServerImpl {
@@ -69,37 +123,12 @@ impl PropertyUpdateSink for ServerImpl {
 }
 
 impl Server for ServerImpl {
-    fn apply_updates(&mut self, state: &mut State) {
+    fn apply_updates(&mut self, state: &mut dyn ServerState) {
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_build_connection(session_builder);
         }
         while let Ok(request) = self.request_rx.try_recv() {
-            match request.request {
-                ConnectionRequest::Property((obj, prop), action) => {
-                    if let Some(connection) = self.connections.get(request.connection) {
-                        match action {
-                            PropertyRequest::Set(value) => {
-                                eprintln!("Request: set {}.{} to {:?}", obj, prop, value);
-                            }
-                            PropertyRequest::Get => {
-                                eprintln!("Request: get {}.{}", obj, prop);
-                            }
-                            PropertyRequest::Subscribe => {
-                                eprintln!("Request: subscribe to {}.{}", obj, prop);
-                            }
-                            PropertyRequest::Unsubscribe => {
-                                eprintln!("Request: unsubscribe from {}.{}", obj, prop);
-                            }
-                        }
-                    } else {
-                        eprintln!("Request on invalid connection: {:?}", request.connection);
-                    }
-                }
-                ConnectionRequest::Close => {
-                    eprintln!("Closing connection {:?}", request.connection);
-                    self.connections.remove(request.connection);
-                }
-            };
+            self.process_request(state, request);
         }
     }
 
@@ -142,6 +171,38 @@ mod tests {
         }
     }
 
+    struct MockServerState;
+
+    impl ServerState for MockServerState {
+        fn set(
+            &mut self,
+            _entity: EntityKey,
+            _property: &str,
+            _value: Decodable,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+        fn get(&self, _entity: EntityKey, _property: &str) -> Result<Encodable, String> {
+            Ok(Encodable::Null)
+        }
+        fn subscribe(
+            &mut self,
+            _entity: EntityKey,
+            _property: &str,
+            _connection: ConnectionKey,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+        fn unsubscribe(
+            &mut self,
+            _entity: EntityKey,
+            _property: &str,
+            _connection: ConnectionKey,
+        ) -> Result<(), String> {
+            Ok(())
+        }
+    }
+
     #[test]
     fn builds_and_holds_listeners() {
         impl Listener for Arc<()> {}
@@ -162,7 +223,7 @@ mod tests {
     fn has_no_connections_by_default() {
         let mut server = ServerImpl::new(|_| vec![]);
         assert_eq!(server.number_of_connections(), 0);
-        let mut state = State::new();
+        let mut state = MockServerState {};
         server.apply_updates(&mut state);
         assert_eq!(server.number_of_connections(), 0);
     }
@@ -182,7 +243,7 @@ mod tests {
             .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
-        let mut state = State::new();
+        let mut state = MockServerState {};
         assert_eq!(server.number_of_connections(), 0);
         server.apply_updates(&mut state);
         assert_eq!(server.number_of_connections(), 1);
@@ -204,7 +265,7 @@ mod tests {
             .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
-        let mut state = State::new();
+        let mut state = MockServerState {};
         server.apply_updates(&mut state);
         assert_eq!(server.number_of_connections(), 0);
     }
