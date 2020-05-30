@@ -2,6 +2,10 @@ use std::collections::HashMap;
 
 use crate::state::{BodyKey, PropertyKey, ShipKey, State};
 
+new_key_type! {
+    pub struct EntityKey;
+}
+
 #[derive(Debug)]
 enum ComponentKey {
     Body(BodyKey),
