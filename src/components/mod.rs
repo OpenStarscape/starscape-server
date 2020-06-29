@@ -1,5 +1,5 @@
 mod body;
 mod ship;
 
-pub use body::{Body, Collision, Controller};
-pub use ship::{Ship, create_ship};
+pub use body::{Body, Collision, CollisionHandler};
+pub use ship::{create_ship, Ship};

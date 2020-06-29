@@ -84,11 +84,11 @@ pub fn apply_collisions(state: &State, dt: f64) {
             } else {
                 if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
                     body1
-                        .controller
-                        .collided_with(state, &Collision::new(time_until, key2));
+                        .collision_handler
+                        .collision(state, &Collision::new(time_until, key2));
                     body2
-                        .controller
-                        .collided_with(state, &Collision::new(time_until, key1));
+                        .collision_handler
+                        .collision(state, &Collision::new(time_until, key1));
                 }
                 Ok(())
             }
@@ -213,7 +213,7 @@ mod collision_tests {
     use std::sync::{Arc, RwLock};
 
     use super::*;
-    use crate::components::{Body, Collision, Controller};
+    use crate::components::{Body, Collision, CollisionHandler};
     use crate::state::BodyKey;
 
     struct MockController {
@@ -228,8 +228,8 @@ mod collision_tests {
         }
     }
 
-    impl Controller for Arc<RwLock<MockController>> {
-        fn collided_with(&self, _state: &State, collision: &Collision) {
+    impl CollisionHandler for Arc<RwLock<MockController>> {
+        fn collision(&self, _state: &State, collision: &Collision) {
             let mut vec = self.write().unwrap();
             vec.collisions.push(collision.clone());
         }
@@ -242,8 +242,8 @@ mod collision_tests {
         let mut state = State::new();
         let c1 = MockController::new();
         let c2 = MockController::new();
-        let b1 = state.add_body(body1.with_controller(Box::new(c1.clone())));
-        let b2 = state.add_body(body2.with_controller(Box::new(c2.clone())));
+        let b1 = state.add_body(body1.with_collision_handler(Box::new(c1.clone())));
+        let b2 = state.add_body(body2.with_collision_handler(Box::new(c2.clone())));
         apply_collisions(&state, 1.0);
         let col1 = c1.read().unwrap().collisions.clone();
         let col2 = c2.read().unwrap().collisions.clone();
@@ -270,7 +270,7 @@ mod collision_tests {
     fn no_collisions_for_single_point() {
         let mut state = State::new();
         let c1 = MockController::new();
-        state.add_body(Body::new().with_controller(Box::new(c1.clone())));
+        state.add_body(Body::new().with_collision_handler(Box::new(c1.clone())));
         apply_collisions(&state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
@@ -282,7 +282,7 @@ mod collision_tests {
         state.add_body(
             Body::new()
                 .with_sphere_shape(1.0)
-                .with_controller(Box::new(c1.clone())),
+                .with_collision_handler(Box::new(c1.clone())),
         );
         apply_collisions(&state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
@@ -296,7 +296,7 @@ mod collision_tests {
             Body::new()
                 .with_velocity(Vector3::new(3.0, 0.5, -2.0))
                 .with_sphere_shape(1.0)
-                .with_controller(Box::new(c1.clone())),
+                .with_collision_handler(Box::new(c1.clone())),
         );
         apply_collisions(&state, 1.0);
         assert_eq!(c1.read().unwrap().collisions, vec![]);
@@ -309,7 +309,7 @@ mod collision_tests {
         state.add_body(
             Body::new()
                 .with_sphere_shape(1.0)
-                .with_controller(Box::new(c1.clone())),
+                .with_collision_handler(Box::new(c1.clone())),
         );
         state.add_body(
             Body::new()
