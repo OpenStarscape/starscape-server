@@ -1,6 +1,6 @@
 use cgmath::*;
 
-use crate::body::{Body, Collision};
+use crate::components::{Body, Collision};
 use crate::state::State;
 use crate::EPSILON;
 
@@ -109,7 +109,7 @@ mod gravity_tests {
     use cgmath::Vector3;
 
     use super::*;
-    use crate::body::Body;
+    use crate::components::Body;
 
     const PLANET_MASS: f64 = 5.972e+18; // mass of earth
 
@@ -213,7 +213,7 @@ mod collision_tests {
     use std::sync::{Arc, RwLock};
 
     use super::*;
-    use crate::body::{Body, Collision, Controller};
+    use crate::components::{Body, Collision, Controller};
     use crate::state::BodyKey;
 
     struct MockController {
@@ -457,7 +457,7 @@ mod motion_tests {
     use cgmath::Vector3;
 
     use super::*;
-    use crate::body::Body;
+    use crate::components::Body;
 
     #[test]
     fn no_motion_if_zero_velocity() {

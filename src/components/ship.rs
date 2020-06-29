@@ -1,7 +1,7 @@
 use cgmath::*;
 use std::sync::Mutex;
+use super::*;
 
-use crate::body::{Body, Collision, Controller};
 use crate::plumbing::new_store_property;
 use crate::state::{EntityKey, ShipKey, State};
 use crate::EPSILON;
