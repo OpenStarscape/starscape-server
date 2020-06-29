@@ -1,14 +1,13 @@
 #[macro_use(new_key_type)]
 extern crate slotmap;
 
-mod body;
 mod entity;
 mod game;
+mod components;
 mod god;
 mod physics;
 mod plumbing;
 mod server;
-mod ship;
 mod state;
 mod util;
 

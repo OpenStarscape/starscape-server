@@ -2,11 +2,10 @@ use slotmap::DenseSlotMap;
 use std::collections::HashSet;
 use std::sync::RwLock;
 
-use crate::body::Body;
+use crate::components::{Body, Ship};
 use crate::entity::EntityStore;
 use crate::plumbing::{Property, UpdateSource};
 use crate::server::{ConnectionKey, Decodable, Encodable, RequestHandler};
-use crate::ship::Ship;
 
 pub use crate::entity::EntityKey;
 
