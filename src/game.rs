@@ -1,10 +1,10 @@
 use cgmath::*;
 use std::{thread::sleep, time::Duration};
 
+use crate::components::{create_ship, Body};
 use crate::god::create_god;
 use crate::physics::{apply_collisions, apply_gravity, apply_motion};
 use crate::server::Server;
-use crate::components::{create_ship, Body};
 use crate::state::State;
 
 const STEPS_PER_SEC: u64 = 30;

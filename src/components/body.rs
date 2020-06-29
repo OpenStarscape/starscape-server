@@ -38,7 +38,7 @@ pub struct Body {
     /// unnecessary and computationally expensive.
     pub gravity_well: UpdateSource<bool>,
     /// The interface the physics system uses to talk to the controller of this object
-    pub controller: Box<dyn Controller>,
+    pub collision_handler: Box<dyn CollisionHandler>,
 }
 
 impl Default for Body {
@@ -50,7 +50,7 @@ impl Default for Body {
             shape: UpdateSource::new(Shape::Point),
             mass: UpdateSource::new(1.0),
             gravity_well: UpdateSource::new(false),
-            controller: Box::new(()),
+            collision_handler: Box::new(()),
         }
     }
 }
@@ -90,8 +90,8 @@ impl Body {
         self
     }
 
-    pub fn with_controller(mut self, controller: Box<dyn Controller>) -> Self {
-        self.controller = controller;
+    pub fn with_collision_handler(mut self, controller: Box<dyn CollisionHandler>) -> Self {
+        self.collision_handler = controller;
         self
     }
 }
@@ -109,11 +109,11 @@ impl Collision {
     }
 }
 
-pub trait Controller {
+pub trait CollisionHandler {
     /// note that there is no guarantee collisions come in in order
-    fn collided_with(&self, state: &State, collision: &Collision);
+    fn collision(&self, state: &State, collision: &Collision);
 }
 
-impl Controller for () {
-    fn collided_with(&self, _state: &State, _collision: &Collision) {}
+impl CollisionHandler for () {
+    fn collision(&self, _state: &State, _collision: &Collision) {}
 }

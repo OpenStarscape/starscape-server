@@ -1,6 +1,6 @@
+use super::*;
 use cgmath::*;
 use std::sync::Mutex;
-use super::*;
 
 use crate::plumbing::new_store_property;
 use crate::state::{EntityKey, ShipKey, State};
@@ -67,8 +67,8 @@ struct ShipBodyController {
     ship: ShipKey,
 }
 
-impl Controller for ShipBodyController {
-    fn collided_with(&self, state: &State, _collision: &Collision) {
+impl CollisionHandler for ShipBodyController {
+    fn collision(&self, state: &State, _collision: &Collision) {
         if let Some(ship) = state.ships.get(self.ship) {
             ship.kill();
         } else {
@@ -85,7 +85,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
             .with_entity(entity)
             .with_position(position)
             .with_sphere_shape(1.0)
-            .with_controller(Box::new(ShipBodyController { ship })),
+            .with_collision_handler(Box::new(ShipBodyController { ship })),
     );
     state.entities.register_body(entity, body);
     state.entities.register_ship(entity, ship);
