@@ -1,8 +1,10 @@
-use super::{Conduit, UpdateSource};
-use crate::server::Encodable;
-use crate::state::{PropertyKey, State};
+use std::sync::{Arc, Weak};
+
+use super::*;
+use crate::{server::Encodable, state::State};
 
 /// Connects a store to a server property
+#[derive(Clone)]
 pub struct PropertyConduit<F> {
     store_getter: F,
 }
@@ -21,6 +23,7 @@ impl<T, F> Conduit for PropertyConduit<F>
 where
     T: Into<Encodable> + PartialEq + Clone,
     for<'a> F: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    F: Clone + 'static,
 {
     fn get_value(&self, state: &State) -> Result<Encodable, String> {
         Ok((*(self.store_getter)(state)?).clone().into())
@@ -30,16 +33,26 @@ where
         Err("StoreFetcher.set_value() not implemented".into())
     }
 
-    fn connect(&self, state: &State, property: PropertyKey) -> Result<(), String> {
-        (self.store_getter)(state)?.connect(property).map_err(|e| {
-            eprintln!("Error: {}", e);
-            "server_error".into()
-        })
+    fn subscribe(
+        &self,
+        state: &State,
+        subscriber: &Arc<dyn NotificationSink>,
+    ) -> Result<(), String> {
+        (self.store_getter)(state)?
+            .subscribe(subscriber)
+            .map_err(|e| {
+                eprintln!("Error: {}", e);
+                "server_error".into()
+            })
     }
 
-    fn disconnect(&self, state: &State, property: PropertyKey) -> Result<(), String> {
+    fn unsubscribe(
+        &self,
+        state: &State,
+        subscriber: &Weak<dyn NotificationSink>,
+    ) -> Result<(), String> {
         (self.store_getter)(state)?
-            .disconnect(property)
+            .unsubscribe(subscriber)
             .map_err(|e| {
                 eprintln!("Error: {}", e);
                 "server_error".into()

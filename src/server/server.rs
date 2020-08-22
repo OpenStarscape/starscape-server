@@ -1,7 +1,7 @@
 use std::{error::Error, sync::mpsc::Sender};
 
 use super::*;
-use crate::{EntityKey, State};
+use crate::EntityKey;
 
 pub trait PropertyUpdateSink {
     fn property_changed(

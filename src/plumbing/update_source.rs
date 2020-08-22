@@ -1,8 +1,7 @@
-use std::error::Error;
-use std::ops::Deref;
+use std::{error::Error, ops::Deref};
 
-use super::NotificationSource;
-use crate::state::{PendingUpdates, PropertyKey};
+use super::*;
+use crate::state::PendingNotifications;
 
 /// A value that produces updates whenever changed
 /// Updates are not dispatched to connected properties immediatly, instead
@@ -21,31 +20,40 @@ impl<T> UpdateSource<T> {
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
-    pub fn get_mut(&mut self, updates: &PendingUpdates) -> &mut T {
-        self.notification_source.send_updates(updates);
+    pub fn get_mut(&mut self, pending: &PendingNotifications) -> &mut T {
+        self.notification_source.queue_notifications(pending);
         &mut self.inner
     }
 
     /// This is useful, for example, when iterating over a slotmap and modifying elements,
     /// but not adding or removing them
-    pub fn get_mut_without_sending_updates(&mut self) -> &mut T {
+    pub fn get_mut_without_notifying_of_change(&mut self) -> &mut T {
         &mut self.inner
     }
 
-    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
-        self.notification_source.connect(target)
+    pub fn subscribe(&self, subscriber: &Arc<dyn NotificationSink>) -> Result<(), Box<dyn Error>> {
+        match self.notification_source.subscribe(subscriber) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
     }
 
-    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
-        self.notification_source.disconnect(target)
+    pub fn unsubscribe(
+        &self,
+        subscriber: &Weak<dyn NotificationSink>,
+    ) -> Result<(), Box<dyn Error>> {
+        match self.notification_source.unsubscribe(subscriber) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
 impl<T: PartialEq> UpdateSource<T> {
-    pub fn set(&mut self, updates: &PendingUpdates, value: T) {
+    pub fn set(&mut self, pending: &PendingNotifications, value: T) {
         if self.inner != value {
             self.inner = value;
-            self.notification_source.send_updates(updates);
+            self.notification_source.queue_notifications(pending);
         }
     }
 }
@@ -61,62 +69,67 @@ impl<T> Deref for UpdateSource<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::mock_keys;
-    use std::collections::HashSet;
+    use crate::server::PropertyUpdateSink;
     use std::sync::RwLock;
 
-    fn setup() -> (UpdateSource<i64>, PendingUpdates, Vec<PropertyKey>) {
-        (
-            UpdateSource::new(7),
-            RwLock::new(HashSet::new()),
-            mock_keys(2),
-        )
+    struct MockNotificationSink;
+
+    impl NotificationSink for MockNotificationSink {
+        fn notify(
+            &self,
+            _state: &State,
+            _server: &dyn PropertyUpdateSink,
+        ) -> Result<(), Box<dyn Error>> {
+            panic!("MockNotificationSink.notify() should not be called");
+        }
+    }
+
+    fn setup() -> (
+        UpdateSource<i64>,
+        PendingNotifications,
+        Arc<dyn NotificationSink>,
+    ) {
+        let store = UpdateSource::new(7);
+        let subscriber: Arc<dyn NotificationSink> = Arc::new(MockNotificationSink {});
+        store.subscribe(&subscriber).expect("Failed to subscribe");
+        (store, RwLock::new(Vec::new()), subscriber)
     }
 
     #[test]
-    fn updates_connected_property_when_changed() {
-        let (mut store, pending, props) = setup();
-        store.connect(props[0]).expect("connecting failed");
+    fn queues_notifications_when_set() {
+        let (mut store, pending, _) = setup();
         store.set(&pending, 5);
         assert_eq!(pending.read().unwrap().len(), 1);
-        assert!(pending.read().unwrap().contains(&props[0]));
     }
 
     #[test]
-    fn always_updates_connected_property_when_value_mut_accessed() {
-        let (mut store, pending, props) = setup();
-        store.connect(props[0]).expect("connecting failed");
+    fn queues_notifications_when_value_mut_accessed() {
+        let (mut store, pending, _) = setup();
         store.get_mut(&pending);
         assert_eq!(pending.read().unwrap().len(), 1);
-        assert!(pending.read().unwrap().contains(&props[0]));
     }
 
     #[test]
-    fn does_not_send_updates_on_get_mut_without_sending_updates() {
-        let (mut store, pending, props) = setup();
-        store.connect(props[0]).expect("connecting failed");
-        store.get_mut_without_sending_updates();
+    fn does_not_queue_notifications_on_get_mut_without_notifying_of_change() {
+        let (mut store, pending, _) = setup();
+        store.get_mut_without_notifying_of_change();
         assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
-    fn does_not_update_property_when_set_to_same_value() {
-        let (mut store, pending, props) = setup();
-        store.connect(props[0]).expect("connecting failed");
+    fn does_not_send_notification_when_set_to_same_value() {
+        let (mut store, pending, _) = setup();
         store.set(&pending, 7);
         assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
-    fn disconnecting_stops_updates() {
-        let (mut store, pending, props) = setup();
-        props
-            .iter()
-            .for_each(|p| store.connect(*p).expect("connecting failed"));
-        store.disconnect(props[1]).expect("disconnecting failed");
+    fn unsubscribing_stops_notifications() {
+        let (mut store, pending, subscriber) = setup();
+        store
+            .unsubscribe(&Arc::downgrade(&subscriber))
+            .expect("unsubbing failed");
         store.set(&pending, 5);
-        assert_eq!(pending.read().unwrap().len(), 1);
-        assert!(pending.read().unwrap().contains(&props[0]));
-        assert!(!pending.read().unwrap().contains(&props[1]));
+        assert_eq!(pending.read().unwrap().len(), 0);
     }
 }

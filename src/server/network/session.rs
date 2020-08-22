@@ -3,7 +3,7 @@ use std::{error::Error, fmt::Debug};
 pub trait SessionBuilder: Send + Debug {
     fn build(
         self: Box<Self>,
-        handle_incoming_data: Box<dyn FnMut(&[u8]) -> () + Send>,
+        handle_incoming_data: Box<dyn FnMut(&[u8]) + Send>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>>;
 }
 

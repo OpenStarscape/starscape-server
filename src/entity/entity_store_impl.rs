@@ -1,4 +1,3 @@
-use crate::state::*;
 use slotmap::DenseSlotMap;
 
 use super::*;
@@ -16,11 +15,17 @@ impl EntityStoreImpl {
 }
 
 impl EntityStore for EntityStoreImpl {
-    fn register_property(&mut self, entity: EntityKey, name: &'static str, key: PropertyKey) {
-        if let Some(entity) = self.entities.get_mut(entity) {
-            entity.register_property(name, key);
+    fn register_property(
+        &mut self,
+        entity_key: EntityKey,
+        name: &'static str,
+        conduit: Box<dyn Conduit>,
+    ) {
+        if let Some(entity) = self.entities.get_mut(entity_key) {
+            let property = PropertyImpl::new(entity_key, name, conduit);
+            entity.register_property(name, Box::new(property));
         } else {
-            eprintln!("Failed to register proprty on entity {:?}", entity);
+            eprintln!("Failed to register proprty on entity {:?}", entity_key);
         }
     }
 
@@ -44,14 +49,14 @@ impl EntityStore for EntityStoreImpl {
         }
     }
 
-    fn property(&self, entity_key: EntityKey, property: &str) -> Result<PropertyKey, String> {
+    fn get_property(&self, entity_key: EntityKey, name: &str) -> Result<&dyn Property, String> {
         let entity = self
             .entities
             .get(entity_key)
             .ok_or(format!("bad entity {:?}", entity_key))?;
         let property_key = entity
-            .property(property)
-            .ok_or(format!("entity does not have property {:?}", property))?;
+            .get_property(name)
+            .ok_or(format!("entity does not have property {:?}", name))?;
         Ok(property_key)
     }
 }

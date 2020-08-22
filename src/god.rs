@@ -1,7 +1,10 @@
-use crate::plumbing::{new_conduit_property, Conduit};
-use crate::server::Encodable;
-use crate::state::{EntityKey, PropertyKey, State};
+use std::sync::{Arc, Weak};
 
+use crate::plumbing::{new_conduit_property, Conduit, NotificationSink};
+use crate::server::Encodable;
+use crate::state::{EntityKey, State};
+
+#[derive(Clone)]
 struct BodyListConduit {}
 
 impl Conduit for BodyListConduit {
@@ -14,15 +17,23 @@ impl Conduit for BodyListConduit {
         Err("read_only_property".into())
     }
 
-    fn connect(&self, state: &State, property: PropertyKey) -> Result<(), String> {
-        state.bodies.connect(property).map_err(|e| {
+    fn subscribe(
+        &self,
+        state: &State,
+        subscriber: &Arc<dyn NotificationSink>,
+    ) -> Result<(), String> {
+        state.bodies.subscribe(subscriber).map_err(|e| {
             eprintln!("Error: {}", e);
             "server_error".into()
         })
     }
 
-    fn disconnect(&self, state: &State, property: PropertyKey) -> Result<(), String> {
-        state.bodies.disconnect(property).map_err(|e| {
+    fn unsubscribe(
+        &self,
+        state: &State,
+        subscriber: &Weak<dyn NotificationSink>,
+    ) -> Result<(), String> {
+        state.bodies.unsubscribe(subscriber).map_err(|e| {
             eprintln!("Error: {}", e);
             "server_error".into()
         })

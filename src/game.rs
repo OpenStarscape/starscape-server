@@ -50,21 +50,19 @@ impl Game {
         apply_motion(&mut self.state, self.step_dt);
 
         {
-            let mut updates = self
+            let mut notifications = self
                 .state
                 .pending_updates
                 .write()
                 .expect("Failed to write to updates");
-            for update in &*updates {
-                if let Some(conduit) = self.state.properties.get(*update) {
-                    if let Err(e) =
-                        conduit.send_updates(&self.state, self.server.property_update_sink())
-                    {
-                        eprintln!("Error sending update: {}", e);
+            for notification in &*notifications {
+                if let Some(sink) = notification.upgrade() {
+                    if let Err(e) = sink.notify(&self.state, self.server.property_update_sink()) {
+                        eprintln!("Failed to process notification: {}", e);
                     }
                 }
             }
-            updates.clear();
+            notifications.clear();
         }
 
         self.state.time += self.step_dt;
