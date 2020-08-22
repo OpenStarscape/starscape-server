@@ -1,12 +1,16 @@
 use super::*;
-use crate::state::*;
 
 pub trait EntityStore {
-    fn register_property(&mut self, entity: EntityKey, name: &'static str, key: PropertyKey);
+    fn register_property(
+        &mut self,
+        entity: EntityKey,
+        name: &'static str,
+        conduit: Box<dyn Conduit>,
+    );
     fn new_entity(&mut self) -> EntityKey;
     fn register_body(&mut self, entity: EntityKey, body: BodyKey);
     fn register_ship(&mut self, entity: EntityKey, ship: ShipKey);
-    fn property(&self, entity: EntityKey, property: &str) -> Result<PropertyKey, String>;
+    fn get_property(&self, entity: EntityKey, name: &str) -> Result<&dyn Property, String>;
 }
 
 impl dyn EntityStore {

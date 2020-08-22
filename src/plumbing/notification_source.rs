@@ -1,111 +1,238 @@
-use std::error::Error;
-use std::sync::RwLock;
-
-use crate::state::{PendingUpdates, PropertyKey};
+use super::*;
+use crate::{server::PropertyUpdateSink, state::PendingNotifications};
+use std::sync::{RwLock, Weak};
 
 pub struct NotificationSource {
-    // TODO: use an atomic bool to more quickly check if watchers is empty?
-    /// The keys of watchers that want to be updated when value changes
-    /// Is conceptually a set, but since length is almost always 0 or 1 use a low cost vec
-    connections: RwLock<Vec<PropertyKey>>,
+    subscribers: RwLock<Vec<(*const (), Weak<dyn NotificationSink>)>>,
 }
 
 impl NotificationSource {
     pub fn new() -> Self {
         Self {
-            connections: RwLock::new(Vec::new()),
+            subscribers: RwLock::new(Vec::new()),
         }
     }
 
-    pub fn send_updates(&self, updates: &PendingUpdates) {
-        let conduits = self.connections.read().unwrap();
-        if conduits.len() > 0 {
-            let mut pending_updates = updates.write().expect("Error writing to pending updates");
-            pending_updates.extend(conduits.iter().cloned());
+    pub fn queue_notifications(&self, pending: &PendingNotifications) {
+        let subscribers = self.subscribers.read().expect("Failed to lock subscribers");
+        if !subscribers.is_empty() {
+            let mut pending_updates = pending.write().expect("Error writing to pending updates");
+            pending_updates.extend(subscribers.iter().map(|(_ptr, sink)| sink.clone()));
         }
     }
 
-    pub fn connect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
-        let mut connections = self.connections.write().unwrap();
-        if connections.contains(&target) {
-            Err(format!("already connected to {:?}", target).into())
+    pub fn send_notifications(&self, state: &State, prop_update_sink: &dyn PropertyUpdateSink) {
+        let subscribers = self.subscribers.read().expect("Failed to lock subscribers");
+        for (_ptr, sink) in &*subscribers {
+            if let Some(sink) = sink.upgrade() {
+                if let Err(e) = sink.notify(state, prop_update_sink) {
+                    eprintln!("Failed to process notification: {}", e);
+                }
+            } else {
+                eprintln!(
+                    "Failed to lock Weak; should have been unsubscribed before being dropped"
+                );
+            }
+        }
+    }
+
+    // Returns true if there were no previous subscriptions
+    pub fn subscribe(&self, subscriber: &Arc<dyn NotificationSink>) -> Result<bool, String> {
+        let mut subscribers = self
+            .subscribers
+            .write()
+            .expect("Failed to lock subscribers");
+        let subscriber = Arc::downgrade(subscriber);
+        let subscriber_ptr = NotificationSink::thin_ptr(&subscriber);
+        if subscribers
+            .iter()
+            .any(|(ptr, _sink)| *ptr == subscriber_ptr)
+        {
+            Err("Subscriber subscribed multiple times".into())
         } else {
-            connections.push(target);
-            Ok(())
+            let was_empty = subscribers.is_empty();
+            subscribers.push((subscriber_ptr, subscriber));
+            Ok(was_empty)
         }
     }
 
-    pub fn disconnect(&self, target: PropertyKey) -> Result<(), Box<dyn Error>> {
-        let mut connections = self.connections.write().unwrap();
-        match connections.iter().position(|key| *key == target) {
-            None => Err(format!("{:?} is not connected", target).into()),
+    // Returns true if there are now no subscriptions
+    pub fn unsubscribe(&self, subscriber: &Weak<dyn NotificationSink>) -> Result<bool, String> {
+        let subscriber_ptr = NotificationSink::thin_ptr(&subscriber);
+        let mut subscribers = self
+            .subscribers
+            .write()
+            .expect("Failed to lock subscribers");
+        match subscribers
+            .iter()
+            .position(|(ptr, _sink)| *ptr == subscriber_ptr)
+        {
+            None => Err("Unsubscribed subscriber not already subscribed".into()),
             Some(i) => {
-                connections.swap_remove(i);
-                Ok(())
+                subscribers.swap_remove(i);
+                Ok(subscribers.is_empty())
             }
         }
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use crate::state::mock_keys;
-    use std::collections::HashSet;
+    use crate::server::ConnectionKey;
+    use std::{cell::RefCell, error::Error};
 
-    fn setup() -> (NotificationSource, PendingUpdates, Vec<PropertyKey>) {
+    struct MockPropertyUpdateSink;
+
+    impl PropertyUpdateSink for MockPropertyUpdateSink {
+        fn property_changed(
+            &self,
+            _connection_key: ConnectionKey,
+            _entity: EntityKey,
+            _property: &str,
+            _value: &Encodable,
+        ) -> Result<(), Box<dyn Error>> {
+            Ok(())
+        }
+    }
+
+    struct MockNotificationSink(RefCell<u32>);
+
+    impl NotificationSink for MockNotificationSink {
+        fn notify(
+            &self,
+            _state: &State,
+            _server: &dyn PropertyUpdateSink,
+        ) -> Result<(), Box<dyn Error>> {
+            *self.0.borrow_mut() += 1;
+            Ok(())
+        }
+    }
+
+    fn setup() -> (
+        NotificationSource,
+        PendingNotifications,
+        Vec<Arc<dyn NotificationSink>>,
+        Vec<Arc<MockNotificationSink>>,
+    ) {
+        let mock_sinks: Vec<Arc<MockNotificationSink>> = (0..3)
+            .map(|_| Arc::new(MockNotificationSink(RefCell::new(0))))
+            .collect();
         (
             NotificationSource::new(),
-            RwLock::new(HashSet::new()),
-            mock_keys(2),
+            RwLock::new(Vec::new()),
+            mock_sinks
+                .iter()
+                .map(|sink| sink.clone() as Arc<dyn NotificationSink>)
+                .collect(),
+            mock_sinks,
         )
     }
 
+    fn pending_contains(pending: &PendingNotifications, sink: &Arc<dyn NotificationSink>) -> bool {
+        let sink = NotificationSink::thin_ptr(&Arc::downgrade(&sink));
+        pending
+            .read()
+            .unwrap()
+            .iter()
+            .any(|i| NotificationSink::thin_ptr(i) == sink)
+    }
+
     #[test]
-    fn can_update_without_connected_properties() {
-        let (source, pending, _) = setup();
-        source.send_updates(&pending);
+    fn can_queue_with_no_subscribers() {
+        let (source, pending, _, _) = setup();
+        source.queue_notifications(&pending);
         assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
-    fn updates_multiple_connected_properties() {
-        let (source, pending, props) = setup();
-        props
-            .iter()
-            .for_each(|p| source.connect(*p).expect("connecting failed"));
-        source.send_updates(&pending);
-        assert_eq!(pending.read().unwrap().len(), 2);
-        props
-            .iter()
-            .for_each(|p| assert!(pending.read().unwrap().contains(p)));
+    fn can_send_with_no_subscribers() {
+        let (source, _, _, _) = setup();
+        let state = State::new();
+        let update_sink = MockPropertyUpdateSink {};
+        source.send_notifications(&state, &update_sink);
     }
 
     #[test]
-    fn connecting_same_property_twice_errors() {
-        let (source, _, props) = setup();
-        source.connect(props[0]).expect("connecting failed");
-        assert!(source.connect(props[0]).is_err());
-    }
-
-    #[test]
-    fn disconnecting_stops_updates() {
-        let (source, pending, props) = setup();
-        props
-            .iter()
-            .for_each(|p| source.connect(*p).expect("connecting failed"));
-        source.disconnect(props[1]).expect("disconnecting failed");
-        source.send_updates(&pending);
+    fn queues_single_subscriber() {
+        let (source, pending, sinks, _) = setup();
+        source
+            .subscribe(&sinks[0].clone())
+            .expect("subscribing failed");
+        source.queue_notifications(&pending);
         assert_eq!(pending.read().unwrap().len(), 1);
-        assert!(pending.read().unwrap().contains(&props[0]));
-        assert!(!pending.read().unwrap().contains(&props[1]));
+        assert!(pending_contains(&pending, &sinks[0]));
     }
 
     #[test]
-    fn disconnecting_when_not_connected_errors() {
-        let (source, _, props) = setup();
-        assert!(source.disconnect(props[0]).is_err());
-        source.connect(props[0]).expect("connecting failed");
-        assert!(source.disconnect(props[1]).is_err());
+    fn sends_to_single_subscriber() {
+        let (source, _, sinks, mock_sinks) = setup();
+        source.subscribe(&sinks[0]).expect("subscribing failed");
+        let state = State::new();
+        let update_sink = MockPropertyUpdateSink {};
+        source.send_notifications(&state, &update_sink);
+        assert_eq!(*mock_sinks[0].0.borrow(), 1);
+    }
+
+    #[test]
+    fn notifies_multiple_subscribers() {
+        let (source, pending, sinks, _) = setup();
+        for sink in &sinks {
+            source.subscribe(&sink).expect("subscribing failed");
+        }
+        source.queue_notifications(&pending);
+        assert_eq!(pending.read().unwrap().len(), 3);
+        for sink in sinks {
+            assert!(pending_contains(&pending, &sink));
+        }
+    }
+
+    #[test]
+    fn subscribing_same_subscriber_twice_errors() {
+        let (source, _, sinks, _) = setup();
+        source.subscribe(&sinks[0]).expect("subscribing failed");
+        assert!(source.subscribe(&sinks[0]).is_err());
+    }
+
+    #[test]
+    fn unsubscribing_stops_notifications_queueing() {
+        let (source, pending, sinks, _) = setup();
+        for sink in &sinks {
+            source.subscribe(&sink).expect("subscribing failed");
+        }
+        source
+            .unsubscribe(&Arc::downgrade(&sinks[1]))
+            .expect("unsubscribing failed");
+        source.queue_notifications(&pending);
+        assert_eq!(pending.read().unwrap().len(), 2);
+        assert!(pending_contains(&pending, &sinks[0]));
+        assert!(!pending_contains(&pending, &sinks[1]));
+        assert!(pending_contains(&pending, &sinks[2]));
+    }
+
+    #[test]
+    fn unsubscribing_stops_notifications_sending() {
+        let (source, _, sinks, mock_sinks) = setup();
+        for sink in &sinks {
+            source.subscribe(&sink).expect("subscribing failed");
+        }
+        source
+            .unsubscribe(&Arc::downgrade(&sinks[1]))
+            .expect("unsubscribing failed");
+        let state = State::new();
+        let update_sink = MockPropertyUpdateSink {};
+        source.send_notifications(&state, &update_sink);
+        assert_eq!(*mock_sinks[0].0.borrow(), 1);
+        assert_eq!(*mock_sinks[1].0.borrow(), 0);
+        assert_eq!(*mock_sinks[2].0.borrow(), 1);
+    }
+
+    #[test]
+    fn unsubscribing_when_not_subscribed_errors() {
+        let (source, _, sinks, _) = setup();
+        assert!(source.unsubscribe(&Arc::downgrade(&sinks[0])).is_err());
+        source.subscribe(&sinks[0]).expect("subscribing failed");
+        assert!(source.unsubscribe(&Arc::downgrade(&sinks[1])).is_err());
     }
 }

@@ -1,10 +1,9 @@
 use slotmap::DenseSlotMap;
-use std::collections::HashSet;
-use std::sync::RwLock;
+use std::sync::{RwLock, Weak};
 
 use crate::components::{Body, Ship};
 use crate::entity::EntityStore;
-use crate::plumbing::{Property, UpdateSource};
+use crate::plumbing::{NotificationSink, UpdateSource};
 use crate::server::{ConnectionKey, Decodable, Encodable, RequestHandler};
 
 pub use crate::entity::EntityKey;
@@ -12,10 +11,9 @@ pub use crate::entity::EntityKey;
 new_key_type! {
     pub struct BodyKey;
     pub struct ShipKey;
-    pub struct PropertyKey;
 }
 
-pub type PendingUpdates = RwLock<HashSet<PropertyKey>>;
+pub type PendingNotifications = RwLock<Vec<Weak<dyn NotificationSink>>>;
 
 /// The entire game state at a single point in time
 pub struct State {
@@ -30,9 +28,7 @@ pub struct State {
     /// Ships that can control themselves
     pub ships: DenseSlotMap<ShipKey, Ship>,
     /// Subscribers that need to be updated
-    pub pending_updates: PendingUpdates,
-    /// Object properties that may be subscribed to changes
-    pub properties: DenseSlotMap<PropertyKey, Box<dyn Property>>,
+    pub pending_updates: PendingNotifications,
 }
 
 impl Default for State {
@@ -43,8 +39,7 @@ impl Default for State {
             bodies: UpdateSource::new(DenseSlotMap::with_key()),
             gravity_wells: Vec::new(),
             ships: DenseSlotMap::with_key(),
-            pending_updates: RwLock::new(HashSet::new()),
-            properties: DenseSlotMap::with_key(),
+            pending_updates: RwLock::new(Vec::new()),
         }
     }
 }
@@ -86,28 +81,18 @@ impl State {
         }
     }
 
-    fn get_property(&self, entity_key: EntityKey, property: &str) -> Result<&dyn Property, String> {
-        let property_key = self.entities.property(entity_key, property)?;
-        let property = self
-            .properties
-            .get(property_key)
-            .ok_or(format!("{:?}.{} deleted", entity_key, property))?;
-        Ok(&**property)
-    }
-
     #[cfg(test)]
     pub fn assert_is_empty(&self) {
         assert!(self.bodies.is_empty());
         assert!(self.gravity_wells.is_empty());
         assert!(self.ships.is_empty());
         // pending_updates intentionally not checked
-        assert!(self.properties.is_empty());
     }
 }
 
 impl RequestHandler for State {
     fn set(&mut self, entity: EntityKey, property: &str, value: Decodable) -> Result<(), String> {
-        let _property = self.get_property(entity, property)?;
+        let _property = self.entities.get_property(entity, property)?;
         eprintln!(
             "{:?}.{} = {:?} (set not implemented)",
             entity, property, value
@@ -116,7 +101,7 @@ impl RequestHandler for State {
     }
 
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
-        let _property = self.get_property(entity, property)?;
+        let _property = self.entities.get_property(entity, property)?;
         eprintln!("{:?}.{} (get not implemented)", entity, property);
         Err("get not implemented".into())
     }
@@ -127,7 +112,7 @@ impl RequestHandler for State {
         property: &str,
         connection: ConnectionKey,
     ) -> Result<(), String> {
-        let property = self.get_property(entity, property)?;
+        let property = self.entities.get_property(entity, property)?;
         property.subscribe(self, connection)?;
         Ok(())
     }
@@ -138,7 +123,7 @@ impl RequestHandler for State {
         property: &str,
         connection: ConnectionKey,
     ) -> Result<(), String> {
-        let property = self.get_property(entity, property)?;
+        let property = self.entities.get_property(entity, property)?;
         property.unsubscribe(self, connection)?;
         Ok(())
     }

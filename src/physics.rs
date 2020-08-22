@@ -27,7 +27,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
     let pending_updates = &state.pending_updates;
     state
         .bodies
-        .get_mut_without_sending_updates()
+        .get_mut_without_notifying_of_change()
         .values_mut()
         .for_each(|body| {
             wells.iter().for_each(|well| {
@@ -97,7 +97,11 @@ pub fn apply_collisions(state: &State, dt: f64) {
 }
 
 pub fn apply_motion(state: &mut State, dt: f64) {
-    for body in state.bodies.get_mut_without_sending_updates().values_mut() {
+    for body in state
+        .bodies
+        .get_mut_without_notifying_of_change()
+        .values_mut()
+    {
         body.position
             .set(&state.pending_updates, *body.position + dt * *body.velocity);
     }

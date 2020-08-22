@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::state::{BodyKey, PropertyKey, ShipKey, State};
+use super::*;
 
 new_key_type! {
     pub struct EntityKey;
@@ -15,7 +15,7 @@ enum ComponentKey {
 /// Conceptual owner of the various components in the state that make up a single "thing"
 pub struct Entity {
     components: Vec<ComponentKey>,
-    properties: HashMap<&'static str, PropertyKey>,
+    properties: HashMap<&'static str, Box<dyn Property>>,
 }
 
 impl Default for Entity {
@@ -32,9 +32,8 @@ impl Entity {
         Self::default()
     }
 
-    /// Called by the state
-    pub fn register_property(&mut self, name: &'static str, key: PropertyKey) {
-        if self.properties.insert(name, key).is_some() {
+    pub fn register_property(&mut self, name: &'static str, property: Box<dyn Property>) {
+        if self.properties.insert(name, property).is_some() {
             eprintln!(
                 "entity already has property {}, replacing with new one",
                 name
@@ -51,12 +50,12 @@ impl Entity {
     }
 
     /// Get the property of the given name
-    pub fn property(&self, name: &str) -> Option<PropertyKey> {
-        self.properties.get(name).cloned()
+    pub fn get_property(&self, name: &str) -> Option<&dyn Property> {
+        self.properties.get(name).map(|prop| &**prop)
     }
 
     /// Remove all components of this entity from the state
-    pub fn destroy(&mut self, state: &mut State) {
+    pub fn finalize(&mut self, state: &mut State) {
         for component in &self.components {
             if match component {
                 ComponentKey::Body(body) => state.remove_body(*body).is_err(),
@@ -69,15 +68,9 @@ impl Entity {
             }
         }
         self.components.clear();
-        for property in self.properties.values() {
-            if state.properties.remove(*property).is_none() {
-                eprintln!(
-                    "property {:?} part of entity being destoryed, but is not in state",
-                    property
-                );
-            }
+        for (_name, prop) in self.properties.drain() {
+            prop.finalize(state);
         }
-        self.properties.clear()
         // TODO: register disconnected from connections
     }
 }
