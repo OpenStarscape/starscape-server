@@ -1,36 +1,45 @@
 use std::sync::{Arc, Weak};
 
 use super::*;
-use crate::{server::Encodable, state::State};
+use crate::{
+    server::{Decodable, Encodable},
+    state::State,
+};
 
 /// Connects a store to a server property
 #[derive(Clone)]
-pub struct PropertyConduit<F> {
-    store_getter: F,
+pub struct PropertyConduit<GetFn, SetFn> {
+    getter: GetFn,
+    setter: SetFn,
 }
 
-impl<T, F> PropertyConduit<F>
+impl<T, GetFn, SetFn> PropertyConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> F: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    for<'a> GetFn: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
+    GetFn: Clone + 'static,
+    SetFn: Clone + 'static,
 {
-    pub fn new(store_getter: F) -> Self {
-        Self { store_getter }
+    pub fn new(getter: GetFn, setter: SetFn) -> Self {
+        Self { getter, setter }
     }
 }
 
-impl<T, F> Conduit for PropertyConduit<F>
+impl<T, GetFn, SetFn> Conduit for PropertyConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> F: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
-    F: Clone + 'static,
+    for<'a> GetFn: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
+    GetFn: Clone + 'static,
+    SetFn: Clone + 'static,
 {
     fn get_value(&self, state: &State) -> Result<Encodable, String> {
-        Ok((*(self.store_getter)(state)?).clone().into())
+        Ok((*(self.getter)(state)?).clone().into())
     }
 
-    fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
-        Err("StoreFetcher.set_value() not implemented".into())
+    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
+        (self.setter)(state, value)
     }
 
     fn subscribe(
@@ -38,12 +47,10 @@ where
         state: &State,
         subscriber: &Arc<dyn NotificationSink>,
     ) -> Result<(), String> {
-        (self.store_getter)(state)?
-            .subscribe(subscriber)
-            .map_err(|e| {
-                eprintln!("Error: {}", e);
-                "server_error".into()
-            })
+        (self.getter)(state)?.subscribe(subscriber).map_err(|e| {
+            eprintln!("Error: {}", e);
+            "server_error".into()
+        })
     }
 
     fn unsubscribe(
@@ -51,11 +58,9 @@ where
         state: &State,
         subscriber: &Weak<dyn NotificationSink>,
     ) -> Result<(), String> {
-        (self.store_getter)(state)?
-            .unsubscribe(subscriber)
-            .map_err(|e| {
-                eprintln!("Error: {}", e);
-                "server_error".into()
-            })
+        (self.getter)(state)?.unsubscribe(subscriber).map_err(|e| {
+            eprintln!("Error: {}", e);
+            "server_error".into()
+        })
     }
 }

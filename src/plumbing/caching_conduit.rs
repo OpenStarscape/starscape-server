@@ -3,7 +3,7 @@ use std::sync::Mutex;
 
 use super::*;
 use crate::{
-    server::{Encodable, PropertyUpdateSink},
+    server::{Decodable, Encodable, PropertyUpdateSink},
     state::State,
 };
 
@@ -48,7 +48,7 @@ impl Conduit for Arc<CachingConduit> {
             .clone())
     }
 
-    fn set_value(&self, state: &mut State, value: ()) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
         self.conduit.set_value(state, value)
     }
 
@@ -134,7 +134,7 @@ mod tests {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
+        fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
             panic!("Unexpected call");
         }
 

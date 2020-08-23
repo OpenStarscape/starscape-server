@@ -1,10 +1,10 @@
 use super::*;
-use crate::server::Encodable;
+use crate::server::{Decodable, Encodable};
 
 /// The interface between a property and the state
 pub trait Conduit: CloneConduit {
     fn get_value(&self, state: &State) -> Result<Encodable, String>;
-    fn set_value(&self, state: &mut State, value: ()) -> Result<(), String>;
+    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String>;
     fn subscribe(
         &self,
         state: &State,

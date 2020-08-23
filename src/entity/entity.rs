@@ -15,7 +15,7 @@ enum ComponentKey {
 /// Conceptual owner of the various components in the state that make up a single "thing"
 pub struct Entity {
     components: Vec<ComponentKey>,
-    properties: HashMap<&'static str, Box<dyn Property>>,
+    properties: HashMap<&'static str, Arc<dyn Property>>,
 }
 
 impl Default for Entity {
@@ -32,7 +32,7 @@ impl Entity {
         Self::default()
     }
 
-    pub fn register_property(&mut self, name: &'static str, property: Box<dyn Property>) {
+    pub fn register_property(&mut self, name: &'static str, property: Arc<dyn Property>) {
         if self.properties.insert(name, property).is_some() {
             eprintln!(
                 "entity already has property {}, replacing with new one",
@@ -50,8 +50,8 @@ impl Entity {
     }
 
     /// Get the property of the given name
-    pub fn get_property(&self, name: &str) -> Option<&dyn Property> {
-        self.properties.get(name).map(|prop| &**prop)
+    pub fn get_property(&self, name: &str) -> Option<&Arc<dyn Property>> {
+        self.properties.get(name)
     }
 
     /// Remove all components of this entity from the state

@@ -1,11 +1,13 @@
 use cgmath::*;
 use std::{thread::sleep, time::Duration};
 
-use crate::components::{create_ship, Body};
-use crate::god::create_god;
-use crate::physics::{apply_collisions, apply_gravity, apply_motion};
-use crate::server::Server;
-use crate::state::State;
+use crate::{
+    components::{create_god, create_ship, Body},
+    entity::EntityStore,
+    physics::{apply_collisions, apply_gravity, apply_motion},
+    server::Server,
+    state::State,
+};
 
 const STEPS_PER_SEC: u64 = 30;
 
@@ -15,6 +17,7 @@ pub struct Game {
     step_dt: f64,
     /// The entire game state
     state: State,
+    entities: Box<dyn EntityStore>,
     server: Box<dyn Server>,
 }
 
@@ -24,6 +27,7 @@ impl Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
             state: State::new(),
+            entities: EntityStore::default_impl(),
             server: Server::new_impl(true),
         };
         let _god = create_god(&mut game.state);

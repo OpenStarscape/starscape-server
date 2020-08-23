@@ -77,7 +77,7 @@ impl ServerImpl {
             .ok_or("object not known to connection")?;
         match action {
             PropertyRequest::Set(value) => {
-                handler.set(entity, property, value)?;
+                handler.set(entity, property, &value)?;
             }
             PropertyRequest::Get => {
                 let value = handler.get(entity, property)?;
@@ -214,7 +214,7 @@ mod tests {
             &mut self,
             entity: EntityKey,
             property: &str,
-            _value: Decodable,
+            _value: &Decodable,
         ) -> Result<(), String> {
             self.0
                 .lock()

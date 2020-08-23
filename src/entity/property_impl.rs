@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     plumbing::{Conduit, NotificationSink},
-    server::{ConnectionKey, Encodable, PropertyUpdateSink},
+    server::{ConnectionKey, Decodable, Encodable, PropertyUpdateSink},
 };
 use std::{
     collections::{hash_map::Entry, HashMap},
@@ -53,7 +53,7 @@ impl Property for PropertyImpl {
         self.conduit.get_value(state)
     }
 
-    fn set_value(&self, state: &mut State, value: ()) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
         self.conduit.set_value(state, value)
     }
 
@@ -158,7 +158,7 @@ mod tests {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
+        fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
             panic!("Unexpected call");
         }
 

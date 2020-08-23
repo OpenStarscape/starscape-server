@@ -1,8 +1,10 @@
 use std::sync::{Arc, Weak};
 
-use crate::plumbing::{new_conduit_property, Conduit, NotificationSink};
-use crate::server::Encodable;
-use crate::state::{EntityKey, State};
+use crate::{
+    plumbing::{new_conduit_property, Conduit, NotificationSink},
+    server::{Decodable, Encodable},
+    state::{EntityKey, State},
+};
 
 #[derive(Clone)]
 struct BodyListConduit {}
@@ -13,7 +15,7 @@ impl Conduit for BodyListConduit {
         Ok(entities.into())
     }
 
-    fn set_value(&self, _state: &mut State, _value: ()) -> Result<(), String> {
+    fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
         Err("read_only_property".into())
     }
 

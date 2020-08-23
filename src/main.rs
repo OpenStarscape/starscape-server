@@ -4,7 +4,6 @@ extern crate slotmap;
 mod components;
 mod entity;
 mod game;
-mod god;
 mod physics;
 mod plumbing;
 mod server;

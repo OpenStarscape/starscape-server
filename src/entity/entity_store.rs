@@ -10,7 +10,7 @@ pub trait EntityStore {
     fn new_entity(&mut self) -> EntityKey;
     fn register_body(&mut self, entity: EntityKey, body: BodyKey);
     fn register_ship(&mut self, entity: EntityKey, ship: ShipKey);
-    fn get_property(&self, entity: EntityKey, name: &str) -> Result<&dyn Property, String>;
+    fn get_property(&self, entity: EntityKey, name: &str) -> Result<&Arc<dyn Property>, String>;
 }
 
 impl dyn EntityStore {

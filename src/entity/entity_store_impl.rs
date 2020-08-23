@@ -23,7 +23,7 @@ impl EntityStore for EntityStoreImpl {
     ) {
         if let Some(entity) = self.entities.get_mut(entity_key) {
             let property = PropertyImpl::new(entity_key, name, conduit);
-            entity.register_property(name, Box::new(property));
+            entity.register_property(name, Arc::new(property));
         } else {
             eprintln!("Failed to register proprty on entity {:?}", entity_key);
         }
@@ -49,14 +49,18 @@ impl EntityStore for EntityStoreImpl {
         }
     }
 
-    fn get_property(&self, entity_key: EntityKey, name: &str) -> Result<&dyn Property, String> {
+    fn get_property(
+        &self,
+        entity_key: EntityKey,
+        name: &str,
+    ) -> Result<&Arc<dyn Property>, String> {
         let entity = self
             .entities
             .get(entity_key)
             .ok_or(format!("bad entity {:?}", entity_key))?;
-        let property_key = entity
+        let property = entity
             .get_property(name)
             .ok_or(format!("entity does not have property {:?}", name))?;
-        Ok(property_key)
+        Ok(property)
     }
 }
