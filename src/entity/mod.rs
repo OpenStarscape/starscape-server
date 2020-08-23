@@ -16,4 +16,4 @@ use crate::{
 use entity::Entity;
 use entity_store_impl::EntityStoreImpl;
 use property_impl::PropertyImpl;
-use std::sync::Weak;
+use std::sync::{Arc, Weak};

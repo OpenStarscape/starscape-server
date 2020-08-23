@@ -91,19 +91,14 @@ impl State {
 }
 
 impl RequestHandler for State {
-    fn set(&mut self, entity: EntityKey, property: &str, value: Decodable) -> Result<(), String> {
-        let _property = self.entities.get_property(entity, property)?;
-        eprintln!(
-            "{:?}.{} = {:?} (set not implemented)",
-            entity, property, value
-        );
-        Err("set not implemented".into())
+    fn set(&mut self, entity: EntityKey, property: &str, value: &Decodable) -> Result<(), String> {
+        let property = self.entities.get_property(entity, property)?.clone();
+        property.set_value(self, value)
     }
 
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
-        let _property = self.entities.get_property(entity, property)?;
-        eprintln!("{:?}.{} (get not implemented)", entity, property);
-        Err("get not implemented".into())
+        let property = self.entities.get_property(entity, property)?;
+        property.get_value(self)
     }
 
     fn subscribe(

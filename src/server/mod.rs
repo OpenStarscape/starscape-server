@@ -9,7 +9,7 @@ mod request_handler;
 mod server;
 mod server_impl;
 
-pub use decodable::Decodable;
+pub use decodable::{Decodable, DecodableAs};
 pub use encodable::Encodable;
 pub use request_handler::RequestHandler;
 pub use server::{PropertyUpdateSink, Server};

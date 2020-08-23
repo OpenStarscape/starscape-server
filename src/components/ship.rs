@@ -1,10 +1,11 @@
 use super::*;
+use crate::{
+    plumbing::new_store_property,
+    state::{EntityKey, ShipKey, State},
+    EPSILON,
+};
 use cgmath::*;
 use std::sync::Mutex;
-
-use crate::plumbing::new_store_property;
-use crate::state::{EntityKey, ShipKey, State};
-use crate::EPSILON;
 
 struct PendingUpdates {
     thrust: Vector3<f64>,
@@ -89,9 +90,28 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     );
     state.entities.register_body(entity, body);
     state.entities.register_ship(entity, ship);
-    new_store_property(state, entity, "position", move |state: &State| {
-        Ok(&state.bodies[body].position)
-    });
+    new_store_property(
+        state,
+        entity,
+        "position",
+        move |state: &State| {
+            Ok(&state
+                .bodies
+                .get(body)
+                .ok_or("Body does not exist")?
+                .position)
+        },
+        move |state: &mut State, value: &Decodable| {
+            state
+                .bodies
+                .get_mut_without_notifying_of_change()
+                .get_mut(body)
+                .ok_or("Body does not exist")?
+                .position
+                .set(&state.pending_updates, value.decode()?);
+            Ok(())
+        },
+    );
     entity
     /*for (name, prop_getter) in vec![
         ("position", &|state: &State| Ok(&state.bodies.get(body)?.position)),
