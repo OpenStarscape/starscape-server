@@ -7,7 +7,7 @@ mod conduit;
 mod property_conduit;
 mod subscriber;
 mod subscription_tracker;
-mod update_source;
+mod element;
 
 use caching_conduit::CachingConduit;
 use property_conduit::PropertyConduit;
@@ -15,7 +15,7 @@ use subscription_tracker::SubscriptionTracker;
 
 pub use conduit::Conduit;
 pub use subscriber::Subscriber;
-pub use update_source::UpdateSource;
+pub use element::Element;
 
 pub fn new_conduit_property(
     state: &mut State,
@@ -35,7 +35,7 @@ pub fn new_store_property<T, GetFn, SetFn>(
     setter: SetFn,
 ) where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
     SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
     GetFn: Clone + 'static,
     SetFn: Clone + 'static,

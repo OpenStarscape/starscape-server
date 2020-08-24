@@ -23,17 +23,17 @@ pub struct Body {
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
-    pub position: UpdateSource<Point3<f64>>,
+    pub position: Element<Point3<f64>>,
     /// Speed at which the object is moving (kilometers-per-second)
-    pub velocity: UpdateSource<Vector3<f64>>,
+    pub velocity: Element<Vector3<f64>>,
     /// Shape of this object (used for collision detection)
-    pub shape: UpdateSource<Shape>,
+    pub shape: Element<Shape>,
     /// Mass of this object (kilotonnes aka millions of kilograms)
-    pub mass: UpdateSource<f64>,
+    pub mass: Element<f64>,
     /// If this object should be a source of gravity
     /// Ideally all objects would have a gravitational effect on all other objects, but that is
     /// unnecessary and computationally expensive.
-    pub gravity_well: UpdateSource<bool>,
+    pub gravity_well: Element<bool>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
 }
@@ -42,11 +42,11 @@ impl Default for Body {
     fn default() -> Self {
         Self {
             entity: EntityKey::null(),
-            position: UpdateSource::new(Point3::origin()),
-            velocity: UpdateSource::new(Vector3::zero()),
-            shape: UpdateSource::new(Shape::Point),
-            mass: UpdateSource::new(1.0),
-            gravity_well: UpdateSource::new(false),
+            position: Element::new(Point3::origin()),
+            velocity: Element::new(Vector3::zero()),
+            shape: Element::new(Shape::Point),
+            mass: Element::new(1.0),
+            gravity_well: Element::new(false),
             collision_handler: Box::new(()),
         }
     }
@@ -63,27 +63,27 @@ impl Body {
     }
 
     pub fn with_position(mut self, position: Point3<f64>) -> Self {
-        self.position = UpdateSource::new(position);
+        self.position = Element::new(position);
         self
     }
 
     pub fn with_velocity(mut self, velocity: Vector3<f64>) -> Self {
-        self.velocity = UpdateSource::new(velocity);
+        self.velocity = Element::new(velocity);
         self
     }
 
     pub fn with_sphere_shape(mut self, radius: f64) -> Self {
-        self.shape = UpdateSource::new(Shape::Sphere { radius });
+        self.shape = Element::new(Shape::Sphere { radius });
         self
     }
 
     pub fn with_mass(mut self, mass: f64) -> Self {
-        self.mass = UpdateSource::new(mass);
+        self.mass = Element::new(mass);
         self
     }
 
     pub fn with_gravity(mut self) -> Self {
-        self.gravity_well = UpdateSource::new(true);
+        self.gravity_well = Element::new(true);
         self
     }
 

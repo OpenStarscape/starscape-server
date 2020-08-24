@@ -1,15 +1,14 @@
 use super::*;
 use std::ops::Deref;
 
-/// A value that produces updates whenever changed
-/// Updates are not dispatched to connected properties immediatly, instead
-///   property keys are stored until it is time to dispatch all updates
-pub struct UpdateSource<T> {
+/// A single piece of data in a component
+/// Changes can be subscribed to so updates can be dispatched to properties
+pub struct Element<T> {
     inner: T,
     subscribers: SubscriptionTracker,
 }
 
-impl<T> UpdateSource<T> {
+impl<T> Element<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
@@ -44,7 +43,7 @@ impl<T> UpdateSource<T> {
     }
 }
 
-impl<T: PartialEq> UpdateSource<T> {
+impl<T: PartialEq> Element<T> {
     pub fn set(&mut self, pending: &PendingNotifications, value: T) {
         if self.inner != value {
             self.inner = value;
@@ -53,7 +52,7 @@ impl<T: PartialEq> UpdateSource<T> {
     }
 }
 
-impl<T> Deref for UpdateSource<T> {
+impl<T> Deref for Element<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -79,8 +78,8 @@ mod tests {
         }
     }
 
-    fn setup() -> (UpdateSource<i64>, PendingNotifications, Arc<dyn Subscriber>) {
-        let store = UpdateSource::new(7);
+    fn setup() -> (Element<i64>, PendingNotifications, Arc<dyn Subscriber>) {
+        let store = Element::new(7);
         let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
         store.subscribe(&subscriber).expect("Failed to subscribe");
         (store, RwLock::new(Vec::new()), subscriber)
