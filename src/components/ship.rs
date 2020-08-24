@@ -1,11 +1,4 @@
 use super::*;
-use crate::{
-    plumbing::new_store_property,
-    state::{EntityKey, ShipKey, State},
-    EPSILON,
-};
-use cgmath::*;
-use std::sync::Mutex;
 
 struct PendingUpdates {
     thrust: Vector3<f64>,

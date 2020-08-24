@@ -1,5 +1,4 @@
 use super::*;
-use crate::state::{EntityKey, State};
 
 pub trait Connection {
     fn property_changed(

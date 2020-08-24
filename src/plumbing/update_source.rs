@@ -1,7 +1,5 @@
-use std::{error::Error, ops::Deref};
-
 use super::*;
-use crate::state::PendingNotifications;
+use std::ops::Deref;
 
 /// A value that produces updates whenever changed
 /// Updates are not dispatched to connected properties immediatly, instead

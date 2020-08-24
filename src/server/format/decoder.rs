@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use super::*;
 
 /// Decodes a stream of bytes from the session into requests

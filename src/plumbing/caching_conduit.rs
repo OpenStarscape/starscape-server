@@ -1,11 +1,4 @@
-use std::error::Error;
-use std::sync::Mutex;
-
 use super::*;
-use crate::{
-    server::{Decodable, Encodable, PropertyUpdateSink},
-    state::State,
-};
 
 /// The default property implementation
 pub struct CachingConduit {

@@ -1,10 +1,4 @@
-use std::sync::{Arc, Weak};
-
 use super::*;
-use crate::{
-    server::{Decodable, Encodable},
-    state::State,
-};
 
 /// Connects a store to a server property
 #[derive(Clone)]

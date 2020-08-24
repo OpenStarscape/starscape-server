@@ -1,4 +1,4 @@
-use std::{error::Error, sync::mpsc::Sender};
+use std::sync::mpsc::Sender;
 
 use super::*;
 use crate::EntityKey;

@@ -1,6 +1,8 @@
-mod caching_conduit;
 /// This module contains everything concerned with shuffling data
 /// between the state and connections
+use super::*;
+
+mod caching_conduit;
 mod conduit;
 mod notification_sink;
 mod notification_source;
@@ -14,12 +16,6 @@ use property_conduit::PropertyConduit;
 pub use conduit::Conduit;
 pub use notification_sink::NotificationSink;
 pub use update_source::UpdateSource;
-
-use crate::{
-    server::{Decodable, Encodable},
-    state::{EntityKey, State},
-};
-use std::sync::{Arc, Weak};
 
 pub fn new_conduit_property(
     state: &mut State,

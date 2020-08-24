@@ -1,13 +1,5 @@
 use super::*;
-use crate::{
-    plumbing::{Conduit, NotificationSink},
-    server::{ConnectionKey, Decodable, Encodable, PropertyUpdateSink},
-};
-use std::{
-    collections::{hash_map::Entry, HashMap},
-    error::Error,
-    sync::{Arc, Mutex},
-};
+use std::collections::hash_map::Entry;
 
 struct ConnectionProperty {
     connection: ConnectionKey,

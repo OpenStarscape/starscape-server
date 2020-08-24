@@ -1,12 +1,9 @@
+use super::*;
 use std::{
-    error::Error,
-    fmt::{Debug, Formatter},
     io::ErrorKind::{AddrInUse, WouldBlock},
     net::{IpAddr, SocketAddr},
     sync::mpsc::Sender,
 };
-
-use super::*;
 
 fn try_to_accept_connections(
     listener: &mio::net::TcpListener,

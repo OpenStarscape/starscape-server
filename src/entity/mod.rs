@@ -1,3 +1,5 @@
+use super::*;
+
 #[allow(clippy::module_inception)]
 mod entity;
 mod entity_store;
@@ -9,10 +11,6 @@ pub use entity::EntityKey;
 pub use entity_store::EntityStore;
 pub use property::Property;
 
-use crate::{
-    plumbing::Conduit,
-    state::{BodyKey, ShipKey, State},
-};
 use entity::Entity;
 use entity_store_impl::EntityStoreImpl;
 use property_impl::PropertyImpl;

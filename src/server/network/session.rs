@@ -1,4 +1,6 @@
-use std::{error::Error, fmt::Debug};
+use super::*;
+
+use std::fmt::Debug;
 
 pub trait SessionBuilder: Send + Debug {
     fn build(

@@ -1,3 +1,5 @@
+use super::*;
+
 mod decoder;
 mod encoder;
 mod json;
@@ -11,5 +13,3 @@ pub fn json_protocol_impls() -> (Box<dyn Encoder>, Box<dyn Decoder>) {
         Box::new(json::JsonDecoder::new()),
     )
 }
-
-use super::*;

@@ -1,6 +1,4 @@
 use super::*;
-use crate::{server::PropertyUpdateSink, state::State};
-use std::error::Error;
 
 pub trait NotificationSink {
     fn notify(&self, state: &State, server: &dyn PropertyUpdateSink) -> Result<(), Box<dyn Error>>;

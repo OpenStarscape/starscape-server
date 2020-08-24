@@ -1,8 +1,4 @@
-use cgmath::*;
-
-use crate::components::{Body, Collision};
-use crate::state::State;
-use crate::EPSILON;
+use super::*;
 
 /// TODO: calculate the gravitational constant for our units (kilometers, kilotonnes, seconds)
 const GRAVITATIONAL_CONSTANT: f64 = 6.674_301_5e-3;
