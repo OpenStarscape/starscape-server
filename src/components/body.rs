@@ -1,8 +1,5 @@
-use cgmath::*;
+use super::*;
 use slotmap::Key;
-
-use crate::plumbing::UpdateSource;
-use crate::state::{BodyKey, EntityKey, State};
 
 /// Collision shape
 #[derive(Clone, Copy, PartialEq)]

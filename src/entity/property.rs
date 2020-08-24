@@ -1,7 +1,4 @@
-use crate::{
-    server::{ConnectionKey, Decodable, Encodable},
-    State,
-};
+use super::*;
 
 pub trait Property {
     fn get_value(&self, state: &State) -> Result<Encodable, String>;

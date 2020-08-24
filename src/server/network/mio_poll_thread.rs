@@ -1,9 +1,9 @@
-use mio::event::Evented;
-use mio::{Events, Poll, PollOpt, Ready, Registration, SetReadiness, Token};
-use std::error::Error;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread::{spawn, JoinHandle};
+use super::*;
+use mio::{event::Evented, Events, Poll, PollOpt, Ready, Registration, SetReadiness, Token};
+use std::{
+    sync::atomic::{AtomicBool, Ordering},
+    thread::{spawn, JoinHandle},
+};
 
 const TOKEN: Token = Token(0);
 

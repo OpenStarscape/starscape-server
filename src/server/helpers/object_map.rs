@@ -1,7 +1,5 @@
-use bimap::BiHashMap;
-
 use super::*;
-use crate::state::EntityKey;
+use bimap::BiHashMap;
 
 pub type ObjectId = u64;
 

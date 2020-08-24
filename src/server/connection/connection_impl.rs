@@ -1,10 +1,5 @@
-use std::{
-    error::Error,
-    sync::{mpsc::Sender, Mutex},
-};
-
 use super::*;
-use crate::{EntityKey, State};
+use std::sync::mpsc::Sender;
 
 struct IncomingDataHandler {
     connection_key: ConnectionKey,

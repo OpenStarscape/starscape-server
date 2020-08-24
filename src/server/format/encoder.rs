@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use super::*;
 
 /// Encodes a specific data format (ex JSON)

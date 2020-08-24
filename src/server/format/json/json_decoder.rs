@@ -1,11 +1,7 @@
+use super::*;
 use serde::de::Deserialize;
 use serde_json::Value;
-use std::{
-    convert::{TryFrom, TryInto},
-    error::Error,
-};
-
-use super::*;
+use std::convert::{TryFrom, TryInto};
 
 impl TryFrom<serde_json::Value> for Decodable {
     type Error = &'static str;

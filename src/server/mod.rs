@@ -1,3 +1,5 @@
+use super::*;
+
 mod connection;
 mod decodable;
 mod encodable;
@@ -14,8 +16,6 @@ pub use encodable::Encodable;
 pub use request_handler::RequestHandler;
 pub use server::{PropertyUpdateSink, Server};
 pub use server_impl::ConnectionKey;
-
-use std::error::Error;
 
 use connection::*;
 use format::*;

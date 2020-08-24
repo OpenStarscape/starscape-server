@@ -1,6 +1,4 @@
 use super::*;
-use crate::{server::PropertyUpdateSink, state::PendingNotifications};
-use std::sync::{RwLock, Weak};
 
 pub struct NotificationSource {
     subscribers: RwLock<Vec<(*const (), Weak<dyn NotificationSink>)>>,

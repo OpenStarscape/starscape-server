@@ -1,5 +1,4 @@
-use crate::state::EntityKey;
-use cgmath::*;
+use super::*;
 use serde::ser::{Serialize, Serializer};
 
 #[derive(Debug, PartialEq, Clone)]

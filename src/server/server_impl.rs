@@ -1,8 +1,5 @@
-use slotmap::DenseSlotMap;
-use std::sync::mpsc::{channel, Receiver, Sender};
-
 use super::*;
-use crate::EntityKey;
+use std::sync::mpsc::{channel, Receiver, Sender};
 
 new_key_type! {
     pub struct ConnectionKey;

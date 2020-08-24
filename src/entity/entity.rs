@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use super::*;
 
 new_key_type! {

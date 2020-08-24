@@ -1,5 +1,4 @@
 use super::*;
-use crate::EntityKey;
 
 pub trait RequestHandler {
     fn set(&mut self, entity: EntityKey, property: &str, value: &Decodable) -> Result<(), String>;

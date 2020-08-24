@@ -1,5 +1,3 @@
-use slotmap::DenseSlotMap;
-
 use super::*;
 
 pub struct EntityStoreImpl {

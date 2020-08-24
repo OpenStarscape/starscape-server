@@ -1,7 +1,5 @@
-use serde::ser::{SerializeStruct, Serializer};
-use std::error::Error;
-
 use super::*;
+use serde::ser::{SerializeStruct, Serializer};
 
 pub struct JsonEncoder {}
 

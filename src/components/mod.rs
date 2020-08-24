@@ -1,3 +1,5 @@
+use super::*;
+
 mod body;
 mod god;
 mod ship;
@@ -5,5 +7,3 @@ mod ship;
 pub use body::{Body, Collision, CollisionHandler};
 pub use god::create_god;
 pub use ship::{create_ship, Ship};
-
-use crate::server::{Decodable, DecodableAs};
