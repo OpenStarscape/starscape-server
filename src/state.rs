@@ -5,7 +5,7 @@ new_key_type! {
     pub struct ShipKey;
 }
 
-pub type PendingNotifications = RwLock<Vec<Weak<dyn NotificationSink>>>;
+pub type PendingNotifications = RwLock<Vec<Weak<dyn Subscriber>>>;
 
 /// The entire game state at a single point in time
 pub struct State {

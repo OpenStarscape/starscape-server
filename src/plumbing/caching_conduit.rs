@@ -17,7 +17,7 @@ impl CachingConduit {
     }
 }
 
-impl NotificationSink for CachingConduit {
+impl Subscriber for CachingConduit {
     fn notify(&self, state: &State, sink: &dyn PropertyUpdateSink) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
         let mut cached = self
@@ -45,28 +45,20 @@ impl Conduit for Arc<CachingConduit> {
         self.conduit.set_value(state, value)
     }
 
-    fn subscribe(
-        &self,
-        state: &State,
-        subscriber: &Arc<dyn NotificationSink>,
-    ) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
         if self.subscribers.subscribe(subscriber)? {
             self.conduit
-                .subscribe(state, &(self.clone() as Arc<dyn NotificationSink>))
+                .subscribe(state, &(self.clone() as Arc<dyn Subscriber>))
         } else {
             Ok(())
         }
     }
 
-    fn unsubscribe(
-        &self,
-        state: &State,
-        subscriber: &Weak<dyn NotificationSink>,
-    ) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
         if self.subscribers.unsubscribe(subscriber)? {
             self.conduit.unsubscribe(
                 state,
-                &Arc::downgrade(&(self.clone() as Arc<dyn NotificationSink>)),
+                &Arc::downgrade(&(self.clone() as Arc<dyn Subscriber>)),
             )
         } else {
             Ok(())
@@ -81,9 +73,9 @@ mod tests {
     use crate::server::ConnectionKey;
     use std::{cell::RefCell, rc::Rc};
 
-    struct MockNotificationSink(RefCell<u32>);
+    struct MockSubscriber(RefCell<u32>);
 
-    impl NotificationSink for MockNotificationSink {
+    impl Subscriber for MockSubscriber {
         fn notify(
             &self,
             _state: &State,
@@ -110,7 +102,7 @@ mod tests {
 
     struct MockConduit {
         value_to_get: Result<Encodable, String>,
-        subscribed: Option<Weak<dyn NotificationSink>>,
+        subscribed: Option<Weak<dyn Subscriber>>,
     }
 
     impl MockConduit {
@@ -134,7 +126,7 @@ mod tests {
         fn subscribe(
             &self,
             _state: &State,
-            subscriber: &Arc<dyn NotificationSink>,
+            subscriber: &Arc<dyn Subscriber>,
         ) -> Result<(), String> {
             assert!(self.borrow().subscribed.is_none());
             self.borrow_mut().subscribed = Some(Arc::downgrade(subscriber));
@@ -144,13 +136,10 @@ mod tests {
         fn unsubscribe(
             &self,
             _state: &State,
-            subscriber: &Weak<dyn NotificationSink>,
+            subscriber: &Weak<dyn Subscriber>,
         ) -> Result<(), String> {
             if let Some(s) = &self.borrow().subscribed {
-                assert_eq!(
-                    NotificationSink::thin_ptr(s),
-                    NotificationSink::thin_ptr(subscriber)
-                );
+                assert_eq!(Subscriber::thin_ptr(s), Subscriber::thin_ptr(subscriber));
             } else {
                 panic!();
             }
@@ -163,11 +152,11 @@ mod tests {
         State,
         Arc<CachingConduit>,
         Rc<RefCell<MockConduit>>,
-        Vec<Arc<dyn NotificationSink>>,
-        Vec<Arc<MockNotificationSink>>,
+        Vec<Arc<dyn Subscriber>>,
+        Vec<Arc<MockSubscriber>>,
     ) {
-        let mock_sinks: Vec<Arc<MockNotificationSink>> = (0..3)
-            .map(|_| Arc::new(MockNotificationSink(RefCell::new(0))))
+        let mock_sinks: Vec<Arc<MockSubscriber>> = (0..3)
+            .map(|_| Arc::new(MockSubscriber(RefCell::new(0))))
             .collect();
         let inner = MockConduit::new();
         let caching = CachingConduit::new(Box::new(inner.clone()));
@@ -177,7 +166,7 @@ mod tests {
             inner,
             mock_sinks
                 .iter()
-                .map(|sink| sink.clone() as Arc<dyn NotificationSink>)
+                .map(|sink| sink.clone() as Arc<dyn Subscriber>)
                 .collect(),
             mock_sinks,
         )
@@ -201,11 +190,9 @@ mod tests {
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
         if let Some(subscribed_to) = inner.borrow().subscribed.clone() {
-            let subscribed_to = NotificationSink::thin_ptr(&subscribed_to);
-            let caching = NotificationSink::thin_ptr(
-                &(Arc::downgrade(&caching) as Weak<dyn NotificationSink>),
-            );
-            let sink = NotificationSink::thin_ptr(&Arc::downgrade(&sinks[0]));
+            let subscribed_to = Subscriber::thin_ptr(&subscribed_to);
+            let caching = Subscriber::thin_ptr(&(Arc::downgrade(&caching) as Weak<dyn Subscriber>));
+            let sink = Subscriber::thin_ptr(&Arc::downgrade(&sinks[0]));
             assert_ne!(subscribed_to, sink);
             assert_eq!(subscribed_to, caching);
         } else {

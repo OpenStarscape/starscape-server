@@ -5,16 +5,8 @@ use crate::server::{Decodable, Encodable};
 pub trait Conduit: CloneConduit {
     fn get_value(&self, state: &State) -> Result<Encodable, String>;
     fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String>;
-    fn subscribe(
-        &self,
-        state: &State,
-        subscriber: &Arc<dyn NotificationSink>,
-    ) -> Result<(), String>;
-    fn unsubscribe(
-        &self,
-        state: &State,
-        subscriber: &Weak<dyn NotificationSink>,
-    ) -> Result<(), String>;
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String>;
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String>;
 }
 
 pub trait CloneConduit {
