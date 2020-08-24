@@ -10,7 +10,7 @@ pub struct PropertyConduit<GetFn, SetFn> {
 impl<T, GetFn, SetFn> PropertyConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
     SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
     GetFn: Clone + 'static,
     SetFn: Clone + 'static,
@@ -23,7 +23,7 @@ where
 impl<T, GetFn, SetFn> Conduit for PropertyConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a UpdateSource<T>, String>,
+    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
     SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
     GetFn: Clone + 'static,
     SetFn: Clone + 'static,

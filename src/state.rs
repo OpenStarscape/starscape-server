@@ -13,7 +13,7 @@ pub struct State {
     pub time: f64,
     pub entities: Box<dyn EntityStore>,
     /// All physics objects in the game
-    pub bodies: UpdateSource<DenseSlotMap<BodyKey, Body>>,
+    pub bodies: Element<DenseSlotMap<BodyKey, Body>>,
     /// Keys to the bodies which have a gravitational force
     /// For performence reasons, only significantly massive bodies should be included
     pub gravity_wells: Vec<BodyKey>,
@@ -28,7 +28,7 @@ impl Default for State {
         Self {
             time: 0.0,
             entities: EntityStore::default_impl(),
-            bodies: UpdateSource::new(DenseSlotMap::with_key()),
+            bodies: Element::new(DenseSlotMap::with_key()),
             gravity_wells: Vec::new(),
             ships: DenseSlotMap::with_key(),
             pending_updates: RwLock::new(Vec::new()),
