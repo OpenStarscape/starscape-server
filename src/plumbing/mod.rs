@@ -4,13 +4,13 @@ use super::*;
 
 mod caching_conduit;
 mod conduit;
-mod property_conduit;
+mod element_conduit;
 mod subscriber;
 mod subscription_tracker;
 mod element;
 
 use caching_conduit::CachingConduit;
-use property_conduit::PropertyConduit;
+use element_conduit::ElementConduit;
 use subscription_tracker::SubscriptionTracker;
 
 pub use conduit::Conduit;
@@ -27,7 +27,7 @@ pub fn new_conduit_property(
     state.entities.register_property(entity, name, property);
 }
 
-pub fn new_store_property<T, GetFn, SetFn>(
+pub fn new_element_property<T, GetFn, SetFn>(
     state: &mut State,
     entity: EntityKey,
     name: &'static str,
@@ -44,7 +44,7 @@ pub fn new_store_property<T, GetFn, SetFn>(
         state,
         entity,
         name,
-        Box::new(PropertyConduit::new(getter, setter)),
+        Box::new(ElementConduit::new(getter, setter)),
     )
 }
 

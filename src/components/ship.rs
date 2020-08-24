@@ -83,7 +83,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     );
     state.entities.register_body(entity, body);
     state.entities.register_ship(entity, ship);
-    new_store_property(
+    new_element_property(
         state,
         entity,
         "position",

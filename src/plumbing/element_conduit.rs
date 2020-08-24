@@ -2,12 +2,12 @@ use super::*;
 
 /// Connects a store to a server property
 #[derive(Clone)]
-pub struct PropertyConduit<GetFn, SetFn> {
+pub struct ElementConduit<GetFn, SetFn> {
     getter: GetFn,
     setter: SetFn,
 }
 
-impl<T, GetFn, SetFn> PropertyConduit<GetFn, SetFn>
+impl<T, GetFn, SetFn> ElementConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
     for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
@@ -20,7 +20,7 @@ where
     }
 }
 
-impl<T, GetFn, SetFn> Conduit for PropertyConduit<GetFn, SetFn>
+impl<T, GetFn, SetFn> Conduit for ElementConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
     for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
