@@ -13,22 +13,14 @@ impl Conduit for BodyListConduit {
         Err("read_only_property".into())
     }
 
-    fn subscribe(
-        &self,
-        state: &State,
-        subscriber: &Arc<dyn NotificationSink>,
-    ) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
         state.bodies.subscribe(subscriber).map_err(|e| {
             eprintln!("Error: {}", e);
             "server_error".into()
         })
     }
 
-    fn unsubscribe(
-        &self,
-        state: &State,
-        subscriber: &Weak<dyn NotificationSink>,
-    ) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
         state.bodies.unsubscribe(subscriber).map_err(|e| {
             eprintln!("Error: {}", e);
             "server_error".into()

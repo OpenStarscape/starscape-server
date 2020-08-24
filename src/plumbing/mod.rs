@@ -4,8 +4,8 @@ use super::*;
 
 mod caching_conduit;
 mod conduit;
-mod notification_sink;
 mod property_conduit;
+mod subscriber;
 mod subscription_tracker;
 mod update_source;
 
@@ -14,7 +14,7 @@ use property_conduit::PropertyConduit;
 use subscription_tracker::SubscriptionTracker;
 
 pub use conduit::Conduit;
-pub use notification_sink::NotificationSink;
+pub use subscriber::Subscriber;
 pub use update_source::UpdateSource;
 
 pub fn new_conduit_property(

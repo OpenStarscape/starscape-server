@@ -8,7 +8,7 @@ struct ConnectionProperty {
     conduit: Box<dyn Conduit>,
 }
 
-impl NotificationSink for ConnectionProperty {
+impl Subscriber for ConnectionProperty {
     fn notify(&self, state: &State, sink: &dyn PropertyUpdateSink) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
         sink.property_changed(self.connection, self.entity, self.property_name, &value)
@@ -66,7 +66,7 @@ impl Property for PropertyImpl {
                     property_name: self.name,
                     conduit: self.conduit.clone(),
                 });
-                let notif_sink: Arc<dyn NotificationSink> = conn_prop.clone();
+                let notif_sink: Arc<dyn Subscriber> = conn_prop.clone();
                 self.conduit.subscribe(state, &notif_sink)?;
                 entry.insert(conn_prop);
                 Ok(())
@@ -85,7 +85,7 @@ impl Property for PropertyImpl {
                 subscriber, self.entity, self.name
             )),
             Some(conn_prop) => {
-                let conn_prop: Arc<dyn NotificationSink> = conn_prop;
+                let conn_prop: Arc<dyn Subscriber> = conn_prop;
                 self.conduit
                     .unsubscribe(state, &Arc::downgrade(&conn_prop))?;
                 Ok(())
@@ -99,7 +99,7 @@ impl Property for PropertyImpl {
             .lock()
             .expect("Failed to lock subscriptions in PropertyImpl.finalize()");
         for (_conn, property) in subscriptions.drain() {
-            let sink = Arc::downgrade(&property) as Weak<dyn NotificationSink>;
+            let sink = Arc::downgrade(&property) as Weak<dyn Subscriber>;
             if let Err(e) = self.conduit.unsubscribe(state, &sink) {
                 eprintln!(
                     "Failed to unsubscribe property from conduit during property finalize: {}",
@@ -133,7 +133,7 @@ mod tests {
 
     struct MockConduit {
         value_to_get: Result<Encodable, String>,
-        subscribed: HashMap<*const (), Weak<dyn NotificationSink>>,
+        subscribed: HashMap<*const (), Weak<dyn Subscriber>>,
     }
 
     impl MockConduit {
@@ -157,9 +157,9 @@ mod tests {
         fn subscribe(
             &self,
             _state: &State,
-            subscriber: &Arc<dyn NotificationSink>,
+            subscriber: &Arc<dyn Subscriber>,
         ) -> Result<(), String> {
-            let ptr = NotificationSink::thin_ptr(&Arc::downgrade(subscriber));
+            let ptr = Subscriber::thin_ptr(&Arc::downgrade(subscriber));
             assert!(
                 self.borrow_mut()
                     .subscribed
@@ -174,9 +174,9 @@ mod tests {
         fn unsubscribe(
             &self,
             _state: &State,
-            subscriber: &Weak<dyn NotificationSink>,
+            subscriber: &Weak<dyn Subscriber>,
         ) -> Result<(), String> {
-            let ptr = NotificationSink::thin_ptr(subscriber);
+            let ptr = Subscriber::thin_ptr(subscriber);
             assert!(
                 self.borrow_mut().subscribed.remove(&ptr).is_some(),
                 "unsubscriber {:?} not subscribed",

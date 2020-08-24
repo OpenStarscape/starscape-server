@@ -1,7 +1,8 @@
 use super::*;
 
+/// Object that keeps track of and notifies a set of subscribers
 pub struct SubscriptionTracker {
-    subscribers: RwLock<Vec<(*const (), Weak<dyn NotificationSink>)>>,
+    subscribers: RwLock<Vec<(*const (), Weak<dyn Subscriber>)>>,
 }
 
 impl SubscriptionTracker {
@@ -35,13 +36,13 @@ impl SubscriptionTracker {
     }
 
     // Returns true if there were no previous subscriptions
-    pub fn subscribe(&self, subscriber: &Arc<dyn NotificationSink>) -> Result<bool, String> {
+    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<bool, String> {
         let mut subscribers = self
             .subscribers
             .write()
             .expect("Failed to lock subscribers");
         let subscriber = Arc::downgrade(subscriber);
-        let subscriber_ptr = NotificationSink::thin_ptr(&subscriber);
+        let subscriber_ptr = Subscriber::thin_ptr(&subscriber);
         if subscribers
             .iter()
             .any(|(ptr, _sink)| *ptr == subscriber_ptr)
@@ -55,8 +56,8 @@ impl SubscriptionTracker {
     }
 
     // Returns true if there are now no subscriptions
-    pub fn unsubscribe(&self, subscriber: &Weak<dyn NotificationSink>) -> Result<bool, String> {
-        let subscriber_ptr = NotificationSink::thin_ptr(&subscriber);
+    pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<bool, String> {
+        let subscriber_ptr = Subscriber::thin_ptr(&subscriber);
         let mut subscribers = self
             .subscribers
             .write()
@@ -95,9 +96,9 @@ mod tests {
         }
     }
 
-    struct MockNotificationSink(RefCell<u32>);
+    struct MockSubscriber(RefCell<u32>);
 
-    impl NotificationSink for MockNotificationSink {
+    impl Subscriber for MockSubscriber {
         fn notify(
             &self,
             _state: &State,
@@ -111,30 +112,30 @@ mod tests {
     fn setup() -> (
         SubscriptionTracker,
         PendingNotifications,
-        Vec<Arc<dyn NotificationSink>>,
-        Vec<Arc<MockNotificationSink>>,
+        Vec<Arc<dyn Subscriber>>,
+        Vec<Arc<MockSubscriber>>,
     ) {
-        let mock_sinks: Vec<Arc<MockNotificationSink>> = (0..3)
-            .map(|_| Arc::new(MockNotificationSink(RefCell::new(0))))
+        let mock_sinks: Vec<Arc<MockSubscriber>> = (0..3)
+            .map(|_| Arc::new(MockSubscriber(RefCell::new(0))))
             .collect();
         (
             SubscriptionTracker::new(),
             RwLock::new(Vec::new()),
             mock_sinks
                 .iter()
-                .map(|sink| sink.clone() as Arc<dyn NotificationSink>)
+                .map(|sink| sink.clone() as Arc<dyn Subscriber>)
                 .collect(),
             mock_sinks,
         )
     }
 
-    fn pending_contains(pending: &PendingNotifications, sink: &Arc<dyn NotificationSink>) -> bool {
-        let sink = NotificationSink::thin_ptr(&Arc::downgrade(&sink));
+    fn pending_contains(pending: &PendingNotifications, sink: &Arc<dyn Subscriber>) -> bool {
+        let sink = Subscriber::thin_ptr(&Arc::downgrade(&sink));
         pending
             .read()
             .unwrap()
             .iter()
-            .any(|i| NotificationSink::thin_ptr(i) == sink)
+            .any(|i| Subscriber::thin_ptr(i) == sink)
     }
 
     #[test]

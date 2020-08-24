@@ -29,17 +29,14 @@ impl<T> UpdateSource<T> {
         &mut self.inner
     }
 
-    pub fn subscribe(&self, subscriber: &Arc<dyn NotificationSink>) -> Result<(), Box<dyn Error>> {
+    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
         match self.subscribers.subscribe(subscriber) {
             Ok(_) => Ok(()),
             Err(e) => Err(e.into()),
         }
     }
 
-    pub fn unsubscribe(
-        &self,
-        subscriber: &Weak<dyn NotificationSink>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
         match self.subscribers.unsubscribe(subscriber) {
             Ok(_) => Ok(()),
             Err(e) => Err(e.into()),
@@ -70,25 +67,21 @@ mod tests {
     use crate::server::PropertyUpdateSink;
     use std::sync::RwLock;
 
-    struct MockNotificationSink;
+    struct MockSubscriber;
 
-    impl NotificationSink for MockNotificationSink {
+    impl Subscriber for MockSubscriber {
         fn notify(
             &self,
             _state: &State,
             _server: &dyn PropertyUpdateSink,
         ) -> Result<(), Box<dyn Error>> {
-            panic!("MockNotificationSink.notify() should not be called");
+            panic!("MockSubscriber.notify() should not be called");
         }
     }
 
-    fn setup() -> (
-        UpdateSource<i64>,
-        PendingNotifications,
-        Arc<dyn NotificationSink>,
-    ) {
+    fn setup() -> (UpdateSource<i64>, PendingNotifications, Arc<dyn Subscriber>) {
         let store = UpdateSource::new(7);
-        let subscriber: Arc<dyn NotificationSink> = Arc::new(MockNotificationSink {});
+        let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
         store.subscribe(&subscriber).expect("Failed to subscribe");
         (store, RwLock::new(Vec::new()), subscriber)
     }
