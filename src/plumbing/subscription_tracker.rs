@@ -1,10 +1,10 @@
 use super::*;
 
-pub struct NotificationSource {
+pub struct SubscriptionTracker {
     subscribers: RwLock<Vec<(*const (), Weak<dyn NotificationSink>)>>,
 }
 
-impl NotificationSource {
+impl SubscriptionTracker {
     pub fn new() -> Self {
         Self {
             subscribers: RwLock::new(Vec::new()),
@@ -109,7 +109,7 @@ mod tests {
     }
 
     fn setup() -> (
-        NotificationSource,
+        SubscriptionTracker,
         PendingNotifications,
         Vec<Arc<dyn NotificationSink>>,
         Vec<Arc<MockNotificationSink>>,
@@ -118,7 +118,7 @@ mod tests {
             .map(|_| Arc::new(MockNotificationSink(RefCell::new(0))))
             .collect();
         (
-            NotificationSource::new(),
+            SubscriptionTracker::new(),
             RwLock::new(Vec::new()),
             mock_sinks
                 .iter()
@@ -139,47 +139,47 @@ mod tests {
 
     #[test]
     fn can_queue_with_no_subscribers() {
-        let (source, pending, _, _) = setup();
-        source.queue_notifications(&pending);
+        let (tracker, pending, _, _) = setup();
+        tracker.queue_notifications(&pending);
         assert_eq!(pending.read().unwrap().len(), 0);
     }
 
     #[test]
     fn can_send_with_no_subscribers() {
-        let (source, _, _, _) = setup();
+        let (tracker, _, _, _) = setup();
         let state = State::new();
         let update_sink = MockPropertyUpdateSink {};
-        source.send_notifications(&state, &update_sink);
+        tracker.send_notifications(&state, &update_sink);
     }
 
     #[test]
     fn queues_single_subscriber() {
-        let (source, pending, sinks, _) = setup();
-        source
+        let (tracker, pending, sinks, _) = setup();
+        tracker
             .subscribe(&sinks[0].clone())
             .expect("subscribing failed");
-        source.queue_notifications(&pending);
+        tracker.queue_notifications(&pending);
         assert_eq!(pending.read().unwrap().len(), 1);
         assert!(pending_contains(&pending, &sinks[0]));
     }
 
     #[test]
     fn sends_to_single_subscriber() {
-        let (source, _, sinks, mock_sinks) = setup();
-        source.subscribe(&sinks[0]).expect("subscribing failed");
+        let (tracker, _, sinks, mock_sinks) = setup();
+        tracker.subscribe(&sinks[0]).expect("subscribing failed");
         let state = State::new();
         let update_sink = MockPropertyUpdateSink {};
-        source.send_notifications(&state, &update_sink);
+        tracker.send_notifications(&state, &update_sink);
         assert_eq!(*mock_sinks[0].0.borrow(), 1);
     }
 
     #[test]
     fn notifies_multiple_subscribers() {
-        let (source, pending, sinks, _) = setup();
+        let (tracker, pending, sinks, _) = setup();
         for sink in &sinks {
-            source.subscribe(&sink).expect("subscribing failed");
+            tracker.subscribe(&sink).expect("subscribing failed");
         }
-        source.queue_notifications(&pending);
+        tracker.queue_notifications(&pending);
         assert_eq!(pending.read().unwrap().len(), 3);
         for sink in sinks {
             assert!(pending_contains(&pending, &sink));
@@ -188,21 +188,21 @@ mod tests {
 
     #[test]
     fn subscribing_same_subscriber_twice_errors() {
-        let (source, _, sinks, _) = setup();
-        source.subscribe(&sinks[0]).expect("subscribing failed");
-        assert!(source.subscribe(&sinks[0]).is_err());
+        let (tracker, _, sinks, _) = setup();
+        tracker.subscribe(&sinks[0]).expect("subscribing failed");
+        assert!(tracker.subscribe(&sinks[0]).is_err());
     }
 
     #[test]
     fn unsubscribing_stops_notifications_queueing() {
-        let (source, pending, sinks, _) = setup();
+        let (tracker, pending, sinks, _) = setup();
         for sink in &sinks {
-            source.subscribe(&sink).expect("subscribing failed");
+            tracker.subscribe(&sink).expect("subscribing failed");
         }
-        source
+        tracker
             .unsubscribe(&Arc::downgrade(&sinks[1]))
             .expect("unsubscribing failed");
-        source.queue_notifications(&pending);
+        tracker.queue_notifications(&pending);
         assert_eq!(pending.read().unwrap().len(), 2);
         assert!(pending_contains(&pending, &sinks[0]));
         assert!(!pending_contains(&pending, &sinks[1]));
@@ -211,16 +211,16 @@ mod tests {
 
     #[test]
     fn unsubscribing_stops_notifications_sending() {
-        let (source, _, sinks, mock_sinks) = setup();
+        let (tracker, _, sinks, mock_sinks) = setup();
         for sink in &sinks {
-            source.subscribe(&sink).expect("subscribing failed");
+            tracker.subscribe(&sink).expect("subscribing failed");
         }
-        source
+        tracker
             .unsubscribe(&Arc::downgrade(&sinks[1]))
             .expect("unsubscribing failed");
         let state = State::new();
         let update_sink = MockPropertyUpdateSink {};
-        source.send_notifications(&state, &update_sink);
+        tracker.send_notifications(&state, &update_sink);
         assert_eq!(*mock_sinks[0].0.borrow(), 1);
         assert_eq!(*mock_sinks[1].0.borrow(), 0);
         assert_eq!(*mock_sinks[2].0.borrow(), 1);
@@ -228,9 +228,9 @@ mod tests {
 
     #[test]
     fn unsubscribing_when_not_subscribed_errors() {
-        let (source, _, sinks, _) = setup();
-        assert!(source.unsubscribe(&Arc::downgrade(&sinks[0])).is_err());
-        source.subscribe(&sinks[0]).expect("subscribing failed");
-        assert!(source.unsubscribe(&Arc::downgrade(&sinks[1])).is_err());
+        let (tracker, _, sinks, _) = setup();
+        assert!(tracker.unsubscribe(&Arc::downgrade(&sinks[0])).is_err());
+        tracker.subscribe(&sinks[0]).expect("subscribing failed");
+        assert!(tracker.unsubscribe(&Arc::downgrade(&sinks[1])).is_err());
     }
 }

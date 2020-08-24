@@ -6,20 +6,20 @@ use std::ops::Deref;
 ///   property keys are stored until it is time to dispatch all updates
 pub struct UpdateSource<T> {
     inner: T,
-    notification_source: NotificationSource,
+    subscribers: SubscriptionTracker,
 }
 
 impl<T> UpdateSource<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
-            notification_source: NotificationSource::new(),
+            subscribers: SubscriptionTracker::new(),
         }
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
     pub fn get_mut(&mut self, pending: &PendingNotifications) -> &mut T {
-        self.notification_source.queue_notifications(pending);
+        self.subscribers.queue_notifications(pending);
         &mut self.inner
     }
 
@@ -30,7 +30,7 @@ impl<T> UpdateSource<T> {
     }
 
     pub fn subscribe(&self, subscriber: &Arc<dyn NotificationSink>) -> Result<(), Box<dyn Error>> {
-        match self.notification_source.subscribe(subscriber) {
+        match self.subscribers.subscribe(subscriber) {
             Ok(_) => Ok(()),
             Err(e) => Err(e.into()),
         }
@@ -40,7 +40,7 @@ impl<T> UpdateSource<T> {
         &self,
         subscriber: &Weak<dyn NotificationSink>,
     ) -> Result<(), Box<dyn Error>> {
-        match self.notification_source.unsubscribe(subscriber) {
+        match self.subscribers.unsubscribe(subscriber) {
             Ok(_) => Ok(()),
             Err(e) => Err(e.into()),
         }
@@ -51,7 +51,7 @@ impl<T: PartialEq> UpdateSource<T> {
     pub fn set(&mut self, pending: &PendingNotifications, value: T) {
         if self.inner != value {
             self.inner = value;
-            self.notification_source.queue_notifications(pending);
+            self.subscribers.queue_notifications(pending);
         }
     }
 }

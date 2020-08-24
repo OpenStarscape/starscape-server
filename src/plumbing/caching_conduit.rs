@@ -4,7 +4,7 @@ use super::*;
 pub struct CachingConduit {
     cached_value: Mutex<Encodable>,
     conduit: Box<dyn Conduit>,
-    subscribers: NotificationSource,
+    subscribers: SubscriptionTracker,
 }
 
 impl CachingConduit {
@@ -12,7 +12,7 @@ impl CachingConduit {
         Arc::new(Self {
             cached_value: Mutex::new(Encodable::Null),
             conduit,
-            subscribers: NotificationSource::new(),
+            subscribers: SubscriptionTracker::new(),
         })
     }
 }
