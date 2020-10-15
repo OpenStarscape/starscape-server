@@ -57,7 +57,7 @@ impl Entity {
         for component in &self.components {
             if match component {
                 ComponentKey::Body(body) => state.remove_body(*body).is_err(),
-                ComponentKey::Ship(ship) => state.ships.remove(*ship).is_none(),
+                ComponentKey::Ship(ship) => true, // state.ships.remove(*ship).is_none(),
             } {
                 eprintln!(
                     "component {:?} part of entity being destroyed, but is not in state",
