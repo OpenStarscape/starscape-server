@@ -13,21 +13,7 @@ impl EntityStoreImpl {
 }
 
 impl EntityStore for EntityStoreImpl {
-    fn register_property(
-        &mut self,
-        entity_key: EntityKey,
-        name: &'static str,
-        conduit: Box<dyn Conduit>,
-    ) {
-        if let Some(entity) = self.entities.get_mut(entity_key) {
-            let property = PropertyImpl::new(entity_key, name, conduit);
-            entity.register_property(name, Arc::new(property));
-        } else {
-            eprintln!("Failed to register proprty on entity {:?}", entity_key);
-        }
-    }
-
-    fn new_entity(&mut self) -> EntityKey {
+    fn create_entity(&mut self) -> EntityKey {
         self.entities.insert(Entity::new())
     }
 
@@ -44,6 +30,20 @@ impl EntityStore for EntityStoreImpl {
             entity.register_ship(ship);
         } else {
             eprintln!("Failed to register proprty on entity {:?}", entity);
+        }
+    }
+
+    fn create_property(
+        &mut self,
+        entity_key: EntityKey,
+        name: &'static str,
+        conduit: Box<dyn Conduit>,
+    ) {
+        if let Some(entity) = self.entities.get_mut(entity_key) {
+            let property = PropertyImpl::new(entity_key, name, conduit);
+            entity.register_property(name, Arc::new(property));
+        } else {
+            eprintln!("Failed to register proprty on entity {:?}", entity_key);
         }
     }
 

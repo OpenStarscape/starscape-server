@@ -24,7 +24,7 @@ pub fn new_conduit_property(
     conduit: Box<dyn Conduit>,
 ) {
     let property = Box::new(CachingConduit::new(conduit));
-    state.entities.register_property(entity, name, property);
+    state.entities.create_property(entity, name, property);
 }
 
 pub fn new_element_property<T, GetFn, SetFn>(

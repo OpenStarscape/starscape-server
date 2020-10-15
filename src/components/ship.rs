@@ -77,7 +77,7 @@ impl CollisionHandler for ShipBodyController {
 }
 
 pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
-    let entity = state.entities.new_entity();
+    let entity = state.entities.create_entity();
     let ship = state
         .components
         .entry()

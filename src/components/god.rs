@@ -29,7 +29,7 @@ impl Conduit for BodyListConduit {
 }
 
 pub fn create_god(state: &mut State) -> EntityKey {
-    let entity = state.entities.new_entity();
+    let entity = state.entities.create_entity();
     new_conduit_property(state, entity, "bodies", Box::new(BodyListConduit {}));
     entity
 }
