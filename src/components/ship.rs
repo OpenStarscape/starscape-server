@@ -63,7 +63,12 @@ struct ShipBodyController {
 
 impl CollisionHandler for ShipBodyController {
     fn collision(&self, state: &State, _collision: &Collision) {
-        if let Some(ship) = state.ships.get(self.ship) {
+        if let Some(ship) = state
+            .components
+            .get::<DenseSlotMap<ShipKey, Ship>>()
+            .expect("no entry")
+            .get(self.ship)
+        {
             ship.kill();
         } else {
             eprint!("Could not find colliding ship {:?}", self.ship);
@@ -73,7 +78,11 @@ impl CollisionHandler for ShipBodyController {
 
 pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     let entity = state.entities.new_entity();
-    let ship = state.ships.insert(Ship::new(10.0));
+    let ship = state
+        .components
+        .entry()
+        .or_insert_with(DenseSlotMap::with_key)
+        .insert(Ship::new(10.0));
     let body = state.add_body(
         Body::new()
             .with_entity(entity)

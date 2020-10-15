@@ -106,10 +106,7 @@ pub fn apply_motion(state: &mut State, dt: f64) {
 #[cfg(test)]
 #[allow(clippy::float_cmp)]
 mod gravity_tests {
-    use cgmath::Vector3;
-
     use super::*;
-    use crate::components::Body;
 
     const PLANET_MASS: f64 = 5.972e+18; // mass of earth
 
@@ -209,12 +206,7 @@ mod gravity_tests {
 #[cfg(test)]
 #[allow(clippy::float_cmp)]
 mod collision_tests {
-    use cgmath::Vector3;
-    use std::sync::{Arc, RwLock};
-
     use super::*;
-    use crate::components::{Body, Collision, CollisionHandler};
-    use crate::state::BodyKey;
 
     struct MockController {
         collisions: Vec<Collision>,
@@ -454,10 +446,7 @@ mod collision_tests {
 #[cfg(test)]
 #[allow(clippy::float_cmp)]
 mod motion_tests {
-    use cgmath::Vector3;
-
     use super::*;
-    use crate::components::Body;
 
     #[test]
     fn no_motion_if_zero_velocity() {

@@ -4,18 +4,18 @@ use super::*;
 
 mod caching_conduit;
 mod conduit;
+mod element;
 mod element_conduit;
 mod subscriber;
 mod subscription_tracker;
-mod element;
 
 use caching_conduit::CachingConduit;
 use element_conduit::ElementConduit;
 use subscription_tracker::SubscriptionTracker;
 
 pub use conduit::Conduit;
-pub use subscriber::Subscriber;
 pub use element::Element;
+pub use subscriber::Subscriber;
 
 pub fn new_conduit_property(
     state: &mut State,

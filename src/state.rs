@@ -17,8 +17,7 @@ pub struct State {
     /// Keys to the bodies which have a gravitational force
     /// For performence reasons, only significantly massive bodies should be included
     pub gravity_wells: Vec<BodyKey>,
-    /// Ships that can control themselves
-    pub ships: DenseSlotMap<ShipKey, Ship>,
+    pub components: anymap::Map,
     /// Subscribers that need to be updated
     pub pending_updates: PendingNotifications,
 }
@@ -30,7 +29,7 @@ impl Default for State {
             entities: EntityStore::default_impl(),
             bodies: Element::new(DenseSlotMap::with_key()),
             gravity_wells: Vec::new(),
-            ships: DenseSlotMap::with_key(),
+            components: anymap::Map::new(),
             pending_updates: RwLock::new(Vec::new()),
         }
     }
@@ -77,7 +76,7 @@ impl State {
     pub fn assert_is_empty(&self) {
         assert!(self.bodies.is_empty());
         assert!(self.gravity_wells.is_empty());
-        assert!(self.ships.is_empty());
+        // assert!(self.ships.is_empty());
         // pending_updates intentionally not checked
     }
 }
@@ -127,7 +126,6 @@ pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
 #[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
-    use cgmath::Point3;
 
     #[test]
     fn add_body_adds_body() {
