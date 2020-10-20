@@ -24,14 +24,14 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
             }
         })
         .collect();
-    let (updates, iter) = state.components_iter_mut::<Body>();
+    let (notifs, iter) = state.components_iter_mut::<Body>();
     iter.for_each(|(_, body)| {
         wells.iter().for_each(|well| {
             let distance2 = well.position.distance2(*body.position);
             if distance2 > EPSILON {
                 let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
                 let delta_vel = (well.position - *body.position).normalize_to(acceleration * dt);
-                body.velocity.set(&updates, *body.velocity + delta_vel);
+                body.velocity.set(notifs, *body.velocity + delta_vel);
             }
         })
     });
@@ -93,10 +93,10 @@ pub fn apply_collisions(state: &State, dt: f64) {
 }
 
 pub fn apply_motion(state: &mut State, dt: f64) {
-    let (updates, iter) = state.components_iter_mut::<Body>();
+    let (notifs, iter) = state.components_iter_mut::<Body>();
     for (_, body) in iter {
         body.position
-            .set(updates, *body.position + dt * *body.velocity);
+            .set(notifs, *body.position + dt * *body.velocity);
     }
 }
 

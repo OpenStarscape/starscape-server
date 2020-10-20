@@ -45,20 +45,13 @@ impl Game {
         apply_collisions(&self.state, self.step_dt);
         apply_motion(&mut self.state, self.step_dt);
 
-        {
-            let mut notifications = self
-                .state
-                .pending_updates
-                .write()
-                .expect("Failed to write to updates");
-            for notification in &*notifications {
-                if let Some(sink) = notification.upgrade() {
-                    if let Err(e) = sink.notify(&self.state, self.server.property_update_sink()) {
-                        eprintln!("Failed to process notification: {}", e);
-                    }
+        let notifications = std::mem::take(&mut self.state.pending_updates);
+        for notification in notifications {
+            if let Some(sink) = notification.upgrade() {
+                if let Err(e) = sink.notify(&self.state, self.server.property_update_sink()) {
+                    eprintln!("Failed to process notification: {}", e);
                 }
             }
-            notifications.clear();
         }
 
         self.state.time += self.step_dt;
