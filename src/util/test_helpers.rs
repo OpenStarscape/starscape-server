@@ -72,6 +72,20 @@ pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mock_keys_all_different() {
+        let k: Vec<slotmap::DefaultKey> = mock_keys(3);
+        assert_eq!(k.len(), 3);
+        assert_ne!(k[0], k[1]);
+        assert_ne!(k[0], k[2]);
+        assert_ne!(k[1], k[2]);
+    }
+}
+
+#[cfg(test)]
 mod attempt_any_to_string_tests {
     use super::*;
 

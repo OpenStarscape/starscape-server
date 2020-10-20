@@ -219,6 +219,12 @@ impl State {
         Ok(property)
     }
 
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        // pending_updates intentionally not checked
+        self.components.is_empty() && self.entities.is_empty()
+    }
+
     fn remove_component<T: 'static>(&mut self, component: ComponentKey<T>) {
         let mut remove_map = false;
         let mut update_component_list_element = false;
@@ -255,13 +261,6 @@ impl State {
             .or_insert_with(|| (PhantomData, Element::new(())))
             .1;
         element.get_mut(&self.pending_updates);
-    }
-
-    #[cfg(test)]
-    pub fn assert_is_empty(&self) {
-        assert!(self.components.is_empty());
-        assert!(self.entities.is_empty());
-        // pending_updates intentionally not checked
     }
 }
 
@@ -300,22 +299,127 @@ impl RequestHandler for State {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
+
+    #[derive(Debug, PartialEq)]
+    struct MockComponent(i32);
+
+    #[derive(Debug, PartialEq)]
+    struct OtherMockComponent(bool);
 
     #[test]
     fn is_empty_by_default() {
         let state = State::new();
-        state.assert_is_empty();
+        assert!(state.is_empty());
     }
 
     #[test]
-    fn mock_keys_all_different() {
-        let k: Vec<EntityKey> = mock_keys(3);
-        assert_eq!(k.len(), 3);
-        assert_ne!(k[0], k[1]);
-        assert_ne!(k[0], k[2]);
-        assert_ne!(k[1], k[2]);
+    fn not_empty_after_entity_created() {
+        let mut state = State::new();
+        let _ = state.create_entity();
+        assert!(!state.is_empty());
     }
+
+    #[test]
+    fn is_empty_after_entity_created_and_destroyed() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.destroy_entity(e).unwrap();
+        assert!(state.is_empty());
+    }
+
+    #[test]
+    fn is_empty_after_entity_and_component_created_and_destroyed() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.install_component(e, MockComponent(3));
+        state.destroy_entity(e).unwrap();
+        assert!(state.is_empty());
+    }
+
+    #[test]
+    #[should_panic(expected = "invalid entity")]
+    fn panics_when_component_added_to_destroyed_entity() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.destroy_entity(e).unwrap();
+        state.install_component(e, MockComponent(3));
+    }
+
+    #[test]
+    #[should_panic(expected = "multiple")]
+    fn panics_when_2nd_component_of_same_type_added_to_entity() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.install_component(e, MockComponent(3));
+        state.install_component(e, MockComponent(4));
+    }
+
+    #[test]
+    fn components_of_different_types_can_be_added_to_entity() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.install_component(e, MockComponent(3));
+        state.install_component(e, OtherMockComponent(true));
+    }
+
+    #[test]
+    fn can_get_component() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.install_component(e, MockComponent(3));
+        assert_eq!(state.component::<MockComponent>(e), Ok(&MockComponent(3)));
+    }
+
+    #[test]
+    fn multiple_entities_can_be_created_and_destroyed() {
+        let mut state = State::new();
+        let e0 = state.create_entity();
+        let e1 = state.create_entity();
+        state.destroy_entity(e1).unwrap();
+        state.destroy_entity(e0).unwrap();
+        assert!(state.is_empty());
+    }
+
+    #[test]
+    fn can_get_components_from_multiple_entities() {
+        let mut state = State::new();
+        let e0 = state.create_entity();
+        let e1 = state.create_entity();
+        state.install_component(e0, MockComponent(0));
+        state.install_component(e1, MockComponent(1));
+        assert_eq!(state.component::<MockComponent>(e0), Ok(&MockComponent(0)));
+        assert_eq!(state.component::<MockComponent>(e1), Ok(&MockComponent(1)));
+    }
+
+    #[test]
+    fn getting_component_on_invalid_entity_is_err() {
+        let state = State::new();
+        let e = mock_keys(1);
+        assert!(state.component::<MockComponent>(e[0]).is_err());
+    }
+
+    #[test]
+    fn getting_invalid_component_is_err() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        assert!(state.component::<MockComponent>(e).is_err());
+    }
+
+    #[test]
+    fn can_mutate_component() {
+        let mut state = State::new();
+        let e = state.create_entity();
+        state.install_component(e, MockComponent(3));
+        let (_, mut c) = state
+            .component_mut::<MockComponent>(e)
+            .expect("could not get component");
+        c.0 = 5;
+        assert_eq!(state.component::<MockComponent>(e), Ok(&MockComponent(5)));
+    }
+
+    // TODO: test component iterators
+    // TODO: test subscribing to component list and getting updates
+    // TODO: test installing properties
 }
