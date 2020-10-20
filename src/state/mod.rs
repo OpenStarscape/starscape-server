@@ -12,7 +12,7 @@ mod state;
 pub use component_list_conduit::ComponentListConduit;
 pub use entity::EntityKey;
 pub use property::Property;
-pub use state::PendingNotifications;
+pub use state::NotifQueue;
 pub use state::State;
 
 use component_key::ComponentKey;

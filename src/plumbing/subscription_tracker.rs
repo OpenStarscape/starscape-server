@@ -12,7 +12,7 @@ impl SubscriptionTracker {
         }
     }
 
-    pub fn queue_notifications(&self, pending: &mut PendingNotifications) {
+    pub fn queue_notifications(&self, pending: &mut NotifQueue) {
         let subscribers = self.subscribers.read().expect("Failed to lock subscribers");
         if !subscribers.is_empty() {
             pending.extend(subscribers.iter().map(|(_ptr, sink)| sink.clone()));
@@ -110,7 +110,7 @@ mod tests {
 
     fn setup() -> (
         SubscriptionTracker,
-        PendingNotifications,
+        NotifQueue,
         Vec<Arc<dyn Subscriber>>,
         Vec<Arc<MockSubscriber>>,
     ) {
@@ -128,7 +128,7 @@ mod tests {
         )
     }
 
-    fn pending_contains(pending: &PendingNotifications, sink: &Arc<dyn Subscriber>) -> bool {
+    fn pending_contains(pending: &NotifQueue, sink: &Arc<dyn Subscriber>) -> bool {
         let sink = Subscriber::thin_ptr(&Arc::downgrade(&sink));
         pending.iter().any(|i| Subscriber::thin_ptr(i) == sink)
     }

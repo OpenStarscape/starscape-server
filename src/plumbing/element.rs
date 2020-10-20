@@ -17,7 +17,7 @@ impl<T> Element<T> {
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
-    pub fn get_mut(&mut self, pending: &mut PendingNotifications) -> &mut T {
+    pub fn get_mut(&mut self, pending: &mut NotifQueue) -> &mut T {
         self.subscribers.queue_notifications(pending);
         &mut self.inner
     }
@@ -45,7 +45,7 @@ impl<T> Element<T> {
 }
 
 impl<T: PartialEq> Element<T> {
-    pub fn set(&mut self, pending: &mut PendingNotifications, value: T) {
+    pub fn set(&mut self, pending: &mut NotifQueue, value: T) {
         if self.inner != value {
             self.inner = value;
             self.subscribers.queue_notifications(pending);
@@ -78,7 +78,7 @@ mod tests {
         }
     }
 
-    fn setup() -> (Element<i64>, PendingNotifications, Arc<dyn Subscriber>) {
+    fn setup() -> (Element<i64>, NotifQueue, Arc<dyn Subscriber>) {
         let store = Element::new(7);
         let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
         store.subscribe(&subscriber).expect("Failed to subscribe");

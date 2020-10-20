@@ -5,9 +5,7 @@ new_key_type! {
     pub struct ShipKey;
 }
 
-// TODO: can the RwLock be removed?
-// TODO: rename to NotifList or something
-pub type PendingNotifications = Vec<Weak<dyn Subscriber>>;
+pub type NotifQueue = Vec<Weak<dyn Subscriber>>;
 
 type ComponentMap<T> = DenseSlotMap<ComponentKey<T>, (EntityKey, T)>;
 type ComponentElement<T> = (PhantomData<T>, Element<()>);
@@ -19,7 +17,7 @@ pub struct State {
     entities: DenseSlotMap<EntityKey, Entity>,
     components: AnyMap,
     component_list_elements: Mutex<AnyMap>, // TODO: change to subscription trackers
-    pub pending_updates: PendingNotifications,
+    pub pending_updates: NotifQueue,
 }
 
 impl Default for State {
@@ -104,7 +102,7 @@ impl State {
     pub fn component_mut<T: 'static>(
         &mut self,
         entity: EntityKey,
-    ) -> Result<(&mut PendingNotifications, &mut T), String> {
+    ) -> Result<(&mut NotifQueue, &mut T), String> {
         let e = self
             .entities
             .get(entity)
@@ -145,7 +143,7 @@ impl State {
     pub fn components_iter_mut<'a, T: 'static>(
         &'a mut self,
     ) -> (
-        &mut PendingNotifications,
+        &mut NotifQueue,
         Box<dyn std::iter::Iterator<Item = (EntityKey, &mut T)> + 'a>,
     ) {
         (
