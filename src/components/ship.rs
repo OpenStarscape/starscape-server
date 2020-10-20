@@ -16,7 +16,9 @@ impl PendingUpdates {
 
 pub struct Ship {
     max_thrust: f64,
+    #[allow(dead_code)]
     thrust: Vector3<f64>,
+    #[allow(dead_code)]
     alive: bool,
     pending: Mutex<PendingUpdates>,
 }
@@ -31,6 +33,7 @@ impl Ship {
         }
     }
 
+    #[allow(dead_code)]
     fn set_thrust(&self, thrust: Vector3<f64>) -> Result<(), String> {
         let magnitude = thrust.magnitude();
         if magnitude > self.max_thrust + EPSILON {
@@ -58,17 +61,12 @@ impl Ship {
 }
 
 struct ShipBodyController {
-    ship: ShipKey,
+    ship: EntityKey,
 }
 
 impl CollisionHandler for ShipBodyController {
     fn collision(&self, state: &State, _collision: &Collision) {
-        if let Some(ship) = state
-            .components
-            .get::<DenseSlotMap<ShipKey, Ship>>()
-            .expect("no entry")
-            .get(self.ship)
-        {
+        if let Ok(ship) = state.component::<Ship>(self.ship) {
             ship.kill();
         } else {
             eprint!("Could not find colliding ship {:?}", self.ship);
@@ -77,95 +75,50 @@ impl CollisionHandler for ShipBodyController {
 }
 
 pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
-    let entity = state.entities.create_entity();
-    let ship = state
-        .components
-        .entry()
-        .or_insert_with(DenseSlotMap::with_key)
-        .insert(Ship::new(10.0));
-    let body = state.add_body(
+    let entity = state.create_entity();
+    state.install_component(entity, Ship::new(10.0));
+    state.install_component(
+        entity,
         Body::new()
             .with_entity(entity)
             .with_position(position)
             .with_sphere_shape(1.0)
-            .with_collision_handler(Box::new(ShipBodyController { ship })),
+            .with_collision_handler(Box::new(ShipBodyController { ship: entity })),
     );
-    state.entities.register_body(entity, body);
-    state.entities.register_ship(entity, ship);
-    new_element_property(
-        state,
+    state.install_property(
         entity,
         "position",
-        move |state: &State| {
-            Ok(&state
-                .bodies
-                .get(body)
-                .ok_or("Body does not exist")?
-                .position)
-        },
-        move |state: &mut State, value: &Decodable| {
-            state
-                .bodies
-                .get_mut_without_notifying_of_change()
-                .get_mut(body)
-                .ok_or("Body does not exist")?
-                .position
-                .set(&state.pending_updates, value.decode()?);
-            Ok(())
-        },
+        new_element_conduit(
+            move |state: &State| Ok(&state.component::<Body>(entity)?.position),
+            move |state: &mut State, value: &Decodable| {
+                let (notifs, body) = state.component_mut::<Body>(entity)?;
+                body.position.set(notifs, value.decode()?);
+                Ok(())
+            },
+        ),
     );
     entity
-    /*for (name, prop_getter) in vec![
-        ("position", &|state: &State| Ok(&state.bodies.get(body)?.position)),
-        ("thrust", &|state: &State| Ok(&state.ships.get(ship)?.thrust)),
-    ] {
-        let conduit = state.conduits.insert(Box::new(PropertyConduit::new(entity, name, prop_getter)));
-        state.entities[entity].add_conduit(name, conduit);
-    }*/
 }
 
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn cleans_up_when_destroyed() {
-        panic!("Test not finished");
-        let mut state = State::new();
-        state.assert_is_empty();
-    }
-
-    #[test]
     fn body_has_correct_position() {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
-        let arc = Ship::new(&mut state, pos);
-        assert_eq!(state.bodies.len(), 1);
-        let key = arc.read().unwrap().body.unwrap();
-        assert_eq!(state.bodies[key].position, pos);
+        let ship = create_ship(&mut state, pos);
+        assert_eq!(*state.component::<Body>(ship).unwrap().position, pos);
     }
 
     #[test]
     fn body_has_sphere_shape() {
-        let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
-        let arc = Ship::new(&mut state, pos);
-        assert_eq!(state.bodies.len(), 1);
-        let key = arc.read().unwrap().body.unwrap();
-        assert!(state.bodies[key].shape == crate::body::Shape::Sphere { radius: 1.0 });
-    }
-
-    #[test]
-    fn sets_up_controller() {
-        let pos = Point3::new(1.0, 2.0, 3.0);
-        let mut state = State::new();
-        let arc = Ship::new(&mut state, pos);
-        let key = arc.read().unwrap().body.unwrap();
+        let ship = create_ship(&mut state, Point3::new(1.0, 2.0, 3.0));
         assert_eq!(
-            &*state.bodies[key].controller as *const _ as *const usize,
-            &*arc as *const _ as *const usize,
+            *state.component::<Body>(ship).unwrap().shape,
+            body::Shape::Sphere { radius: 1.0 }
         );
     }
 }
-*/

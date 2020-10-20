@@ -125,7 +125,6 @@ impl Serialize for Encodable {
 #[cfg(test)]
 mod json_tests {
     use super::*;
-    use crate::state::mock_keys;
 
     fn assert_json_eq(value: Encodable, json: &str) {
         let expected: serde_json::Value =

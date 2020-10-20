@@ -151,7 +151,6 @@ impl Server for ServerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::mock_keys;
     use std::sync::{Arc, Mutex, Weak};
 
     #[derive(Debug)]

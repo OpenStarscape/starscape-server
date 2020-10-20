@@ -65,6 +65,12 @@ where
     run_with_specific_timeout(DEFAULT_TIMEOUT, f)
 }
 
+/// Should only be used once per type per test
+pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
+    let mut map = slotmap::DenseSlotMap::with_key();
+    (0..number).map(|_| map.insert(())).collect()
+}
+
 #[cfg(test)]
 mod attempt_any_to_string_tests {
     use super::*;

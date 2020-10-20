@@ -24,6 +24,7 @@ impl<T> Element<T> {
 
     /// This is useful, for example, when iterating over a slotmap and modifying elements,
     /// but not adding or removing them
+    #[allow(dead_code)]
     pub fn get_mut_without_notifying_of_change(&mut self) -> &mut T {
         &mut self.inner
     }

@@ -9,7 +9,6 @@ pub struct Game {
     step_dt: f64,
     /// The entire game state
     state: State,
-    entities: Box<dyn EntityStore>,
     server: Box<dyn Server>,
 }
 
@@ -19,18 +18,19 @@ impl Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
             state: State::new(),
-            entities: EntityStore::default_impl(),
             server: Server::new_impl(true),
         };
         let _god = create_god(&mut game.state);
         let _ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
         create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
-        game.state.add_body(
+        let planet = game.state.create_entity();
+        game.state.install_component(
+            planet,
             Body::new()
                 .with_position(Point3::origin())
-                .with_mass(1.0e+18)
-                .with_gravity(),
+                .with_mass(1.0e+18),
         );
+        game.state.install_component(planet, GravityBody());
         game
     }
 

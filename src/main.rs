@@ -2,7 +2,6 @@
 extern crate slotmap;
 
 mod components;
-mod entity;
 mod game;
 mod plumbing;
 mod server;
@@ -11,21 +10,24 @@ mod systems;
 mod util;
 
 use components::*;
-use entity::*;
 use game::*;
 use plumbing::*;
 use server::*;
 use state::*;
 use systems::*;
+#[cfg(test)]
 use util::*;
 
+use anymap::AnyMap;
 use cgmath::*;
 use slotmap::DenseSlotMap;
 
 use std::error::Error;
 use std::{
+    any::type_name,
     collections::HashMap,
     fmt::{Debug, Formatter},
+    marker::PhantomData,
     sync::{Arc, Mutex, RwLock, Weak},
 };
 
