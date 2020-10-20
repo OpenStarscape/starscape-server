@@ -17,7 +17,7 @@ impl<T> Element<T> {
     }
 
     /// Prefer set() where possible, because that can save work when value is unchanged
-    pub fn get_mut(&mut self, pending: &PendingNotifications) -> &mut T {
+    pub fn get_mut(&mut self, pending: &mut PendingNotifications) -> &mut T {
         self.subscribers.queue_notifications(pending);
         &mut self.inner
     }
@@ -45,7 +45,7 @@ impl<T> Element<T> {
 }
 
 impl<T: PartialEq> Element<T> {
-    pub fn set(&mut self, pending: &PendingNotifications, value: T) {
+    pub fn set(&mut self, pending: &mut PendingNotifications, value: T) {
         if self.inner != value {
             self.inner = value;
             self.subscribers.queue_notifications(pending);
@@ -65,7 +65,6 @@ impl<T> Deref for Element<T> {
 mod tests {
     use super::*;
     use crate::server::PropertyUpdateSink;
-    use std::sync::RwLock;
 
     struct MockSubscriber;
 
@@ -83,44 +82,44 @@ mod tests {
         let store = Element::new(7);
         let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
         store.subscribe(&subscriber).expect("Failed to subscribe");
-        (store, RwLock::new(Vec::new()), subscriber)
+        (store, Vec::new(), subscriber)
     }
 
     #[test]
     fn queues_notifications_when_set() {
-        let (mut store, pending, _) = setup();
-        store.set(&pending, 5);
-        assert_eq!(pending.read().unwrap().len(), 1);
+        let (mut store, mut notifs, _) = setup();
+        store.set(&mut notifs, 5);
+        assert_eq!(notifs.len(), 1);
     }
 
     #[test]
     fn queues_notifications_when_value_mut_accessed() {
-        let (mut store, pending, _) = setup();
-        store.get_mut(&pending);
-        assert_eq!(pending.read().unwrap().len(), 1);
+        let (mut store, mut notifs, _) = setup();
+        store.get_mut(&mut notifs);
+        assert_eq!(notifs.len(), 1);
     }
 
     #[test]
     fn does_not_queue_notifications_on_get_mut_without_notifying_of_change() {
-        let (mut store, pending, _) = setup();
+        let (mut store, notifs, _) = setup();
         store.get_mut_without_notifying_of_change();
-        assert_eq!(pending.read().unwrap().len(), 0);
+        assert_eq!(notifs.len(), 0);
     }
 
     #[test]
     fn does_not_send_notification_when_set_to_same_value() {
-        let (mut store, pending, _) = setup();
-        store.set(&pending, 7);
-        assert_eq!(pending.read().unwrap().len(), 0);
+        let (mut store, mut notifs, _) = setup();
+        store.set(&mut notifs, 7);
+        assert_eq!(notifs.len(), 0);
     }
 
     #[test]
     fn unsubscribing_stops_notifications() {
-        let (mut store, pending, subscriber) = setup();
+        let (mut store, mut notifs, subscriber) = setup();
         store
             .unsubscribe(&Arc::downgrade(&subscriber))
             .expect("unsubbing failed");
-        store.set(&pending, 5);
-        assert_eq!(pending.read().unwrap().len(), 0);
+        store.set(&mut notifs, 5);
+        assert_eq!(notifs.len(), 0);
     }
 }

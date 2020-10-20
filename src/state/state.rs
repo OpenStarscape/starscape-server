@@ -5,7 +5,9 @@ new_key_type! {
     pub struct ShipKey;
 }
 
-pub type PendingNotifications = RwLock<Vec<Weak<dyn Subscriber>>>;
+// TODO: can the RwLock be removed?
+// TODO: rename to NotifList or something
+pub type PendingNotifications = Vec<Weak<dyn Subscriber>>;
 
 type ComponentMap<T> = DenseSlotMap<ComponentKey<T>, (EntityKey, T)>;
 type ComponentElement<T> = (PhantomData<T>, Element<()>);
@@ -27,7 +29,7 @@ impl Default for State {
             entities: DenseSlotMap::with_key(),
             components: AnyMap::new(),
             component_list_elements: Mutex::new(AnyMap::new()),
-            pending_updates: RwLock::new(Vec::new()),
+            pending_updates: Vec::new(),
         }
     }
 }
@@ -102,7 +104,7 @@ impl State {
     pub fn component_mut<T: 'static>(
         &mut self,
         entity: EntityKey,
-    ) -> Result<(&PendingNotifications, &mut T), String> {
+    ) -> Result<(&mut PendingNotifications, &mut T), String> {
         let e = self
             .entities
             .get(entity)
@@ -119,7 +121,7 @@ impl State {
             .get_mut()
             .ok_or_else(|| format!("no components of type {}", type_name::<T>()))?;
         match map.get_mut(component) {
-            Some(v) => Ok((&self.pending_updates, &mut v.1)),
+            Some(v) => Ok((&mut self.pending_updates, &mut v.1)),
             None => Err(format!(
                 "invalid component {} ID {:?}",
                 type_name::<T>(),
@@ -143,11 +145,11 @@ impl State {
     pub fn components_iter_mut<'a, T: 'static>(
         &'a mut self,
     ) -> (
-        &PendingNotifications,
+        &mut PendingNotifications,
         Box<dyn std::iter::Iterator<Item = (EntityKey, &mut T)> + 'a>,
     ) {
         (
-            &self.pending_updates,
+            &mut self.pending_updates,
             match self.components.get_mut::<ComponentMap<T>>() {
                 Some(map) => Box::new(map.values_mut().map(|(entity, value)| (*entity, value))),
                 None => Box::new(std::iter::empty()),
@@ -260,7 +262,7 @@ impl State {
             .entry::<ComponentElement<T>>()
             .or_insert_with(|| (PhantomData, Element::new(())))
             .1;
-        element.get_mut(&self.pending_updates);
+        element.get_mut(&mut self.pending_updates);
     }
 }
 

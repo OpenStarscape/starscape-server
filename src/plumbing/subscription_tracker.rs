@@ -12,11 +12,10 @@ impl SubscriptionTracker {
         }
     }
 
-    pub fn queue_notifications(&self, pending: &PendingNotifications) {
+    pub fn queue_notifications(&self, pending: &mut PendingNotifications) {
         let subscribers = self.subscribers.read().expect("Failed to lock subscribers");
         if !subscribers.is_empty() {
-            let mut pending_updates = pending.write().expect("Error writing to pending updates");
-            pending_updates.extend(subscribers.iter().map(|(_ptr, sink)| sink.clone()));
+            pending.extend(subscribers.iter().map(|(_ptr, sink)| sink.clone()));
         }
     }
 
@@ -120,7 +119,7 @@ mod tests {
             .collect();
         (
             SubscriptionTracker::new(),
-            RwLock::new(Vec::new()),
+            Vec::new(),
             mock_sinks
                 .iter()
                 .map(|sink| sink.clone() as Arc<dyn Subscriber>)
@@ -131,18 +130,14 @@ mod tests {
 
     fn pending_contains(pending: &PendingNotifications, sink: &Arc<dyn Subscriber>) -> bool {
         let sink = Subscriber::thin_ptr(&Arc::downgrade(&sink));
-        pending
-            .read()
-            .unwrap()
-            .iter()
-            .any(|i| Subscriber::thin_ptr(i) == sink)
+        pending.iter().any(|i| Subscriber::thin_ptr(i) == sink)
     }
 
     #[test]
     fn can_queue_with_no_subscribers() {
-        let (tracker, pending, _, _) = setup();
-        tracker.queue_notifications(&pending);
-        assert_eq!(pending.read().unwrap().len(), 0);
+        let (tracker, mut notifs, _, _) = setup();
+        tracker.queue_notifications(&mut notifs);
+        assert_eq!(notifs.len(), 0);
     }
 
     #[test]
@@ -155,13 +150,13 @@ mod tests {
 
     #[test]
     fn queues_single_subscriber() {
-        let (tracker, pending, sinks, _) = setup();
+        let (tracker, mut notifs, sinks, _) = setup();
         tracker
             .subscribe(&sinks[0].clone())
             .expect("subscribing failed");
-        tracker.queue_notifications(&pending);
-        assert_eq!(pending.read().unwrap().len(), 1);
-        assert!(pending_contains(&pending, &sinks[0]));
+        tracker.queue_notifications(&mut notifs);
+        assert_eq!(notifs.len(), 1);
+        assert!(pending_contains(&notifs, &sinks[0]));
     }
 
     #[test]
@@ -176,14 +171,14 @@ mod tests {
 
     #[test]
     fn notifies_multiple_subscribers() {
-        let (tracker, pending, sinks, _) = setup();
+        let (tracker, mut notifs, sinks, _) = setup();
         for sink in &sinks {
             tracker.subscribe(&sink).expect("subscribing failed");
         }
-        tracker.queue_notifications(&pending);
-        assert_eq!(pending.read().unwrap().len(), 3);
+        tracker.queue_notifications(&mut notifs);
+        assert_eq!(notifs.len(), 3);
         for sink in sinks {
-            assert!(pending_contains(&pending, &sink));
+            assert!(pending_contains(&notifs, &sink));
         }
     }
 
@@ -196,18 +191,18 @@ mod tests {
 
     #[test]
     fn unsubscribing_stops_notifications_queueing() {
-        let (tracker, pending, sinks, _) = setup();
+        let (tracker, mut notifs, sinks, _) = setup();
         for sink in &sinks {
             tracker.subscribe(&sink).expect("subscribing failed");
         }
         tracker
             .unsubscribe(&Arc::downgrade(&sinks[1]))
             .expect("unsubscribing failed");
-        tracker.queue_notifications(&pending);
-        assert_eq!(pending.read().unwrap().len(), 2);
-        assert!(pending_contains(&pending, &sinks[0]));
-        assert!(!pending_contains(&pending, &sinks[1]));
-        assert!(pending_contains(&pending, &sinks[2]));
+        tracker.queue_notifications(&mut notifs);
+        assert_eq!(notifs.len(), 2);
+        assert!(pending_contains(&notifs, &sinks[0]));
+        assert!(!pending_contains(&notifs, &sinks[1]));
+        assert!(pending_contains(&notifs, &sinks[2]));
     }
 
     #[test]
