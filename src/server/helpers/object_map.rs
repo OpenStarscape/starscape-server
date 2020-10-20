@@ -81,7 +81,6 @@ impl ObjectMap {
 #[cfg(test)]
 mod objects_tests {
     use super::*;
-    use crate::state::mock_keys;
 
     #[test]
     fn registered_entities_and_objects_can_be_looked_up() {
@@ -163,7 +162,6 @@ mod objects_tests {
 mod resolve_tests {
     use super::Encodable::*;
     use super::*;
-    use crate::state::mock_keys;
 
     fn map_entities_objects() -> (ObjectMap, Vec<EntityKey>, Vec<ObjectId>) {
         let mut map = ObjectMap::new();

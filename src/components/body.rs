@@ -2,7 +2,7 @@ use super::*;
 use slotmap::Key;
 
 /// Collision shape
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Shape {
     Point,
     Sphere { radius: f64 },
@@ -17,6 +17,11 @@ impl Shape {
     }
 }
 
+/// Empty type that indicates this entity is a source of gravity
+/// Ideally all objects would have a gravitational effect on all other objects, but that is
+/// unnecessary and computationally expensive
+pub struct GravityBody();
+
 /// Any physics object in space
 pub struct Body {
     pub entity: EntityKey,
@@ -30,10 +35,6 @@ pub struct Body {
     pub shape: Element<Shape>,
     /// Mass of this object (kilotonnes aka millions of kilograms)
     pub mass: Element<f64>,
-    /// If this object should be a source of gravity
-    /// Ideally all objects would have a gravitational effect on all other objects, but that is
-    /// unnecessary and computationally expensive.
-    pub gravity_well: Element<bool>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
 }
@@ -46,7 +47,6 @@ impl Default for Body {
             velocity: Element::new(Vector3::zero()),
             shape: Element::new(Shape::Point),
             mass: Element::new(1.0),
-            gravity_well: Element::new(false),
             collision_handler: Box::new(()),
         }
     }
@@ -67,6 +67,7 @@ impl Body {
         self
     }
 
+    #[allow(dead_code)]
     pub fn with_velocity(mut self, velocity: Vector3<f64>) -> Self {
         self.velocity = Element::new(velocity);
         self
@@ -82,11 +83,6 @@ impl Body {
         self
     }
 
-    pub fn with_gravity(mut self) -> Self {
-        self.gravity_well = Element::new(true);
-        self
-    }
-
     pub fn with_collision_handler(mut self, controller: Box<dyn CollisionHandler>) -> Self {
         self.collision_handler = controller;
         self
@@ -97,11 +93,11 @@ impl Body {
 pub struct Collision {
     /// The time from now until the collision will occur
     pub time_until: f64,
-    pub body: BodyKey,
+    pub body: EntityKey,
 }
 
 impl Collision {
-    pub fn new(time_until: f64, body: BodyKey) -> Collision {
+    pub fn new(time_until: f64, body: EntityKey) -> Collision {
         Collision { time_until, body }
     }
 }

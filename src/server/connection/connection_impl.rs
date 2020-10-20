@@ -30,7 +30,6 @@ impl IncomingDataHandler {
 }
 
 pub struct ConnectionImpl {
-    self_key: ConnectionKey,
     encoder: Box<dyn Encoder>,
     objects: Mutex<ObjectMap>,
     session: Mutex<Box<dyn Session>>,
@@ -52,7 +51,6 @@ impl ConnectionImpl {
         let session =
             session_builder.build(Box::new(move |data| handler.handle_incoming_data(data)))?;
         Ok(Self {
-            self_key,
             encoder,
             objects: Mutex::new(ObjectMap::new()),
             session: Mutex::new(session),
@@ -114,7 +112,6 @@ impl Connection for ConnectionImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::mock_keys;
     use slotmap::Key;
     use std::{cell::RefCell, rc::Rc, sync::mpsc::channel};
     use Encodable::*;

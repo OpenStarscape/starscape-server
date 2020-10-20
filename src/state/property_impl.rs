@@ -128,7 +128,6 @@ impl Drop for PropertyImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::mock_keys;
     use std::{cell::RefCell, rc::Rc, sync::Weak};
 
     struct MockConduit {
