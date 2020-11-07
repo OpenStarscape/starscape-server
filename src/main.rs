@@ -2,18 +2,16 @@
 extern crate slotmap;
 
 mod components;
+mod engine;
 mod game;
-mod plumbing;
 mod server;
-mod state;
 mod systems;
 mod util;
 
 use components::*;
+use engine::*;
 use game::*;
-use plumbing::*;
 use server::*;
-use state::*;
 use systems::*;
 #[cfg(test)]
 use util::*;

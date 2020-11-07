@@ -1,9 +1,5 @@
 use super::*;
 
-new_key_type! {
-    pub struct EntityKey;
-}
-
 /// Conceptual owner of the various components in the state that make up a single "thing"
 pub struct Entity {
     self_key: EntityKey,

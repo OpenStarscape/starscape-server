@@ -88,14 +88,14 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     state.install_property(
         entity,
         "position",
-        new_element_conduit(
+        Box::new(ElementConduit::new(
             move |state: &State| Ok(&state.component::<Body>(entity)?.position),
             move |state: &mut State, value: &Decodable| {
                 let (notifs, body) = state.component_mut::<Body>(entity)?;
                 body.position.set(notifs, value.decode()?);
                 Ok(())
             },
-        ),
+        )),
     );
     entity
 }
