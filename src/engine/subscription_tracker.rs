@@ -41,7 +41,7 @@ impl SubscriptionTracker {
             .write()
             .expect("Failed to lock subscribers");
         let subscriber = Arc::downgrade(subscriber);
-        let subscriber_ptr = Subscriber::thin_ptr(&subscriber);
+        let subscriber_ptr = subscriber.thin_ptr();
         if subscribers
             .iter()
             .any(|(ptr, _sink)| *ptr == subscriber_ptr)
@@ -56,7 +56,7 @@ impl SubscriptionTracker {
 
     // Returns true if there are now no subscriptions
     pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<bool, String> {
-        let subscriber_ptr = Subscriber::thin_ptr(&subscriber);
+        let subscriber_ptr = subscriber.thin_ptr();
         let mut subscribers = self
             .subscribers
             .write()
@@ -129,8 +129,8 @@ mod tests {
     }
 
     fn pending_contains(pending: &NotifQueue, sink: &Arc<dyn Subscriber>) -> bool {
-        let sink = Subscriber::thin_ptr(&Arc::downgrade(&sink));
-        pending.iter().any(|i| Subscriber::thin_ptr(i) == sink)
+        let sink = Arc::downgrade(&sink).thin_ptr();
+        pending.iter().any(|i| i.thin_ptr() == sink)
     }
 
     #[test]

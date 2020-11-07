@@ -13,7 +13,6 @@ use engine::*;
 use game::*;
 use server::*;
 use systems::*;
-#[cfg(test)]
 use util::*;
 
 use anymap::AnyMap;
