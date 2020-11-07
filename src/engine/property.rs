@@ -1,14 +1,32 @@
 use super::*;
 use std::collections::hash_map::Entry;
 
-struct ConnectionProperty {
+pub trait Property {
+    fn get_value(&self, state: &State) -> Result<Encodable, String>;
+    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String>;
+    fn subscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String>;
+    fn unsubscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String>;
+    fn finalize(&self, state: &State);
+}
+
+impl dyn Property {
+    pub fn new(
+        entity: EntityKey,
+        name: &'static str,
+        conduit: Box<dyn Conduit>,
+    ) -> Arc<dyn Property> {
+        Arc::new(PropertyImpl::new(entity, name, conduit))
+    }
+}
+
+struct ConnectionData {
     connection: ConnectionKey,
     entity: EntityKey,
     property_name: &'static str,
     conduit: Box<dyn Conduit>,
 }
 
-impl Subscriber for ConnectionProperty {
+impl Subscriber for ConnectionData {
     fn notify(&self, state: &State, sink: &dyn PropertyUpdateSink) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
         sink.property_changed(self.connection, self.entity, self.property_name, &value)
@@ -22,11 +40,11 @@ impl Subscriber for ConnectionProperty {
     }
 }
 
-pub struct PropertyImpl {
+struct PropertyImpl {
     entity: EntityKey,
     name: &'static str,
     conduit: Box<dyn Conduit>,
-    subscriptions: Mutex<HashMap<ConnectionKey, Arc<ConnectionProperty>>>,
+    subscriptions: Mutex<HashMap<ConnectionKey, Arc<ConnectionData>>>,
 }
 
 impl PropertyImpl {
@@ -60,7 +78,7 @@ impl Property for PropertyImpl {
                 subscriber, self.entity, self.name
             )),
             Entry::Vacant(entry) => {
-                let conn_prop = Arc::new(ConnectionProperty {
+                let conn_prop = Arc::new(ConnectionData {
                     connection: subscriber,
                     entity: self.entity,
                     property_name: self.name,

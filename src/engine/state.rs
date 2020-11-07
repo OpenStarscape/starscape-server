@@ -1,8 +1,7 @@
 use super::*;
 
 new_key_type! {
-    pub struct BodyKey;
-    pub struct ShipKey;
+    pub struct EntityKey;
 }
 
 pub type NotifQueue = Vec<Weak<dyn Subscriber>>;
@@ -195,20 +194,22 @@ impl State {
         conduit: Box<dyn Conduit>,
     ) {
         if let Some(entity) = self.entities.get_mut(entity_key) {
-            let property = PropertyImpl::new(entity_key, name, conduit);
-            entity.register_property(name, Arc::new(property));
+            let property = Property::new(entity_key, name, conduit);
+            entity.register_property(name, property);
         } else {
             panic!("Failed to register proprty on entity {:?}", entity_key);
         }
     }
 
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        // pending_updates intentionally not checked
+        self.components.is_empty() && self.entities.is_empty()
+    }
+
     /// Returns the property with the given name on the entity
     /// (properties are for clients, generally not direct engine use)
-    pub fn property(
-        &self,
-        entity_key: EntityKey,
-        name: &str,
-    ) -> Result<&Arc<dyn Property>, String> {
+    fn property(&self, entity_key: EntityKey, name: &str) -> Result<&Arc<dyn Property>, String> {
         let entity = self
             .entities
             .get(entity_key)
@@ -217,12 +218,6 @@ impl State {
             .property(name)
             .ok_or(format!("entity does not have property {:?}", name))?;
         Ok(property)
-    }
-
-    #[cfg(test)]
-    pub fn is_empty(&self) -> bool {
-        // pending_updates intentionally not checked
-        self.components.is_empty() && self.entities.is_empty()
     }
 
     fn remove_component<T: 'static>(&mut self, component: ComponentKey<T>) {
