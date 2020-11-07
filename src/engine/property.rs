@@ -176,7 +176,7 @@ mod tests {
             _state: &State,
             subscriber: &Arc<dyn Subscriber>,
         ) -> Result<(), String> {
-            let ptr = Subscriber::thin_ptr(&Arc::downgrade(subscriber));
+            let ptr = subscriber.thin_ptr();
             assert!(
                 self.borrow_mut()
                     .subscribed
@@ -193,7 +193,7 @@ mod tests {
             _state: &State,
             subscriber: &Weak<dyn Subscriber>,
         ) -> Result<(), String> {
-            let ptr = Subscriber::thin_ptr(subscriber);
+            let ptr = subscriber.thin_ptr();
             assert!(
                 self.borrow_mut().subscribed.remove(&ptr).is_some(),
                 "unsubscriber {:?} not subscribed",

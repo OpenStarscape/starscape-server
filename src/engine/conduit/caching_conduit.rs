@@ -139,7 +139,7 @@ mod tests {
             subscriber: &Weak<dyn Subscriber>,
         ) -> Result<(), String> {
             if let Some(s) = &self.borrow().subscribed {
-                assert_eq!(Subscriber::thin_ptr(s), Subscriber::thin_ptr(subscriber));
+                assert_eq!(s.thin_ptr(), subscriber.thin_ptr());
             } else {
                 panic!();
             }
@@ -190,9 +190,9 @@ mod tests {
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
         if let Some(subscribed_to) = inner.borrow().subscribed.clone() {
-            let subscribed_to = Subscriber::thin_ptr(&subscribed_to);
-            let caching = Subscriber::thin_ptr(&(Arc::downgrade(&caching) as Weak<dyn Subscriber>));
-            let sink = Subscriber::thin_ptr(&Arc::downgrade(&sinks[0]));
+            let subscribed_to = subscribed_to.thin_ptr();
+            let caching = caching.thin_ptr();
+            let sink = sinks[0].thin_ptr();
             assert_ne!(subscribed_to, sink);
             assert_eq!(subscribed_to, caching);
         } else {
