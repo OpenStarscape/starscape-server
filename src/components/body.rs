@@ -1,5 +1,4 @@
 use super::*;
-use slotmap::Key;
 
 /// Collision shape
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -24,7 +23,6 @@ pub struct GravityBody();
 
 /// Any physics object in space
 pub struct Body {
-    pub entity: EntityKey,
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
@@ -42,7 +40,6 @@ pub struct Body {
 impl Default for Body {
     fn default() -> Self {
         Self {
-            entity: EntityKey::null(),
             position: Element::new(Point3::origin()),
             velocity: Element::new(Vector3::zero()),
             shape: Element::new(Shape::Point),
@@ -55,11 +52,6 @@ impl Default for Body {
 impl Body {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    pub fn with_entity(mut self, entity: EntityKey) -> Self {
-        self.entity = entity;
-        self
     }
 
     pub fn with_position(mut self, position: Point3<f64>) -> Self {
