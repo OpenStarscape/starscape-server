@@ -80,7 +80,6 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
     state.install_component(
         entity,
         Body::new()
-            .with_entity(entity)
             .with_position(position)
             .with_sphere_shape(1.0)
             .with_collision_handler(Box::new(ShipBodyController { ship: entity })),
