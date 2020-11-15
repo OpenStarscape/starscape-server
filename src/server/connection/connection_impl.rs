@@ -1,5 +1,4 @@
 use super::*;
-use std::sync::mpsc::Sender;
 
 struct IncomingDataHandler {
     connection_key: ConnectionKey,
