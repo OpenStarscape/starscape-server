@@ -33,8 +33,19 @@ pub const EPSILON: f64 = 0.000_001;
 
 fn main() {
     println!("Initializing game...");
+    let (quit_sender, quit_receiver) = channel();
+    ctrlc::set_handler(move || {
+        println!("Processing Ctrl+C from user...");
+        quit_sender.send(()).expect("failed to send quit signal");
+    })
+    .expect("Error setting Ctrl-C handler");
     let mut game = Game::new();
-    println!("Starting game...");
-    while game.step() {}
+    println!("Running game...");
+    while game.step() {
+        if quit_receiver.try_recv().is_ok() {
+            println!("Exiting game loop due to quit signal");
+            break;
+        }
+    }
     println!("Done")
 }
