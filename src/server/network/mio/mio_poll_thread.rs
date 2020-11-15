@@ -1,5 +1,5 @@
 use super::*;
-use mio::{event::Evented, Events, Poll, PollOpt, Ready, Registration, SetReadiness, Token};
+use ::mio::{event::Evented, Events, Poll, PollOpt, Ready, Registration, SetReadiness, Token};
 use std::{
     sync::atomic::{AtomicBool, Ordering},
     thread::{spawn, JoinHandle},
