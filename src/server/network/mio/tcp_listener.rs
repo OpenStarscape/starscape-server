@@ -2,7 +2,6 @@ use super::*;
 use std::{
     io::ErrorKind::{AddrInUse, WouldBlock},
     net::{IpAddr, SocketAddr},
-    sync::mpsc::Sender,
 };
 
 fn try_to_accept_connections(
@@ -76,7 +75,7 @@ mod tests {
     use super::*;
     use crate::util::run_with_timeout;
     use ::mio::net::TcpStream;
-    use std::{net::Ipv6Addr, sync::mpsc::channel, thread, time::Duration};
+    use std::{net::Ipv6Addr, thread, time::Duration};
 
     const SHORT_TIME: Duration = Duration::from_millis(20);
     const LOOPBACK: Option<IpAddr> = Some(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));

@@ -1,5 +1,4 @@
 use super::*;
-use std::sync::mpsc::{channel, Receiver, Sender};
 
 new_key_type! {
     pub struct ConnectionKey;
