@@ -6,7 +6,7 @@ use std::{
 };
 
 fn try_to_accept_connections(
-    listener: &mio::net::TcpListener,
+    listener: &::mio::net::TcpListener,
     new_session_tx: &Sender<Box<dyn SessionBuilder>>,
 ) -> Result<(), Box<dyn Error>> {
     loop {
@@ -39,7 +39,7 @@ impl TcpListener {
         for i in 0..20 {
             let port = requested_port.unwrap_or(55_000 + i * 10);
             let socket_addr = SocketAddr::new(addr, port);
-            match mio::net::TcpListener::bind(&socket_addr) {
+            match ::mio::net::TcpListener::bind(&socket_addr) {
                 Ok(listener) => {
                     let thread = new_mio_poll_thread(listener, move |listener| {
                         try_to_accept_connections(listener, &new_session_tx)
@@ -75,7 +75,7 @@ impl Listener for TcpListener {}
 mod tests {
     use super::*;
     use crate::util::run_with_timeout;
-    use mio::net::TcpStream;
+    use ::mio::net::TcpStream;
     use std::{net::Ipv6Addr, sync::mpsc::channel, thread, time::Duration};
 
     const SHORT_TIME: Duration = Duration::from_millis(20);

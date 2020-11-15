@@ -1,5 +1,5 @@
 use super::*;
-use mio::net::TcpStream;
+use ::mio::net::TcpStream;
 use std::io::{ErrorKind::WouldBlock, Read, Write};
 
 fn try_to_read_data(
