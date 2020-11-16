@@ -1,3 +1,6 @@
+//! This module contains traits and implementations for the session layer,
+//! the lowest-level of the protocol.
+
 use super::*;
 
 mod listener;

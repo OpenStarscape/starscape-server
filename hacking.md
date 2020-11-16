@@ -1,3 +1,6 @@
+## Documentation
+Docs are important, and always encouraged. Write inline documentation with the standard Rustdoc format. Good quick reference for the doc format [here](https://blog.guillaume-gomez.fr/articles/2020-03-12+Guide+on+how+to+write+documentation+for+a+Rust+crate).
+
 ## Warnings
 Code should pass `cargo clippy` without warnings. If a warning is not useful, allow it with `#[allow(clippy::...)]`.
 

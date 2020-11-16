@@ -15,10 +15,9 @@ pub use decodable::{Decodable, DecodableAs};
 pub use encodable::Encodable;
 pub use request_handler::RequestHandler;
 pub use server::{PropertyUpdateSink, Server};
-pub use server_impl::ConnectionKey;
+pub use server_impl::{ConnectionKey, ServerImpl};
 
 use connection::*;
 use format::*;
 use helpers::*;
 use network::*;
-use server_impl::ServerImpl;
