@@ -13,33 +13,30 @@ pub struct ServerImpl {
 }
 
 impl ServerImpl {
-    pub fn new<F>(build_listeners: F) -> Self
-    where
-        F: Fn(Sender<Box<dyn SessionBuilder>>) -> Vec<Box<dyn Listener>>,
-    {
+    pub fn new(enable_tcp: bool, enable_webrtc: bool) -> Result<Self, Box<dyn Error>> {
         let (new_session_tx, new_session_rx) = channel();
         let (request_tx, request_rx) = channel();
-        ServerImpl {
+        let mut listeners: Vec<Box<dyn Listener>> = Vec::new();
+        if enable_tcp {
+            let tcp = TcpListener::new(new_session_tx.clone(), None, None)
+                .map_err(|e| format!("failed to create TcpListener: {}", e))?;
+            listeners.push(Box::new(tcp));
+        }
+        if enable_webrtc {
+            let webrtc = WebrtcListener::new(new_session_tx)
+                .map_err(|e| format!("failed to create WebrtcListener: {}", e))?;
+            listeners.push(Box::new(webrtc));
+        }
+        eprintln!("Server listeners: {:#?}", listeners);
+        Ok(ServerImpl {
             connections: DenseSlotMap::with_key(),
-            _listeners: build_listeners(new_session_tx),
+            _listeners: listeners,
             new_session_rx,
             request_tx,
             request_rx,
-        }
+        })
     }
 
-    #[cfg(test)]
-    fn get_request_tx(&self) -> &Sender<ServerRequest> {
-        &self.request_tx
-    }
-
-    #[cfg(test)]
-    fn get_connections(&mut self) -> &mut DenseSlotMap<ConnectionKey, Box<dyn Connection>> {
-        &mut self.connections
-    }
-}
-
-impl ServerImpl {
     fn try_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
         eprintln!("New session: {:?}", builder);
         // hack to get around slotmap only giving us a key after creation
@@ -150,7 +147,22 @@ impl Server for ServerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::{Arc, Mutex, Weak};
+    use std::sync::Mutex;
+
+    fn new_test_server_impl() -> (Sender<Box<dyn SessionBuilder>>, ServerImpl) {
+        let (new_session_tx, new_session_rx) = channel();
+        let (request_tx, request_rx) = channel();
+        (
+            new_session_tx,
+            ServerImpl {
+                connections: DenseSlotMap::with_key(),
+                _listeners: Vec::new(),
+                new_session_rx,
+                request_tx,
+                request_rx,
+            },
+        )
+    }
 
     #[derive(Debug)]
     struct MockSession;
@@ -251,43 +263,10 @@ mod tests {
     }
 
     #[test]
-    fn builds_and_holds_listeners() {
-        impl Listener for Arc<()> {}
-        let weak = {
-            let (weak, _server) = {
-                let arc = Arc::new(());
-                let weak: Weak<()> = Arc::downgrade(&arc);
-                let server = ServerImpl::new(|_| vec![Box::new(arc.clone())]);
-                (weak, server)
-            };
-            assert_eq!(weak.strong_count(), 1);
-            weak
-        };
-        assert_eq!(weak.strong_count(), 0);
-    }
-
-    #[test]
-    fn has_no_connections_by_default() {
-        let mut server = ServerImpl::new(|_| vec![]);
-        assert_eq!(server.number_of_connections(), 0);
-        let mut handler = MockRequestHandler::default();
-        server.process_requests(&mut handler);
-        assert_eq!(server.number_of_connections(), 0);
-    }
-
-    #[test]
     fn can_create_connection() {
-        let new_session_tx = Mutex::new(None);
-        let mut server = ServerImpl::new(|tx| {
-            *new_session_tx.lock().unwrap() = Some(tx);
-            vec![]
-        });
+        let (new_session_tx, mut server) = new_test_server_impl();
         let builder = Box::new(MockSessionBuilder(true));
         new_session_tx
-            .lock()
-            .unwrap()
-            .as_ref()
-            .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockRequestHandler::default();
@@ -298,18 +277,10 @@ mod tests {
 
     #[test]
     fn does_not_create_connection_when_building_session_fails() {
-        let new_session_tx = Mutex::new(None);
-        let mut server = ServerImpl::new(|tx| {
-            *new_session_tx.lock().unwrap() = Some(tx);
-            vec![]
-        });
+        let (new_session_tx, mut server) = new_test_server_impl();
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
         new_session_tx
-            .lock()
-            .unwrap()
-            .as_ref()
-            .expect("new_session_tx not set")
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockRequestHandler::default();
@@ -319,10 +290,10 @@ mod tests {
 
     #[test]
     fn makes_requests() {
-        let mut server = ServerImpl::new(|_| vec![]);
+        let (_, mut server) = new_test_server_impl();
         let entities = mock_keys(1);
         let conn_key = server
-            .get_connections()
+            .connections
             .insert(Box::new(MockConnection(entities[0])));
         for request in vec![
             ServerRequest::new(
@@ -334,7 +305,7 @@ mod tests {
                 ConnectionRequest::Property((1, "bar".into()), PropertyRequest::Get),
             ),
         ] {
-            server.get_request_tx().send(request).unwrap();
+            server.request_tx.send(request).unwrap();
         }
         let mut handler = MockRequestHandler::default();
         server.process_requests(&mut handler);
