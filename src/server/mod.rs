@@ -5,7 +5,7 @@ mod decodable;
 mod encodable;
 mod format;
 mod helpers;
-mod network;
+mod session;
 mod request_handler;
 #[allow(clippy::module_inception)]
 mod server;
@@ -20,4 +20,4 @@ pub use server_impl::{ConnectionKey, ServerImpl};
 use connection::*;
 use format::*;
 use helpers::*;
-use network::*;
+use session::*;
