@@ -23,7 +23,7 @@ impl ServerImpl {
             listeners.push(Box::new(tcp));
         }
         if enable_webrtc {
-            let webrtc = WebrtcListener::new(new_session_tx)
+            let (_endpoint, webrtc) = WebrtcListener::new(new_session_tx)
                 .map_err(|e| format!("failed to create WebrtcListener: {}", e))?;
             listeners.push(Box::new(webrtc));
         }

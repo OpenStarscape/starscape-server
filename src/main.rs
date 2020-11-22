@@ -31,7 +31,8 @@ use std::{
 
 pub const EPSILON: f64 = 0.000_001;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Initializing game...");
     let (quit_sender, quit_receiver) = channel();
     ctrlc::set_handler(move || {
