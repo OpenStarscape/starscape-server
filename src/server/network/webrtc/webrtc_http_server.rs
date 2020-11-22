@@ -52,6 +52,7 @@ async fn run(
 
 pub struct WebrtcHttpServer {
     shutdown_tx: Option<futures::channel::oneshot::Sender<()>>,
+    join_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl WebrtcHttpServer {
@@ -66,19 +67,22 @@ impl WebrtcHttpServer {
 
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
 
-        tokio::spawn(run(endpoint, socket_addr, shutdown_rx));
+        let join_handle = tokio::spawn(run(endpoint, socket_addr, shutdown_rx));
 
         Ok(WebrtcHttpServer {
             shutdown_tx: Some(shutdown_tx),
+            join_handle: Some(join_handle),
         })
     }
 }
 
 impl Drop for WebrtcHttpServer {
     fn drop(&mut self) {
-        match self.shutdown_tx.take().unwrap().send(()) {
-            Ok(()) => eprintln!("WebRTC HTTP server asked to stop"),
-            Err(()) => eprintln!("failed to send server shutdown signal"),
+        if let Err(()) = self.shutdown_tx.take().unwrap().send(()) {
+            eprintln!("Failed to send WebRTC HTTP server shutdown request");
         };
+        if let Err(e) = futures::executor::block_on(self.join_handle.take().unwrap()) {
+            eprintln!("Failed to join WebRTC HTTP server task: {}", e);
+        }
     }
 }
