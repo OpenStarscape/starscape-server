@@ -1,3 +1,5 @@
+//! TODO: replace this with the warp crate
+
 use super::*;
 use std::net::{IpAddr, SocketAddr};
 
@@ -30,6 +32,11 @@ async fn run(
                                         .body(hyper::Body::from(format!("error: {}", err))),
                                 }
                             } else {
+                                eprintln!(
+                                    "Got invalid {} request to {}",
+                                    req.method(),
+                                    req.uri().path()
+                                );
                                 hyper::Response::builder()
                                     .status(hyper::StatusCode::NOT_FOUND)
                                     .body(hyper::Body::from("not found"))
