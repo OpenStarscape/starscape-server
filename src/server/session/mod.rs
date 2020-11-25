@@ -4,12 +4,12 @@
 use super::*;
 
 mod listener;
-mod tcp;
 #[allow(clippy::module_inception)]
 mod session;
+mod tcp;
 mod webrtc;
 
-pub use tcp::*;
 pub use listener::Listener;
 pub use session::{Session, SessionBuilder};
+pub use tcp::*;
 pub use webrtc::*;

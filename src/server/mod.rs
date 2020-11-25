@@ -5,11 +5,11 @@ mod decodable;
 mod encodable;
 mod format;
 mod helpers;
-mod session;
 mod request_handler;
 #[allow(clippy::module_inception)]
 mod server;
 mod server_impl;
+mod session;
 
 pub use decodable::{Decodable, DecodableAs};
 pub use encodable::Encodable;

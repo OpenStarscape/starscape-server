@@ -18,6 +18,7 @@ impl WebrtcListener {
         let webrtc_server =
             futures::executor::block_on(webrtc_unreliable::Server::new(listen_addr, public_addr))?;
         let session_endpoint = webrtc_server.session_endpoint();
+        // TODO: replace this with a warp HTTP server that can be used for other things
         let http_server = WebrtcHttpServer::new(session_endpoint.clone(), None, None)?;
         Ok((
             session_endpoint,
