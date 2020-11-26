@@ -1,7 +1,7 @@
 //! TODO: replace this with the warp crate
 
 use super::*;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 async fn run(
     endpoint: webrtc_unreliable::SessionEndpoint,
@@ -21,15 +21,19 @@ async fn run(
                                 eprintln!("WebRTC session request from {}", remote_addr);
                                 match session_endpoint.http_session_request(req.into_body()).await {
                                     Ok(mut resp) => {
+                                        eprintln!("Ok response");
                                         resp.headers_mut().insert(
                                             hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
                                             hyper::header::HeaderValue::from_static("*"),
                                         );
                                         Ok(resp.map(hyper::Body::from))
                                     }
-                                    Err(err) => hyper::Response::builder()
-                                        .status(hyper::StatusCode::BAD_REQUEST)
-                                        .body(hyper::Body::from(format!("error: {}", err))),
+                                    Err(err) => {
+                                        eprintln!("Err response");
+                                        hyper::Response::builder()
+                                            .status(hyper::StatusCode::BAD_REQUEST)
+                                            .body(hyper::Body::from(format!("error: {}", err)))
+                                    }
                                 }
                             } else {
                                 eprintln!(
@@ -68,7 +72,7 @@ impl WebrtcHttpServer {
         requested_addr: Option<IpAddr>,
         requested_port: Option<u16>,
     ) -> Result<Self, Box<dyn Error>> {
-        let addr = requested_addr.unwrap_or("::1".parse()?);
+        let addr = requested_addr.unwrap_or_else(|| Ipv4Addr::LOCALHOST.into());
         let port = requested_port.unwrap_or(56_000);
         let socket_addr = SocketAddr::new(addr, port);
 
