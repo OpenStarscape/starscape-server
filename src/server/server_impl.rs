@@ -27,7 +27,7 @@ impl ServerImpl {
                 .map_err(|e| format!("failed to create WebrtcListener: {}", e))?;
             listeners.push(Box::new(webrtc));
         }
-        eprintln!("Server listeners: {:#?}", listeners);
+        info!("server listeners: {:#?}", listeners);
         Ok(ServerImpl {
             connections: DenseSlotMap::with_key(),
             _listeners: listeners,
@@ -38,7 +38,7 @@ impl ServerImpl {
     }
 
     fn try_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
-        eprintln!("New session: {:?}", builder);
+        info!("new session: {:?}", builder);
         // hack to get around slotmap only giving us a key after creation
         let key = self.connections.insert(Box::new(()));
         let (encoder, decoder) = json_protocol_impls();
@@ -48,7 +48,7 @@ impl ServerImpl {
             }
             Err(e) => {
                 self.connections.remove(key);
-                eprintln!("Error building connection: {}", e);
+                error!("error building connection: {}", e);
             }
         }
     }
@@ -74,7 +74,7 @@ impl ServerImpl {
             }
             PropertyRequest::Get => {
                 let value = handler.get(entity, property)?;
-                eprintln!(
+                error!(
                     "get {}.{} returned {:?} (reply not implemented)",
                     object_id, property, value
                 );
@@ -95,13 +95,13 @@ impl ServerImpl {
                 if let Err(e) =
                     self.process_property_request(handler, request.connection, obj, &prop, action)
                 {
-                    eprintln!("Error processing request: {:?}", e);
+                    error!("error processing request: {:?}", e);
                 }
             }
             ConnectionRequest::Close => {
-                eprintln!("Closing connection {:?}", request.connection);
+                info!("closing connection {:?}", request.connection);
                 if self.connections.remove(request.connection).is_none() {
-                    eprintln!("Invalid connection closed: {:?}", request.connection);
+                    error!("invalid connection closed: {:?}", request.connection);
                 }
             }
         };
@@ -169,7 +169,7 @@ mod tests {
 
     impl Session for MockSession {
         fn send(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
-            panic!("Unecpected call");
+            panic!("unecpected call");
         }
     }
 
@@ -184,7 +184,7 @@ mod tests {
             if self.0 {
                 Ok(Box::new(MockSession))
             } else {
-                Err("Session builder is supposed to error for test".into())
+                Err("session builder is supposed to error for test".into())
             }
         }
     }

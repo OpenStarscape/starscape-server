@@ -13,7 +13,7 @@ fn try_to_accept_connections(
             Ok((stream, _)) => {
                 let session = TcpSessionBuilder::new(stream);
                 if let Err(e) = new_session_tx.send(Box::new(session)) {
-                    eprintln!("Failed to send TCP session: {}", e);
+                    error!("failed to send TCP session: {}", e);
                 }
                 // Keep looping until we get a WouldBlock or other error…
             }
@@ -49,7 +49,7 @@ impl TcpListener {
                     });
                 }
                 Err(e) if e.kind() == AddrInUse => {
-                    eprintln!("{} in use", socket_addr);
+                    warn!("can not use {} for TCP, in use", socket_addr);
                 }
                 Err(e) => return Err(e.into()),
             }

@@ -33,7 +33,7 @@ impl<T: 'static> Conduit for ComponentListConduit<T> {
         state
             .subscribe_to_component_list::<T>(subscriber)
             .map_err(|e| {
-                eprintln!("Error: {}", e);
+                error!("subscribing to all {} components: {}", type_name::<T>(), e);
                 "server_error".into()
             })
     }
@@ -42,7 +42,11 @@ impl<T: 'static> Conduit for ComponentListConduit<T> {
         state
             .unsubscribe_from_component_list::<T>(subscriber)
             .map_err(|e| {
-                eprintln!("Error: {}", e);
+                error!(
+                    "unsubscribing from all {} components: {}",
+                    type_name::<T>(),
+                    e
+                );
                 "server_error".into()
             })
     }

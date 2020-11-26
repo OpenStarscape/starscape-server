@@ -13,23 +13,21 @@ impl SubscriptionTracker {
     }
 
     pub fn queue_notifications(&self, pending: &mut NotifQueue) {
-        let subscribers = self.subscribers.read().expect("Failed to lock subscribers");
+        let subscribers = self.subscribers.read().expect("failed to lock subscribers");
         if !subscribers.is_empty() {
             pending.extend(subscribers.iter().map(|(_ptr, sink)| sink.clone()));
         }
     }
 
     pub fn send_notifications(&self, state: &State, prop_update_sink: &dyn PropertyUpdateSink) {
-        let subscribers = self.subscribers.read().expect("Failed to lock subscribers");
+        let subscribers = self.subscribers.read().expect("failed to lock subscribers");
         for (_ptr, sink) in &*subscribers {
             if let Some(sink) = sink.upgrade() {
                 if let Err(e) = sink.notify(state, prop_update_sink) {
-                    eprintln!("Failed to process notification: {}", e);
+                    error!("failed to process notification: {}", e);
                 }
             } else {
-                eprintln!(
-                    "Failed to lock Weak; should have been unsubscribed before being dropped"
-                );
+                error!("failed to lock Weak; should have been unsubscribed before being dropped");
             }
         }
     }
@@ -39,14 +37,14 @@ impl SubscriptionTracker {
         let mut subscribers = self
             .subscribers
             .write()
-            .expect("Failed to lock subscribers");
+            .expect("failed to lock subscribers");
         let subscriber = Arc::downgrade(subscriber);
         let subscriber_ptr = subscriber.thin_ptr();
         if subscribers
             .iter()
             .any(|(ptr, _sink)| *ptr == subscriber_ptr)
         {
-            Err("Subscriber subscribed multiple times".into())
+            Err("subscriber subscribed multiple times".into())
         } else {
             let was_empty = subscribers.is_empty();
             subscribers.push((subscriber_ptr, subscriber));
@@ -60,12 +58,12 @@ impl SubscriptionTracker {
         let mut subscribers = self
             .subscribers
             .write()
-            .expect("Failed to lock subscribers");
+            .expect("failed to lock subscribers");
         match subscribers
             .iter()
             .position(|(ptr, _sink)| *ptr == subscriber_ptr)
         {
-            None => Err("Unsubscribed subscriber not already subscribed".into()),
+            None => Err("unsubscribed subscriber not already subscribed".into()),
             Some(i) => {
                 subscribers.swap_remove(i);
                 Ok(subscribers.is_empty())

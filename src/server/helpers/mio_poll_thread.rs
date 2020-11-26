@@ -25,11 +25,11 @@ fn poll_loop<F>(
             match event.token() {
                 TOKEN => {
                     if let Err(e) = process_event() {
-                        eprintln!("Error while processing Mio event: {}", e);
+                        error!("processing Mio event: {}", e);
                     }
                 }
                 token => {
-                    eprintln!("Invalid token {:?}", token);
+                    error!("invalid mio token {:?}", token);
                 }
             }
         }
@@ -52,7 +52,7 @@ impl Drop for MioPollThread {
             .set_readiness(Ready::readable())
             .expect("failed to set rediness on Mio poll in order to exit loop and join thread");
         if let Err(e) = self.join_handle.take().unwrap().join() {
-            eprintln!("Mio thread panicked at some point: {:?}", e);
+            error!("Mio thread panicked at some point: {:?}", e);
         }
     }
 }

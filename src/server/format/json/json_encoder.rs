@@ -36,7 +36,7 @@ mod tests {
     fn assert_json_eq(message: &[u8], json: &str) {
         let expected: Value = serde_json::from_str(json).expect("failed to parse test JSON");
         let actual: Value =
-            serde_json::from_slice(message).expect("Failed to parse the JSON we generated");
+            serde_json::from_slice(message).expect("failed to parse the JSON we generated");
         assert_eq!(actual, expected);
     }
 
@@ -48,7 +48,7 @@ mod tests {
         let value = Encodable::Scaler(12.5);
         assert_json_eq(
             &p.encode_property_update(obj, prop, &value)
-                .expect("Failed to serialize property update"),
+                .expect("failed to serialize property update"),
             "{
 				\"mtype\": \"update\",
 				\"object\": 42,

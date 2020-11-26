@@ -23,7 +23,7 @@ impl Subscriber for CachingConduit {
         let mut cached = self
             .cached_value
             .lock()
-            .expect("Failed to lock cached Encodable mutex");
+            .expect("failed to lock cached Encodable mutex");
         if *cached != value {
             *cached = value;
             self.subscribers.send_notifications(state, sink);
@@ -37,7 +37,7 @@ impl Conduit for Arc<CachingConduit> {
         Ok(self
             .cached_value
             .lock()
-            .expect("Failed to lock mutex")
+            .expect("failed to lock mutex")
             .clone())
     }
 
@@ -108,7 +108,7 @@ mod tests {
     impl MockConduit {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self {
-                value_to_get: Err("No Encodable yet".to_owned()),
+                value_to_get: Err("no Encodable yet".to_owned()),
                 subscribed: None,
             }))
         }
@@ -120,7 +120,7 @@ mod tests {
         }
 
         fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
-            panic!("Unexpected call");
+            panic!("unexpected call");
         }
 
         fn subscribe(
@@ -185,7 +185,6 @@ mod tests {
     #[test]
     fn subscribes_self_to_inner() {
         let (state, caching, inner, sinks, _) = setup();
-        println!("Caching conduit: {:?}", Arc::as_ptr(&caching));
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
@@ -196,7 +195,7 @@ mod tests {
             assert_ne!(subscribed_to, sink);
             assert_eq!(subscribed_to, caching);
         } else {
-            panic!("Not subscribed");
+            panic!("not subscribed");
         };
     }
 

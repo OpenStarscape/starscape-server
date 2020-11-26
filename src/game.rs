@@ -50,7 +50,7 @@ impl Game {
         for notification in notifications {
             if let Some(sink) = notification.upgrade() {
                 if let Err(e) = sink.notify(&self.state, self.server.property_update_sink()) {
-                    eprintln!("Failed to process notification: {}", e);
+                    error!("failed to process notification: {}", e);
                 }
             }
         }

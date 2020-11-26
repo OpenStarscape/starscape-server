@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 #[macro_use(new_key_type)]
 extern crate slotmap;
 
@@ -34,20 +37,30 @@ pub const EPSILON: f64 = 0.000_001;
 
 #[tokio::main]
 async fn main() {
-    println!("Initializing game...");
+    // By default show error, warn and info
+    env_logger::builder()
+        .format_timestamp_millis()
+        .filter_level(log::LevelFilter::Info)
+        .parse_default_env()
+        .init();
+    info!("initializing game…");
+
     let (quit_sender, quit_receiver) = channel();
     ctrlc::set_handler(move || {
-        println!("Processing Ctrl+C from user...");
+        warn!("processing Ctrl+C from user…");
         quit_sender.send(()).expect("failed to send quit signal");
     })
-    .expect("Error setting Ctrl-C handler");
+    .expect("error setting Ctrl-C handler");
+
     let mut game = Game::new();
-    println!("Running game...");
+
+    info!("running game…");
     while game.step() {
         if quit_receiver.try_recv().is_ok() {
-            println!("Exiting game loop due to quit signal");
+            trace!("exiting game loop due to quit signal");
             break;
         }
     }
-    println!("Done")
+
+    info!("game stopped")
 }

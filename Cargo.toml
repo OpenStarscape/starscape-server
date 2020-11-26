@@ -5,6 +5,8 @@ authors = ["Sophie Winter <wm@wmww.sh>"]
 edition = "2018"
 
 [dependencies]
+log = "0.4"
+env_logger = "0.8"
 slotmap = "0.4"
 anymap = "0.12"
 cgmath = "0.17"

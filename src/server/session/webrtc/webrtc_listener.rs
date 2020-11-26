@@ -7,11 +7,11 @@ async fn run_server(mut webrtc_server: webrtc_unreliable::Server) {
             Ok(received) => {
                 message_buf.clear();
                 message_buf.extend(received.message.as_ref());
-                eprintln!("Received {} bytes of data", received.message.len());
+                trace!("received {} bytes of data", received.message.len());
                 Some((received.message_type, received.remote_addr))
             }
             Err(err) => {
-                eprintln!("Could not receive RTC message: {}", err);
+                error!("could not receive RTC message: {}", err);
                 None
             }
         };
@@ -21,7 +21,7 @@ async fn run_server(mut webrtc_server: webrtc_unreliable::Server) {
                 .send(&message_buf, message_type, &remote_addr)
                 .await
             {
-                eprintln!("could not send message to {}: {}", remote_addr, err);
+                error!("could not send message to {}: {}", remote_addr, err);
             }
         }
     }
@@ -62,11 +62,11 @@ impl WebrtcListener {
 
 impl Drop for WebrtcListener {
     fn drop(&mut self) {
-        eprintln!("Aborting WebRTC server");
+        trace!("aborting WebRTC server");
         self.abort_handle.take().unwrap().abort();
-        eprintln!("Waiting for WebRTC server to shut down");
+        trace!("waiting for WebRTC server to shut down");
         let result = block_on(self.join_handle.take().unwrap());
-        eprintln!("WebRTC server shut down: {:?}", result);
+        trace!("WebRTC server shut down: {:?}", result);
     }
 }
 

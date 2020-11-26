@@ -197,7 +197,7 @@ impl State {
             let property = Property::new(entity_key, name, conduit);
             entity.register_property(name, property);
         } else {
-            panic!("Failed to register proprty on entity {:?}", entity_key);
+            panic!("failed to register proprty on entity {:?}", entity_key);
         }
     }
 
@@ -228,12 +228,12 @@ impl State {
                 if map.remove(component).is_some() {
                     update_component_list_element = true;
                 } else {
-                    eprintln!("failed to remove {} {:?}", type_name::<T>(), component);
+                    error!("failed to remove {} {:?}", type_name::<T>(), component);
                 }
                 remove_map = map.is_empty();
             }
             None => {
-                eprintln!("no components of type {} to remove", type_name::<T>());
+                error!("no components of type {} to remove", type_name::<T>());
             }
         }
 

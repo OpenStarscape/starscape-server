@@ -45,7 +45,7 @@ impl Ship {
             let mut pending = self
                 .pending
                 .lock()
-                .expect("Failed lock pending ship updates");
+                .expect("failed lock pending ship updates");
             pending.thrust = thrust;
             Ok(())
         }
@@ -55,7 +55,7 @@ impl Ship {
         let mut pending = self
             .pending
             .lock()
-            .expect("Failed lock pending ship updates");
+            .expect("failed lock pending ship updates");
         pending.kill = true;
     }
 }
@@ -69,7 +69,7 @@ impl CollisionHandler for ShipBodyController {
         if let Ok(ship) = state.component::<Ship>(self.ship) {
             ship.kill();
         } else {
-            eprint!("Could not find colliding ship {:?}", self.ship);
+            error!("colliding ship {:?} does not exist", self.ship);
         }
     }
 }
