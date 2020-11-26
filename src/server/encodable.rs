@@ -105,7 +105,7 @@ impl Serialize for Encodable {
             Encodable::Integer(value) => serializer.serialize_i64(*value),
             Encodable::Entity(entity) => {
                 panic!(
-                    "Can not serialize {:?}; entity should have been replaced by object ID",
+                    "can not serialize {:?}; entity should have been replaced by object ID",
                     entity
                 );
             }
@@ -130,8 +130,8 @@ mod json_tests {
         let expected: serde_json::Value =
             serde_json::from_str(json).expect("failed to parse test JSON");
         let actual: serde_json::Value =
-            serde_json::from_str(&serde_json::to_string(&value).expect("Failed to serialize"))
-                .expect("Failed to parse the JSON we just generated");
+            serde_json::from_str(&serde_json::to_string(&value).expect("failed to serialize"))
+                .expect("failed to parse the JSON we just generated");
         assert_eq!(actual, expected);
     }
 

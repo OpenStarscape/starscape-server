@@ -18,7 +18,7 @@ impl IncomingDataHandler {
                 });
             }
             Err(e) => {
-                eprintln!("Error decoding incoming data: {}", e);
+                warn!("can't decode incoming data: {}", e);
                 let _ = self.request_tx.send(ServerRequest::new(
                     self.connection_key,
                     ConnectionRequest::Close,
@@ -57,7 +57,7 @@ impl ConnectionImpl {
     }
 
     fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
-        let mut session = self.session.lock().expect("Failed to lock writer");
+        let mut session = self.session.lock().expect("failed to lock writer");
         match session.send(&buffer) {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("can not {}; error writing to writer: {}", operation, e).into()),
@@ -74,7 +74,7 @@ impl Connection for ConnectionImpl {
     ) -> Result<(), Box<dyn Error>> {
         let resolved_value; // not used directly, only exists for lifetime reasons
         let (object, value) = {
-            let mut objects = self.objects.lock().expect("Failed to read object map");
+            let mut objects = self.objects.lock().expect("failed to read object map");
             let object = objects.get_object(entity).ok_or_else(|| {
                 format!(
                     "property_changed() with entity {:?} not in object map",
@@ -95,7 +95,7 @@ impl Connection for ConnectionImpl {
     fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
         self.objects
             .lock()
-            .expect("Failed to write to object map")
+            .expect("failed to write to object map")
             .remove_entity(entity);
         // TODO: tell client object was destroyed
     }
@@ -103,7 +103,7 @@ impl Connection for ConnectionImpl {
     fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey> {
         self.objects
             .lock()
-            .expect("Failed to write to object map")
+            .expect("failed to write to object map")
             .get_entity(object)
     }
 }
@@ -229,7 +229,7 @@ mod tests {
         let test = Test::new();
         test.conn
             .property_changed(test.entity, "foo", &Scaler(12.5))
-            .expect("Error updating property");
+            .expect("error updating property");
         assert_eq!(
             test.encoder.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), Scaler(12.5))]
@@ -252,7 +252,7 @@ mod tests {
         let value = List(vec![Integer(7), Integer(12)]);
         let o = conn.objects.lock().unwrap().register_entity(e[0]);
         conn.property_changed(e[0], "foo", &value)
-            .expect("Error updating property");
+            .expect("error updating property");
         assert_eq!(encoder.borrow().log, vec![(o, "foo".to_owned(), value)]);
     }
 
@@ -261,7 +261,7 @@ mod tests {
         let test = Test::new();
         test.conn
             .property_changed(test.entity, "foo", &Entity(test.entities[0]))
-            .expect("Error updating property");
+            .expect("error updating property");
         let obj_0 = test.lookup_obj_0();
         assert_ne!(test.obj_id, obj_0);
         assert_eq!(
@@ -275,7 +275,7 @@ mod tests {
         let test = Test::new();
         test.conn
             .property_changed(test.entity, "foo", &test.entities.clone().into())
-            .expect("Error updating property");
+            .expect("error updating property");
         let obj_ids = test.lookup_obj_ids();
         assert_eq!(
             test.encoder.borrow().log,

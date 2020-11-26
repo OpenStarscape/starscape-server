@@ -81,7 +81,7 @@ mod tests {
     fn setup() -> (Element<i64>, NotifQueue, Arc<dyn Subscriber>) {
         let store = Element::new(7);
         let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
-        store.subscribe(&subscriber).expect("Failed to subscribe");
+        store.subscribe(&subscriber).expect("failed to subscribe");
         (store, Vec::new(), subscriber)
     }
 

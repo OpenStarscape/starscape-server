@@ -18,10 +18,13 @@ async fn run(
                         let mut session_endpoint = endpoint.clone();
                         async move {
                             if req.uri().path() == "/rtc" && req.method() == hyper::Method::POST {
-                                eprintln!("WebRTC session request from {}", remote_addr);
+                                trace!("WebRTC session request from {}", remote_addr);
                                 match session_endpoint.http_session_request(req.into_body()).await {
                                     Ok(mut resp) => {
-                                        eprintln!("Ok response");
+                                        trace!(
+                                            "WebRTC session request from {} got response",
+                                            remote_addr
+                                        );
                                         resp.headers_mut().insert(
                                             hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
                                             hyper::header::HeaderValue::from_static("*"),
@@ -29,15 +32,18 @@ async fn run(
                                         Ok(resp.map(hyper::Body::from))
                                     }
                                     Err(err) => {
-                                        eprintln!("Err response");
+                                        warn!(
+                                            "WebRTC session request from {} got error response",
+                                            remote_addr
+                                        );
                                         hyper::Response::builder()
                                             .status(hyper::StatusCode::BAD_REQUEST)
                                             .body(hyper::Body::from(format!("error: {}", err)))
                                     }
                                 }
                             } else {
-                                eprintln!(
-                                    "Got invalid {} request to {}",
+                                warn!(
+                                    "got invalid {} request to {}",
                                     req.method(),
                                     req.uri().path()
                                 );
@@ -58,7 +64,7 @@ async fn run(
             shutdown_rx.await.ok();
         });
     server.await.expect("server failed");
-    eprintln!("WebRTC HTTP server shut down");
+    trace!("WebRTC HTTP server shut down");
 }
 
 pub struct WebrtcHttpServer {
@@ -90,10 +96,10 @@ impl WebrtcHttpServer {
 impl Drop for WebrtcHttpServer {
     fn drop(&mut self) {
         if let Err(()) = self.shutdown_tx.take().unwrap().send(()) {
-            eprintln!("Failed to send WebRTC HTTP server shutdown request");
+            error!("failed to send WebRTC HTTP server shutdown request");
         };
         if let Err(e) = futures::executor::block_on(self.join_handle.take().unwrap()) {
-            eprintln!("Failed to join WebRTC HTTP server task: {}", e);
+            error!("failed to join WebRTC HTTP server task: {}", e);
         }
     }
 }

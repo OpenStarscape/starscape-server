@@ -32,7 +32,7 @@ impl Subscriber for ConnectionData {
         sink.property_changed(self.connection, self.entity, self.property_name, &value)
             .map_err(|e| {
                 format!(
-                    "Error sending update for {:?}.{}: {}",
+                    "error sending update for {:?}.{}: {}",
                     self.entity, self.property_name, e
                 )
                 .into()
@@ -71,7 +71,7 @@ impl Property for PropertyImpl {
         let mut subscriptions = self
             .subscriptions
             .lock()
-            .expect("Failed to lock subscriptions in PropertyImpl.subscribe()");
+            .expect("failed to lock subscriptions in PropertyImpl.subscribe()");
         match subscriptions.entry(subscriber) {
             Entry::Occupied(_) => Err(format!(
                 "{:?} is already subscribed to {:?}.{}",
@@ -96,7 +96,7 @@ impl Property for PropertyImpl {
         let mut subscriptions = self
             .subscriptions
             .lock()
-            .expect("Failed to lock subscriptions in PropertyImpl.unsubscribe()");
+            .expect("failed to lock subscriptions in PropertyImpl.unsubscribe()");
         match subscriptions.remove(&subscriber) {
             None => Err(format!(
                 "{:?} is not subscribed to {:?}.{}",
@@ -115,12 +115,12 @@ impl Property for PropertyImpl {
         let mut subscriptions = self
             .subscriptions
             .lock()
-            .expect("Failed to lock subscriptions in PropertyImpl.finalize()");
+            .expect("failed to lock subscriptions in PropertyImpl.finalize()");
         for (_conn, property) in subscriptions.drain() {
             let sink = Arc::downgrade(&property) as Weak<dyn Subscriber>;
             if let Err(e) = self.conduit.unsubscribe(state, &sink) {
-                eprintln!(
-                    "Failed to unsubscribe property from conduit during property finalize: {}",
+                error!(
+                    "failed to unsubscribe property from conduit during property finalize: {}",
                     e
                 );
             }
@@ -133,9 +133,9 @@ impl Drop for PropertyImpl {
         let subscriptions = self
             .subscriptions
             .lock()
-            .expect("Failed to lock subscriptions in PropertyImpl.drop()");
+            .expect("failed to lock subscriptions in PropertyImpl.drop()");
         if !subscriptions.is_empty() {
-            eprintln!(
+            error!(
                 "PropertyImpl not finalized before drop. {} subscriptions left.",
                 subscriptions.len()
             );
@@ -156,7 +156,7 @@ mod tests {
     impl MockConduit {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self {
-                value_to_get: Err("No Encodable yet".to_owned()),
+                value_to_get: Err("no Encodable yet".to_owned()),
                 subscribed: HashMap::new(),
             }))
         }
@@ -168,7 +168,7 @@ mod tests {
         }
 
         fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
-            panic!("Unexpected call");
+            panic!("unexpected call");
         }
 
         fn subscribe(
