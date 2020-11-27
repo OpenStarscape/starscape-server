@@ -13,20 +13,19 @@ impl HttpServer {
         port: Option<u16>,
     ) -> Result<Self, Box<dyn Error>> {
         let address = address.unwrap_or_else(|| Ipv4Addr::LOCALHOST.into());
-        let port = port.unwrap_or(56_000);
+        let port = port.unwrap_or(80);
         let socket_addr = SocketAddr::new(address, port);
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
-
+        trace!("starting HTTP server on {:?}", socket_addr);
+        let (_addr, server) = warp::serve(filter)
+            .try_bind_with_graceful_shutdown(socket_addr, async {
+                shutdown_rx.await.ok();
+            })
+            .map_err(|e| format!("failed to bind HTTP server to {}: {}", socket_addr, e))?;
         let join_handle = tokio::spawn(async move {
-            trace!("starting HTTP server on {:?}", socket_addr);
-            let (_addr, server) =
-                warp::serve(filter).bind_with_graceful_shutdown(socket_addr, async {
-                    shutdown_rx.await.ok();
-                });
             server.await;
             trace!("HTTP server shut down");
         });
-
         Ok(HttpServer {
             socket_addr,
             shutdown_tx: Some(shutdown_tx),

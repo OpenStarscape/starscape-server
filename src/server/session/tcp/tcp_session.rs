@@ -37,10 +37,10 @@ impl TcpSessionBuilder {
 impl SessionBuilder for TcpSessionBuilder {
     fn build(
         self: Box<Self>,
-        mut handle_incoming_data: Box<dyn FnMut(&[u8]) + Send>,
+        mut handle_packet: Box<dyn FnMut(&[u8]) + Send>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
         let thread = new_mio_poll_thread(self.stream.try_clone()?, move |listener| {
-            try_to_read_data(listener, &mut *handle_incoming_data)
+            try_to_read_data(listener, &mut *handle_packet)
         })?;
         Ok(Box::new(TcpSession {
             stream: self.stream,
@@ -61,8 +61,12 @@ impl Debug for TcpSession {
 }
 
 impl Session for TcpSession {
-    fn send(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn send_packet(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         self.stream.write_all(data)?;
         Ok(())
+    }
+
+    fn max_packet_len(&self) -> usize {
+        std::usize::MAX
     }
 }

@@ -184,7 +184,11 @@ mod tests {
     struct MockSession;
 
     impl Session for MockSession {
-        fn send(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
+        fn send_packet(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
+            panic!("unecpected call");
+        }
+
+        fn max_packet_len(&self) -> usize {
             panic!("unecpected call");
         }
     }

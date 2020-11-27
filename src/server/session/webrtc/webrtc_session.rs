@@ -27,7 +27,15 @@ impl Debug for WebrtcSession {
 }
 
 impl Session for WebrtcSession {
-    fn send(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn send_packet(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         Err("WebrtcSession::send() not implemented".into())
+    }
+
+    fn max_packet_len(&self) -> usize {
+        warn!(
+            "returning max WebRTC message length as {}, but in practice it's likely lower",
+            webrtc_unreliable::MAX_MESSAGE_LEN
+        );
+        webrtc_unreliable::MAX_MESSAGE_LEN
     }
 }
