@@ -1,5 +1,4 @@
 use super::*;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 pub struct HttpServer {
     socket_addr: SocketAddr,

@@ -3,8 +3,9 @@ use super::*;
 // type signature is figured out with help from https://github.com/seanmonstar/warp/issues/362
 async fn handle_http_request(
     mut endpoint: webrtc_unreliable::SessionEndpoint,
+    remote_addr: Option<SocketAddr>,
     stream: impl warp::Stream<Item = Result<impl warp::Buf, warp::Error>>,
-) -> Result<Box<dyn warp::Reply>, warp::Rejection> {
+) -> Result<Box<dyn warp::Reply>, core::convert::Infallible> {
     let stream = stream.map(|stream| {
         stream.map(|mut buffer| {
             let bytes = buffer.to_bytes();
@@ -14,10 +15,7 @@ async fn handle_http_request(
     });
     match endpoint.http_session_request(stream).await {
         Ok(mut resp) => {
-            /*trace!(
-                "WebRTC session request from {} guseot response",
-                remote_addr
-            );*/
+            trace!("WebRTC request from {:?} got response", remote_addr);
             resp.headers_mut().insert(
                 hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
                 hyper::header::HeaderValue::from_static("*"),
@@ -25,10 +23,7 @@ async fn handle_http_request(
             Ok(Box::new(resp.map(hyper::Body::from)))
         }
         Err(err) => {
-            /*warn!(
-                "WebRTC session request from {} got error response",
-                remote_addr
-            );*/
+            warn!("WebRTC request from {:?} got error response", remote_addr);
             Ok(Box::new(
                 hyper::Response::builder()
                     .status(hyper::StatusCode::BAD_REQUEST)
@@ -68,6 +63,7 @@ async fn run_server(mut webrtc_server: webrtc_unreliable::Server) {
 
 /// Accepts connections and listens for incoming data on all active connections.
 pub struct WebrtcListener {
+    listen_addr: SocketAddr,
     abort_handle: Option<future::AbortHandle>,
     join_handle: Option<tokio::task::JoinHandle<Result<(), future::Aborted>>>,
 }
@@ -77,14 +73,16 @@ impl WebrtcListener {
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
     ) -> Result<(GenericFilter, Self), Box<dyn Error>> {
         let listen_addr = "192.168.42.232:42424".parse()?;
-        let public_addr = "192.168.42.232:42424".parse()?;
-        let webrtc_server = block_on(webrtc_unreliable::Server::new(listen_addr, public_addr))?;
+        let webrtc_server = block_on(webrtc_unreliable::Server::new(listen_addr, listen_addr))?;
         let endpoint = webrtc_server.session_endpoint();
 
         let warp_filter = warp::path("rtc")
             .and(warp::post())
+            .and(warp::addr::remote())
             .and(warp::body::stream())
-            .and_then(move |request_body| handle_http_request(endpoint.clone(), request_body))
+            .and_then(move |remote_addr, request_body| {
+                handle_http_request(endpoint.clone(), remote_addr, request_body)
+            })
             .boxed();
 
         // Use futures::future::Abortable to kill the server on command
@@ -96,6 +94,7 @@ impl WebrtcListener {
         Ok((
             warp_filter,
             WebrtcListener {
+                listen_addr,
                 abort_handle: Some(abort_handle),
                 join_handle: Some(join_handle),
             },
@@ -115,7 +114,7 @@ impl Drop for WebrtcListener {
 
 impl Debug for WebrtcListener {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WebrtcListener") // Not fully implemented
+        write!(f, "WebrtcListener on {:?}", self.listen_addr)
     }
 }
 
