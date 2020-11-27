@@ -4,9 +4,23 @@ use super::*;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
 
-async fn handle_upload(
-    stream: impl warp::Stream<Item = Result<impl warp::Buf, warp::Error>>,
-) -> Result<impl warp::Reply, warp::Rejection> {
+async fn handle_upload<S, B>(
+    stream: S,
+    mut endpoint: webrtc_unreliable::SessionEndpoint,
+) -> Result<impl warp::Reply, warp::Rejection>
+where
+    S: warp::Stream<Item = Result<B, warp::Error>>,
+    B: warp::Buf,
+{
+    use futures::StreamExt;
+    let stream = stream.map(|stream| {
+        stream.map(|mut buffer| {
+            let bytes = buffer.to_bytes();
+            warn!("bytes: {:?}", bytes);
+            bytes
+        })
+    });
+    let _ = endpoint.http_session_request(stream).await;
     Ok(hyper::Response::builder()
         .status(hyper::StatusCode::NOT_FOUND)
         .body(hyper::Body::from("not found")))
@@ -20,7 +34,7 @@ async fn run(
     let rtc = warp::post()
         .and(warp::path("rtc"))
         .and(warp::body::stream())
-        .and_then(handle_upload);
+        .and_then(move |request_body| handle_upload(request_body, endpoint.clone()));
     /*
         move |request_body| async {
             let a: warp::Stream = request_body;
@@ -54,6 +68,7 @@ async fn run(
         }
     );*/
 
+    /*
     let make_svc =
         hyper::service::make_service_fn(move |addr_stream: &hyper::server::conn::AddrStream| {
             let endpoint = endpoint.clone();
@@ -111,6 +126,14 @@ async fn run(
             shutdown_rx.await.ok();
         });
     server.await.expect("server failed");
+    trace!("WebRTC HTTP server shut down");
+    */
+
+    let (_addr, server) = warp::serve(rtc).bind_with_graceful_shutdown(socket_addr, async {
+        shutdown_rx.await.ok();
+    });
+
+    server.await;
     trace!("WebRTC HTTP server shut down");
 }
 
