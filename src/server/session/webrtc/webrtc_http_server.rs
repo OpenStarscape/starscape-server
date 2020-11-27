@@ -1,6 +1,7 @@
 //! TODO: replace this with the warp crate
 
 use super::*;
+use futures::StreamExt;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use warp::Filter;
 
@@ -12,7 +13,6 @@ where
     S: warp::Stream<Item = Result<B, warp::Error>>,
     B: warp::Buf,
 {
-    use futures::StreamExt;
     let stream = stream.map(|stream| {
         stream.map(|mut buffer| {
             let bytes = buffer.to_bytes();
@@ -20,10 +20,29 @@ where
             bytes
         })
     });
-    let _ = endpoint.http_session_request(stream).await;
-    Ok(hyper::Response::builder()
-        .status(hyper::StatusCode::NOT_FOUND)
-        .body(hyper::Body::from("not found")))
+    match endpoint.http_session_request(stream).await {
+        Ok(mut resp) => {
+            /*trace!(
+                "WebRTC session request from {} got response",
+                remote_addr
+            );*/
+            resp.headers_mut().insert(
+                hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                hyper::header::HeaderValue::from_static("*"),
+            );
+            Ok(resp.map(hyper::Body::from))
+        }
+        Err(err) => {
+            /*warn!(
+                "WebRTC session request from {} got error response",
+                remote_addr
+            );*/
+            Ok(hyper::Response::builder()
+                .status(hyper::StatusCode::BAD_REQUEST)
+                .body(hyper::Body::from(format!("error: {}", err)))
+                .expect("failed to build BAD_REQUEST response"))
+        }
+    }
 }
 
 async fn run(
@@ -35,6 +54,7 @@ async fn run(
         .and(warp::path("rtc"))
         .and(warp::body::stream())
         .and_then(move |request_body| handle_upload(request_body, endpoint.clone()));
+
     /*
         move |request_body| async {
             let a: warp::Stream = request_body;
@@ -80,8 +100,13 @@ async fn run(
                         async move {
                             if req.uri().path() == "/rtc" && req.method() == hyper::Method::POST {
                                 trace!("WebRTC session request from {}", remote_addr);
-                                let foo = req.into_body();
-                                match session_endpoint.http_session_request(foo).await {
+                                let stream = req.into_body().map(|stream| {
+                                    stream.map(|mut bytes| {
+                                        warn!("bytes: {:?}", bytes);
+                                        bytes
+                                    })
+                                });
+                                match session_endpoint.http_session_request(stream).await {
                                     Ok(mut resp) => {
                                         trace!(
                                             "WebRTC session request from {} got response",
