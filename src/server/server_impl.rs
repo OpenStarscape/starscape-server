@@ -41,7 +41,9 @@ impl ServerImpl {
         let http_server = HttpServer::new(warp_filter, None, None)?;
         listeners.push(Box::new(http_server));
 
-        info!("server listeners: {:#?}", listeners);
+        for listener in &listeners {
+            info!("{:?}", listener);
+        }
         Ok(ServerImpl {
             connections: DenseSlotMap::with_key(),
             _listeners: listeners,
