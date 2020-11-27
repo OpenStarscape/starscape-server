@@ -20,7 +20,7 @@ use util::*;
 
 use anymap::AnyMap;
 use cgmath::*;
-use futures::{executor::block_on, future};
+use futures::{executor::block_on, future, StreamExt};
 use slotmap::DenseSlotMap;
 
 use std::error::Error;

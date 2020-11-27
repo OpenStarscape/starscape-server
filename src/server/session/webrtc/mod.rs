@@ -8,11 +8,9 @@
 
 use super::*;
 
-mod webrtc_http_server;
 mod webrtc_listener;
 mod webrtc_session;
 
 pub use webrtc_listener::WebrtcListener;
 
-use webrtc_http_server::WebrtcHttpServer;
 use webrtc_session::WebrtcSessionBuilder;

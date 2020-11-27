@@ -1,5 +1,44 @@
 use super::*;
 
+// type signature is figured out with help from https://github.com/seanmonstar/warp/issues/362
+async fn handle_http_request(
+    mut endpoint: webrtc_unreliable::SessionEndpoint,
+    stream: impl warp::Stream<Item = Result<impl warp::Buf, warp::Error>>,
+) -> Result<Box<dyn warp::Reply>, warp::Rejection> {
+    let stream = stream.map(|stream| {
+        stream.map(|mut buffer| {
+            let bytes = buffer.to_bytes();
+            warn!("bytes: {:?}", bytes);
+            bytes
+        })
+    });
+    match endpoint.http_session_request(stream).await {
+        Ok(mut resp) => {
+            /*trace!(
+                "WebRTC session request from {} guseot response",
+                remote_addr
+            );*/
+            resp.headers_mut().insert(
+                hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                hyper::header::HeaderValue::from_static("*"),
+            );
+            Ok(Box::new(resp.map(hyper::Body::from)))
+        }
+        Err(err) => {
+            /*warn!(
+                "WebRTC session request from {} got error response",
+                remote_addr
+            );*/
+            Ok(Box::new(
+                hyper::Response::builder()
+                    .status(hyper::StatusCode::BAD_REQUEST)
+                    .body(hyper::Body::from(format!("error: {}", err)))
+                    .expect("failed to build BAD_REQUEST response"),
+            ))
+        }
+    }
+}
+
 async fn run_server(mut webrtc_server: webrtc_unreliable::Server) {
     let mut message_buf = Vec::new();
     loop {
@@ -29,7 +68,6 @@ async fn run_server(mut webrtc_server: webrtc_unreliable::Server) {
 
 /// Accepts connections and listens for incoming data on all active connections.
 pub struct WebrtcListener {
-    http_server: WebrtcHttpServer,
     abort_handle: Option<future::AbortHandle>,
     join_handle: Option<tokio::task::JoinHandle<Result<(), future::Aborted>>>,
 }
@@ -37,22 +75,27 @@ pub struct WebrtcListener {
 impl WebrtcListener {
     pub fn new(
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
-    ) -> Result<(webrtc_unreliable::SessionEndpoint, Self), Box<dyn Error>> {
+    ) -> Result<(GenericFilter, Self), Box<dyn Error>> {
         let listen_addr = "192.168.42.232:42424".parse()?;
         let public_addr = "192.168.42.232:42424".parse()?;
         let webrtc_server = block_on(webrtc_unreliable::Server::new(listen_addr, public_addr))?;
-        let session_endpoint = webrtc_server.session_endpoint();
-        // TODO: replace this with a warp HTTP server that can be used for other things
-        let http_server = WebrtcHttpServer::new(session_endpoint.clone(), None, None)?;
+        let endpoint = webrtc_server.session_endpoint();
+
+        let warp_filter = warp::path("rtc")
+            .and(warp::post())
+            .and(warp::body::stream())
+            .and_then(move |request_body| handle_http_request(endpoint.clone(), request_body))
+            .boxed();
+
         // Use futures::future::Abortable to kill the server on command
         let (abort_handle, abort_registration) = future::AbortHandle::new_pair();
         let abortable_server =
             future::Abortable::new(run_server(webrtc_server), abort_registration);
         let join_handle = tokio::spawn(abortable_server);
+
         Ok((
-            session_endpoint,
+            warp_filter,
             WebrtcListener {
-                http_server,
                 abort_handle: Some(abort_handle),
                 join_handle: Some(join_handle),
             },
