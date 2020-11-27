@@ -17,16 +17,30 @@ impl ServerImpl {
         let (new_session_tx, new_session_rx) = channel();
         let (request_tx, request_rx) = channel();
         let mut listeners: Vec<Box<dyn Listener>> = Vec::new();
+
+        // Is there a simpler way to make an empty warp filter?
+        let mut warp_filter = warp::any()
+            .and_then(|| async { Err::<Box<dyn warp::Reply>, _>(warp::reject::not_found()) })
+            .boxed();
+
         if enable_tcp {
             let tcp = TcpListener::new(new_session_tx.clone(), None, None)
                 .map_err(|e| format!("failed to create TcpListener: {}", e))?;
             listeners.push(Box::new(tcp));
         }
         if enable_webrtc {
-            let (_endpoint, webrtc) = WebrtcListener::new(new_session_tx)
+            let (rtc_warp_filter, webrtc): (
+                warp::filters::BoxedFilter<(Box<dyn warp::Reply>,)>,
+                WebrtcListener,
+            ) = WebrtcListener::new(new_session_tx)
                 .map_err(|e| format!("failed to create WebrtcListener: {}", e))?;
             listeners.push(Box::new(webrtc));
+            warp_filter = warp_filter.or(rtc_warp_filter).unify().boxed();
         }
+
+        let http_server = HttpServer::new(warp_filter, None, None)?;
+        listeners.push(Box::new(http_server));
+
         info!("server listeners: {:#?}", listeners);
         Ok(ServerImpl {
             connections: DenseSlotMap::with_key(),
