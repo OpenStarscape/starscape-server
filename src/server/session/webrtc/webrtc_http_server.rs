@@ -2,12 +2,58 @@
 
 use super::*;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use warp::Filter;
+
+async fn handle_upload(
+    stream: impl warp::Stream<Item = Result<impl warp::Buf, warp::Error>>,
+) -> Result<impl warp::Reply, warp::Rejection> {
+    Ok(hyper::Response::builder()
+        .status(hyper::StatusCode::NOT_FOUND)
+        .body(hyper::Body::from("not found")))
+}
 
 async fn run(
     endpoint: webrtc_unreliable::SessionEndpoint,
     socket_addr: SocketAddr,
     shutdown_rx: futures::channel::oneshot::Receiver<()>,
 ) {
+    let rtc = warp::post()
+        .and(warp::path("rtc"))
+        .and(warp::body::stream())
+        .and_then(handle_upload);
+    /*
+        move |request_body| async {
+            let a: warp::Stream = request_body;
+            Ok::<_, warp::Rejection>(hyper::Response::builder()
+                        .status(hyper::StatusCode::BAD_REQUEST)
+                        .body(hyper::Body::from(format!("error"))).expect("???"))
+            /*
+            match endpoint.http_session_request(request_body).await {
+                Ok(mut resp) => {
+                    /*trace!(
+                        "WebRTC session request from {} got response",
+                        remote_addr
+                    );*/
+                    resp.headers_mut().insert(
+                        hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
+                        hyper::header::HeaderValue::from_static("*"),
+                    );
+                    Ok(resp.map(hyper::Body::from))
+                }
+                Err(err) => {
+                    /*warn!(
+                        "WebRTC session request from {} got error response",
+                        remote_addr
+                    );*/
+                    Ok(hyper::Response::builder()
+                        .status(hyper::StatusCode::BAD_REQUEST)
+                        .body(hyper::Body::from(format!("error: {}", err))).expect("???"))
+                }
+            }
+            */
+        }
+    );*/
+
     let make_svc =
         hyper::service::make_service_fn(move |addr_stream: &hyper::server::conn::AddrStream| {
             let endpoint = endpoint.clone();
@@ -19,7 +65,8 @@ async fn run(
                         async move {
                             if req.uri().path() == "/rtc" && req.method() == hyper::Method::POST {
                                 trace!("WebRTC session request from {}", remote_addr);
-                                match session_endpoint.http_session_request(req.into_body()).await {
+                                let foo = req.into_body();
+                                match session_endpoint.http_session_request(foo).await {
                                     Ok(mut resp) => {
                                         trace!(
                                             "WebRTC session request from {} got response",
