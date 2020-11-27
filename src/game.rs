@@ -13,8 +13,8 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Game {
-        let server = Box::new(ServerImpl::new(true, true).expect("failed to start server"));
+    pub fn new() -> Result<Game, Box<dyn Error>> {
+        let server = Box::new(ServerImpl::new(true, true)?);
         let mut game = Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
@@ -32,7 +32,7 @@ impl Game {
                 .with_mass(1.0e+18),
         );
         game.state.install_component(planet, GravityBody());
-        game
+        Ok(game)
     }
 
     /// Runs a single iteration of the game loop

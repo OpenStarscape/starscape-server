@@ -2,13 +2,28 @@ use super::*;
 
 use std::fmt::Debug;
 
+/// A client that is trying to connect
 pub trait SessionBuilder: Send + Debug {
+    /// Try to build the session, handle_packet will receive any packets that
+    /// have already arrived, plus all future packets.
     fn build(
         self: Box<Self>,
-        handle_incoming_data: Box<dyn FnMut(&[u8]) + Send>,
+        handle_packet: Box<dyn FnMut(&[u8]) + Send>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>>;
 }
 
+/// Represents a low-level network connection. Abstracts over things like Unix
+/// sockets, UDP, TCP and WebRTC data channels (not all of these are implemented
+/// at this time). Reliable+ordered session types use the same data format as
+/// unreliable+unordered.
 pub trait Session: Send + Debug {
-    fn send(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>>;
+    /// Packets should be assumed to be unreliable+unordered. This errors if
+    /// there's an issue with the underlying connection, or if data is longer
+    /// than max_packet_len() has ever been.
+    fn send_packet(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>>;
+    /// The longest a packet should be. This may change (if, for example, long
+    /// packets are frequently dropped). It should be avoided, but It's not an
+    /// error to send a packet with a previously-allowed length (this would be
+    /// impossible to prevent in a thread-safe way)
+    fn max_packet_len(&self) -> usize;
 }

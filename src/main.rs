@@ -52,7 +52,10 @@ async fn main() {
     })
     .expect("error setting Ctrl-C handler");
 
-    let mut game = Game::new();
+    let mut game = Game::new().unwrap_or_else(|e| {
+        error!("{}", e);
+        panic!("failed to create game");
+    });
 
     info!("running game…");
     while game.step() {
