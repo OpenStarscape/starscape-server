@@ -1,9 +1,12 @@
 use super::*;
 
 new_key_type! {
+    /// A handle to a client connection
     pub struct ConnectionKey;
 }
 
+/// Manages a single client connection. Both the session type (TCP, WebRTC, etc) and the format
+/// (JSON, etc) are abstracted.
 pub trait Connection {
     fn property_changed(
         &self,
@@ -36,10 +39,9 @@ impl InboundDataHandler {
             }
             Err(e) => {
                 warn!("can't decode incoming data: {}", e);
-                let _ = self.request_tx.send(Request::new(
-                    self.connection_key,
-                    RequestType::Close,
-                ));
+                let _ = self
+                    .request_tx
+                    .send(Request::new(self.connection_key, RequestType::Close));
             }
         }
     }
@@ -64,8 +66,7 @@ impl ConnectionImpl {
             decoder,
             request_tx,
         };
-        let session =
-            session_builder.build(Box::new(move |data| handler.handle_data(data)))?;
+        let session = session_builder.build(Box::new(move |data| handler.handle_data(data)))?;
         Ok(Self {
             encoder,
             obj_map: Box::new(ObjectMapImpl::new()),

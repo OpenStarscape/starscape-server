@@ -1,7 +1,8 @@
 use super::*;
 
-/// A single piece of data in a component
-/// Changes can be subscribed to so updates can be dispatched to properties
+/// An atomic unit of state. An element can be subscribed to, in which case it will notify the
+/// subscriber when it is changed. These notifications are __not__ dispatched immediately. Instead,
+/// they are queued and processed later in the main game loop.
 pub struct Element<T> {
     inner: T,
     subscribers: SubscriptionTracker,
@@ -15,7 +16,7 @@ impl<T> Element<T> {
         }
     }
 
-    /// Prefer set() where possible, because that can save work when value is unchanged
+    /// Prefer set() where possible. That can save work when value is unchanged.
     pub fn get_mut(&mut self, pending: &mut NotifQueue) -> &mut T {
         self.subscribers.queue_notifications(pending);
         &mut self.inner
@@ -28,6 +29,7 @@ impl<T> Element<T> {
         &mut self.inner
     }
 
+    /// Send notifications to the given subscriber when the inner value changes
     pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
         match self.subscribers.subscribe(subscriber) {
             Ok(_) => Ok(()),

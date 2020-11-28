@@ -1,3 +1,7 @@
+//! This is the OpenStarscape game engine and server. OpenStarscape is an open source multiplayer
+//! space flight simulator that encourages 3rd party clients. See `../hacking.md` for an
+//! architecture overview and coding guidlines.
+
 #[macro_use]
 extern crate log;
 
@@ -31,8 +35,6 @@ use std::{
     sync::mpsc::{channel, Receiver, Sender},
     sync::{Arc, Mutex, RwLock, Weak},
 };
-
-pub const EPSILON: f64 = 0.000_001;
 
 #[tokio::main]
 async fn main() {

@@ -18,7 +18,11 @@ impl CachingConduit {
 }
 
 impl Subscriber for CachingConduit {
-    fn notify(&self, state: &State, sink: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
+    fn notify(
+        &self,
+        state: &State,
+        sink: &dyn OutboundMessageHandler,
+    ) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
         let mut cached = self
             .cached_value

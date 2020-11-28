@@ -113,8 +113,8 @@ impl Decoder for JsonDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use RequestType::*;
     use PropertyRequest::*;
+    use RequestType::*;
 
     fn assert_results_in_request(json: &str, request: RequestType) {
         let mut decoder = JsonDecoder::new();

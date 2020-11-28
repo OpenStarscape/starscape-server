@@ -1,3 +1,5 @@
+//! The lower level network code, including the session layer for supported network protocols
+
 use super::*;
 
 mod http;
@@ -7,7 +9,7 @@ mod session;
 mod tcp;
 mod webrtc;
 
-pub use server::{Server};
+pub use server::Server;
 pub use session::{Session, SessionBuilder};
 
 use http::*;

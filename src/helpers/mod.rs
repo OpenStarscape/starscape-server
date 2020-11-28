@@ -1,3 +1,6 @@
+//! General useful bits and bobs
+
+#[cfg(test)]
 use super::*;
 
 mod datagram_splitter;
