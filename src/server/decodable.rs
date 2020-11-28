@@ -10,6 +10,12 @@ pub enum Decodable {
     Null,
 }
 
+/// The required context for decoding
+pub trait DecodeCtx {
+    /// Returns the entity for the given object ID, or Err if it does not exist
+    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>>;
+}
+
 pub trait DecodableAs<T> {
     fn decode(&self) -> Result<T, String>;
 }
