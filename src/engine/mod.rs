@@ -1,3 +1,6 @@
+//! The core engine, which is essentially an ECS for the game logic fused with a reactive property
+//! system to talk to clients
+
 use super::*;
 
 mod component_key;

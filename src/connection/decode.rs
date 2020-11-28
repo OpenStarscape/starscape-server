@@ -2,8 +2,8 @@
 
 use super::*;
 
-/// A value received from a client
-/// Prefer the accessor methods or simply .decode() rather than matching directly
+/// A value received from a client which can be decoded into a value. Prefer the accessor methods or
+/// simply .decode() rather than matching directly
 #[derive(Debug, PartialEq, Clone)]
 pub enum Decodable {
     Scaler(f64),
@@ -12,7 +12,7 @@ pub enum Decodable {
     Null,
 }
 
-/// The required context for decoding
+/// The context required for decoding a Decodable
 pub trait DecodeCtx {
     /// Returns the entity for the given object ID, or Err if it does not exist
     fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>>;

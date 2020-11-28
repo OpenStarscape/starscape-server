@@ -27,9 +27,14 @@ struct ConnectionData {
 }
 
 impl Subscriber for ConnectionData {
-    fn notify(&self, state: &State, handler: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
+    fn notify(
+        &self,
+        state: &State,
+        handler: &dyn OutboundMessageHandler,
+    ) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
-        handler.property_update(self.connection, self.entity, self.property_name, &value)
+        handler
+            .property_update(self.connection, self.entity, self.property_name, &value)
             .map_err(|e| {
                 format!(
                     "error sending update for {:?}.{}: {}",

@@ -3,7 +3,7 @@ use super::*;
 /// Allows sending property updates and other messages to clients. Implemented by
 /// ConnectionCollection and used by the engine.
 pub trait OutboundMessageHandler {
-	fn property_update(
+    fn property_update(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,
@@ -34,81 +34,86 @@ pub trait InboundMessageHandler {
 /// Holds all the active connections for a game. process_requests() should be called by the game
 /// once per network tick.
 pub struct ConnectionCollection {
-	connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
-	new_session_tx: Sender<Box<dyn SessionBuilder>>,
-	new_session_rx: Receiver<Box<dyn SessionBuilder>>,
+    connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
+    new_session_tx: Sender<Box<dyn SessionBuilder>>,
+    new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<Request>,
     request_rx: Receiver<Request>,
 }
 
 impl ConnectionCollection {
-	pub fn new() -> Self {
-		let connections = DenseSlotMap::with_key();
-		let (new_session_tx, new_session_rx) = channel();
+    pub fn new() -> Self {
+        let connections = DenseSlotMap::with_key();
+        let (new_session_tx, new_session_rx) = channel();
         let (request_tx, request_rx) = channel();
-		Self {
-			connections,
-			new_session_tx,
-			new_session_rx,
-			request_tx,
-			request_rx,
-		}
-	}
-	
-	/// When a SessionBuilder is sent over this channel, it will be used to create a new connection
-	pub fn new_session_sender(&self) -> Sender<Box<dyn SessionBuilder>> {
-		self.new_session_tx.clone()
-	}
-	
-	/// Handle incoming connection requests and messages from clients on the current thread. Should
-	/// be called at the start of each network tick.
-	pub fn process_inbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
-		// First, build sessions for any new clients that are trying to connect
+        Self {
+            connections,
+            new_session_tx,
+            new_session_rx,
+            request_tx,
+            request_rx,
+        }
+    }
+
+    /// When a SessionBuilder is sent over this channel, it will be used to create a new connection
+    pub fn new_session_sender(&self) -> Sender<Box<dyn SessionBuilder>> {
+        self.new_session_tx.clone()
+    }
+
+    /// Handle incoming connection requests and messages from clients on the current thread. Should
+    /// be called at the start of each network tick.
+    pub fn process_inbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
+        // First, build sessions for any new clients that are trying to connect
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_to_build_connection(session_builder);
         }
-		// Then process pending requests
+        // Then process pending requests
         while let Ok(request) = self.request_rx.try_recv() {
             self.request(handler, request);
         }
     }
 
-	fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
+    fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
         info!("new session: {:?}", builder);
 
         // DenseSlotMap::insert_with_key() lets us create a connection with a key. Unfortanitely
         // the given function can not fail. Connection building can fail, so we have to return a
-        // stub connection in that case (and then immediately remove it). A mess, I know. 
-		struct StubConnection;
-		impl Connection for StubConnection {
-		    fn property_changed(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
-		        error!("property_changed() called on StubConnection");
-				Err("StubConnection".into())
-		    }
-		    fn entity_destroyed(&self, _: &State, _: EntityKey) {
-		        error!("entity_destroyed() called on StubConnection");
-		    }
-		    fn object_to_entity(&self, _: ObjectId) -> Option<EntityKey> {
-		        error!("object_to_entity() called on StubConnection");
-				None
-		    }
-		}
+        // stub connection in that case (and then immediately remove it). A mess, I know.
+        struct StubConnection;
+        impl Connection for StubConnection {
+            fn property_changed(
+                &self,
+                _: EntityKey,
+                _: &str,
+                _: &Encodable,
+            ) -> Result<(), Box<dyn Error>> {
+                error!("property_changed() called on StubConnection");
+                Err("StubConnection".into())
+            }
+            fn entity_destroyed(&self, _: &State, _: EntityKey) {
+                error!("entity_destroyed() called on StubConnection");
+            }
+            fn object_to_entity(&self, _: ObjectId) -> Option<EntityKey> {
+                error!("object_to_entity() called on StubConnection");
+                None
+            }
+        }
 
-		let mut failed_to_build = false;
-		let request_tx = self.request_tx.clone();
+        let mut failed_to_build = false;
+        let request_tx = self.request_tx.clone();
         let key = self.connections.insert_with_key(|key| {
-			match ConnectionImpl::new_with_json(key, builder, request_tx) {
-	            Ok(conn) => Box::new(conn),
-	            Err(e) => {
-	                failed_to_build = true;
-	                error!("error building connection: {}", e);
-					Box::new(StubConnection)
-	            }
-	        }
-		});
-		if failed_to_build {
-			self.connections.remove(key);
-		}
+            match ConnectionImpl::new_with_json(key, builder, request_tx) {
+                Ok(conn) => Box::new(conn),
+                Err(e) => {
+                    failed_to_build = true;
+                    error!("error building connection: {}", e);
+                    Box::new(StubConnection)
+                }
+            }
+        });
+        if failed_to_build {
+            self.connections.remove(key);
+        }
     }
 
     fn property_request(
@@ -167,22 +172,21 @@ impl ConnectionCollection {
 }
 
 impl OutboundMessageHandler for ConnectionCollection {
-	fn property_update(
+    fn property_update(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,
         property: &str,
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
-		if let Some(connection) = self.connections.get(connection) {
+        if let Some(connection) = self.connections.get(connection) {
             connection.property_changed(entity, property, &value)?;
             Ok(())
         } else {
             Err(format!("connection {:?} has died", connection).into())
         }
-	}
+    }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -317,9 +321,7 @@ mod tests {
     fn sends_requests_to_handler() {
         let mut cc = ConnectionCollection::new();
         let entities = mock_keys(1);
-        let conn_key = cc
-            .connections
-            .insert(Box::new(MockConnection(entities[0])));
+        let conn_key = cc.connections.insert(Box::new(MockConnection(entities[0])));
         for request in vec![
             Request::new(
                 conn_key,

@@ -10,7 +10,11 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(enable_tcp: bool, enable_webrtc: bool, new_session_tx: Sender<Box<dyn SessionBuilder>>) -> Result<Self, Box<dyn Error>> {
+    pub fn new(
+        enable_tcp: bool,
+        enable_webrtc: bool,
+        new_session_tx: Sender<Box<dyn SessionBuilder>>,
+    ) -> Result<Self, Box<dyn Error>> {
         let mut components: Vec<Box<dyn ServerComponent>> = Vec::new();
 
         // Is there a simpler way to make an empty warp filter?
@@ -46,4 +50,3 @@ impl Server {
         })
     }
 }
-

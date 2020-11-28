@@ -4,7 +4,7 @@ use bimap::BiHashMap;
 /// The ID a client uses to identify an object. Maps to an EntityKey.
 pub type ObjectId = u64;
 
-/// A two-directional mapping of entity keys to object IDs. There is an object map for each client.
+/// A two-directional mapping between EntityKeys and ObjectIds. There is an object map for each client.
 /// The implementation hides any mutex locking, exposing an interface that does not require mutable
 /// access.
 pub trait ObjectMap: Send + Sync {

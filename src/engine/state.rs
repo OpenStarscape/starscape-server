@@ -1,6 +1,8 @@
 use super::*;
 
 new_key_type! {
+    /// A handle to an entity in the state. An entity is a collection of attached components. This
+    /// key can be used to access those components from the State.
     pub struct EntityKey;
 }
 
@@ -9,7 +11,9 @@ pub type NotifQueue = Vec<Weak<dyn Subscriber>>;
 type ComponentMap<T> = DenseSlotMap<ComponentKey<T>, (EntityKey, T)>;
 type ComponentElement<T> = (PhantomData<T>, Element<()>);
 
-/// The entire game state at a single point in time
+/// Every game has one state. It owns all entities and components. Most code that uses the state
+/// will be passed a reference to it. Entities and components inherit the state's mutability (if a
+/// function is passed an immutable state, it can't change anything).
 pub struct State {
     /// Current time in seconds since the start of the game
     pub time: f64,

@@ -8,19 +8,19 @@ pub struct Game {
     /// In-game delta-time for each physics step
     step_dt: f64,
     state: State,
-	connections: ConnectionCollection,
+    connections: ConnectionCollection,
     _server: Server,
 }
 
 impl Game {
     pub fn new() -> Result<Game, Box<dyn Error>> {
-		let connections = ConnectionCollection::new();
+        let connections = ConnectionCollection::new();
         let server = Server::new(true, true, connections.new_session_sender())?;
         let mut game = Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
             state: State::new(),
-			connections,
+            connections,
             _server: server,
         };
         let _god = create_god(&mut game.state);

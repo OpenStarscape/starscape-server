@@ -2,10 +2,10 @@ use super::*;
 
 use std::{
     any::Any,
+    cell::RefCell,
     sync::mpsc::RecvTimeoutError::{Disconnected, Timeout},
     thread,
     time::Duration,
-	cell::RefCell,
 };
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
@@ -75,7 +75,9 @@ pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
     (0..number).map(|_| map.insert(())).collect()
 }
 
-pub struct MockOutboundMessageHandler(pub RefCell<Vec<(ConnectionKey, EntityKey, String, Encodable)>>);
+pub struct MockOutboundMessageHandler(
+    pub RefCell<Vec<(ConnectionKey, EntityKey, String, Encodable)>>,
+);
 
 impl MockOutboundMessageHandler {
     pub fn new() -> Self {
