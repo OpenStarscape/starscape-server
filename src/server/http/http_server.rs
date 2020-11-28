@@ -54,4 +54,4 @@ impl Debug for HttpServer {
     }
 }
 
-impl Listener for HttpServer {}
+impl ServerComponent for HttpServer {}

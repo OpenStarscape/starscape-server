@@ -118,4 +118,4 @@ impl Debug for WebrtcListener {
     }
 }
 
-impl Listener for WebrtcListener {}
+impl ServerComponent for WebrtcListener {}

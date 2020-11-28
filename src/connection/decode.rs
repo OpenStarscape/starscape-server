@@ -1,3 +1,5 @@
+//! All things related to decoding (deserializing) data from the client
+
 use super::*;
 
 /// A value received from a client
@@ -128,6 +130,11 @@ impl DecodableAs<()> for Decodable {
             Err(format!("{:?} is not null", self))
         }
     }
+}
+
+/// Decodes a stream of bytes from the session into requests
+pub trait Decoder: Send {
+    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<ConnectionRequest>, Box<dyn Error>>;
 }
 
 #[cfg(test)]
