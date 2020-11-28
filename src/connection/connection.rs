@@ -85,7 +85,7 @@ impl ConnectionImpl {
 
     fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
         let mut session = self.session.lock().expect("failed to lock writer");
-        match session.send_packet(&buffer) {
+        match session.yeet_bundle(&buffer) {
             Ok(_) => Ok(()),
             Err(e) => Err(format!("can not {}; error writing to writer: {}", operation, e).into()),
         }
@@ -160,7 +160,7 @@ mod tests {
     struct MockSession;
 
     impl Session for MockSession {
-        fn send_packet(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
+        fn yeet_bundle(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
 

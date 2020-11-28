@@ -37,7 +37,7 @@ impl TcpSessionBuilder {
 impl SessionBuilder for TcpSessionBuilder {
     fn build(
         self: Box<Self>,
-        mut handle_packet: Box<dyn FnMut(&[u8]) + Send>,
+        mut handle_packet: InboundBundleHandler,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
         let thread = new_mio_poll_thread(self.stream.try_clone()?, move |listener| {
             try_to_read_data(listener, &mut *handle_packet)
@@ -61,7 +61,7 @@ impl Debug for TcpSession {
 }
 
 impl Session for TcpSession {
-    fn send_packet(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         self.stream.write_all(data)?;
         Ok(())
     }

@@ -1,8 +1,5 @@
 use super::*;
-use std::{
-    io::ErrorKind::{AddrInUse, WouldBlock},
-    net::{IpAddr, SocketAddr},
-};
+use std::io::ErrorKind::{AddrInUse, WouldBlock};
 
 fn try_to_accept_connections(
     listener: &::mio::net::TcpListener,

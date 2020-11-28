@@ -197,7 +197,7 @@ mod tests {
     struct MockSession;
 
     impl Session for MockSession {
-        fn send_packet(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
+        fn yeet_bundle(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
             panic!("unecpected call");
         }
 
