@@ -29,6 +29,7 @@ use std::{
     collections::HashMap,
     fmt::{Debug, Formatter},
     marker::PhantomData,
+    ops::Deref,
     sync::mpsc::{channel, Receiver, Sender},
     sync::{Arc, Mutex, RwLock, Weak},
 };

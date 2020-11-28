@@ -30,7 +30,7 @@ impl IncomingDataHandler {
 
 pub struct ConnectionImpl {
     encoder: Box<dyn Encoder>,
-    objects: Mutex<ObjectMap>,
+    obj_map: Box<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
 }
 
@@ -51,7 +51,7 @@ impl ConnectionImpl {
             session_builder.build(Box::new(move |data| handler.handle_incoming_data(data)))?;
         Ok(Self {
             encoder,
-            objects: Mutex::new(ObjectMap::new()),
+            obj_map: Box::new(ObjectMapImpl::new()),
             session: Mutex::new(session),
         })
     }
@@ -70,41 +70,31 @@ impl Connection for ConnectionImpl {
         &self,
         entity: EntityKey,
         property: &str,
-        unresolved_value: &Encodable,
+        value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
-        let resolved_value; // not used directly, only exists for lifetime reasons
-        let (object, value) = {
-            let mut objects = self.objects.lock().expect("failed to read object map");
-            let object = objects.get_object(entity).ok_or_else(|| {
-                format!(
-                    "property_changed() with entity {:?} not in object map",
-                    entity
-                )
-            })?;
-            resolved_value = objects.resolve(unresolved_value);
-            let value = resolved_value.as_ref().unwrap_or(unresolved_value);
-            (object, value)
-        };
-        let buffer = self
-            .encoder
-            .encode_property_update(object, property, value)?;
+        let object = self.obj_map.get_object(entity).ok_or_else(|| {
+            format!(
+                "property_changed() with entity {:?} not in object map",
+                entity
+            )
+        })?;
+        let buffer = self.encoder.encode_property_update(
+            object,
+            property,
+            self.obj_map.as_encode_ctx(),
+            value,
+        )?;
         self.write_buffer(&buffer, "update")?;
         Ok(())
     }
 
     fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
-        self.objects
-            .lock()
-            .expect("failed to write to object map")
-            .remove_entity(entity);
+        self.obj_map.remove_entity(entity);
         // TODO: tell client object was destroyed
     }
 
     fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey> {
-        self.objects
-            .lock()
-            .expect("failed to write to object map")
-            .get_entity(object)
+        self.obj_map.get_entity(object)
     }
 }
 
@@ -130,20 +120,13 @@ mod tests {
             &self,
             object: ObjectId,
             property: &str,
+            ctx: &dyn EncodeCtx,
             value: &Encodable,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()
                 .log
                 .push((object, property.to_owned(), (*value).clone()));
             Ok(vec![])
-        }
-    }
-
-    struct MockDecoder;
-
-    impl Decoder for MockDecoder {
-        fn decode(&mut self, _bytes: Vec<u8>) -> Result<Vec<ConnectionRequest>, Box<dyn Error>> {
-            panic!("unexpected call");
         }
     }
 
@@ -160,15 +143,39 @@ mod tests {
         }
     }
 
-    #[derive(Debug)]
-    struct MockSessionBuilder;
+    struct MockObjectMap(EntityKey, ObjectId);
 
-    impl SessionBuilder for MockSessionBuilder {
-        fn build(
-            self: Box<Self>,
-            _handle_incoming_data: Box<dyn FnMut(&[u8]) + Send>,
-        ) -> Result<Box<dyn Session>, Box<dyn Error>> {
-            Ok(Box::new(MockSession))
+    impl ObjectMap for MockObjectMap {
+        fn get_object(&self, entity: EntityKey) -> Option<ObjectId> {
+            if self.0 == entity {
+                Some(self.1)
+            } else {
+                None
+            }
+        }
+
+        fn get_or_create_object(&self, _entity: EntityKey) -> ObjectId {
+            panic!("unexpected call");
+        }
+
+        fn get_entity(&self, object: ObjectId) -> Option<EntityKey> {
+            if self.1 == object {
+                Some(self.0)
+            } else {
+                None
+            }
+        }
+
+        fn remove_entity(&self, _entity: EntityKey) -> Option<ObjectId> {
+            panic!("unexpected call");
+        }
+
+        fn as_encode_ctx(&self) -> &dyn EncodeCtx {
+            self
+        }
+
+        fn as_decode_ctx(&self) -> &dyn DecodeCtx {
+            self
         }
     }
 
@@ -177,54 +184,25 @@ mod tests {
         conn: ConnectionImpl,
         entity: EntityKey,
         obj_id: ObjectId,
-        entities: Vec<EntityKey>,
     }
 
     impl Test {
         fn new() -> Self {
             let encoder = MockEncoder::new();
-            let (tx, _) = channel();
-            let conn = ConnectionImpl::new(
-                ConnectionKey::null(),
-                Box::new(encoder.clone()),
-                Box::new(MockDecoder),
-                Box::new(MockSessionBuilder),
-                tx,
-            )
-            .expect("failed to construct connection");
-            let mut entities = mock_keys(4);
-            let entity = entities.pop().unwrap();
-            let obj_id = conn.objects.lock().unwrap().register_entity(entity);
+            let entities = mock_keys(1);
+            let entity = entities[0];
+            let obj_id = 1;
+            let conn = ConnectionImpl {
+                encoder: Box::new(encoder.clone()),
+                obj_map: Box::new(MockObjectMap(entity, obj_id)),
+                session: Mutex::new(Box::new(MockSession)),
+            };
             Self {
                 encoder,
                 conn,
                 entity,
                 obj_id,
-                entities,
             }
-        }
-
-        fn lookup_obj_0(&self) -> ObjectId {
-            self.conn
-                .objects
-                .lock()
-                .unwrap()
-                .get_object(self.entities[0])
-                .expect("failed to look up object")
-        }
-
-        fn lookup_obj_ids(&self) -> Vec<ObjectId> {
-            self.entities
-                .iter()
-                .map(|e_key| {
-                    self.conn
-                        .objects
-                        .lock()
-                        .unwrap()
-                        .get_object(*e_key)
-                        .unwrap_or(0)
-                })
-                .collect()
         }
     }
 
@@ -237,53 +215,6 @@ mod tests {
         assert_eq!(
             test.encoder.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), Scaler(12.5))]
-        );
-    }
-
-    #[test]
-    fn serializes_list_property_update() {
-        let encoder = MockEncoder::new();
-        let (tx, _) = channel();
-        let conn = ConnectionImpl::new(
-            ConnectionKey::null(),
-            Box::new(encoder.clone()),
-            Box::new(MockDecoder),
-            Box::new(MockSessionBuilder),
-            tx,
-        )
-        .expect("failed to construct connection");
-        let e = mock_keys(1);
-        let value = List(vec![Integer(7), Integer(12)]);
-        let o = conn.objects.lock().unwrap().register_entity(e[0]);
-        conn.property_changed(e[0], "foo", &value)
-            .expect("error updating property");
-        assert_eq!(encoder.borrow().log, vec![(o, "foo".to_owned(), value)]);
-    }
-
-    #[test]
-    fn resolves_entity_value_to_object_id() {
-        let test = Test::new();
-        test.conn
-            .property_changed(test.entity, "foo", &Entity(test.entities[0]))
-            .expect("error updating property");
-        let obj_0 = test.lookup_obj_0();
-        assert_ne!(test.obj_id, obj_0);
-        assert_eq!(
-            test.encoder.borrow().log,
-            vec![(test.obj_id, "foo".to_owned(), Integer(obj_0 as i64))]
-        );
-    }
-
-    #[test]
-    fn resolves_list_of_entites_to_object_ids() {
-        let test = Test::new();
-        test.conn
-            .property_changed(test.entity, "foo", &test.entities.clone().into())
-            .expect("error updating property");
-        let obj_ids = test.lookup_obj_ids();
-        assert_eq!(
-            test.encoder.borrow().log,
-            vec![(test.obj_id, "foo".to_owned(), obj_ids.into())]
         );
     }
 }

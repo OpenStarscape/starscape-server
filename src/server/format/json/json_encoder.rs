@@ -14,6 +14,7 @@ impl Encoder for JsonEncoder {
         &self,
         object: ObjectId,
         property: &str,
+        ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>> {
         let buffer = Vec::with_capacity(128);
@@ -22,7 +23,7 @@ impl Encoder for JsonEncoder {
         message.serialize_field("mtype", "update")?;
         message.serialize_field("object", &object)?;
         message.serialize_field("property", property)?;
-        message.serialize_field("value", value)?;
+        message.serialize_field("value", &value.bind(ctx))?;
         message.end()?;
         Ok(serializer.into_inner())
     }
@@ -32,6 +33,14 @@ impl Encoder for JsonEncoder {
 mod tests {
     use super::*;
     use serde_json::Value;
+
+    struct MockEncoderCtx;
+
+    impl EncodeCtx for MockEncoderCtx {
+        fn object_for(&self, _entity: EntityKey) -> ObjectId {
+            panic!("unexpected call")
+        }
+    }
 
     fn assert_json_eq(message: &[u8], json: &str) {
         let expected: Value = serde_json::from_str(json).expect("failed to parse test JSON");
@@ -47,7 +56,7 @@ mod tests {
         let prop = "foobar";
         let value = Encodable::Scaler(12.5);
         assert_json_eq(
-            &p.encode_property_update(obj, prop, &value)
+            &p.encode_property_update(obj, prop, &MockEncoderCtx, &value)
                 .expect("failed to serialize property update"),
             "{
 				\"mtype\": \"update\",

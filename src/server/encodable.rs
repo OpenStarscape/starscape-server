@@ -1,15 +1,37 @@
 use super::*;
-use serde::ser::{Serialize, Serializer};
 
+/// A value that can be encoded (aka serialized) and sent to a client. Note that it requires an
+/// EncodeCtx in order to be encoded. See bind().
 #[derive(Debug, PartialEq, Clone)]
 pub enum Encodable {
     Vector(Vector3<f64>),
     Scaler(f64),
     Integer(i64),
-    /// Entity needs to be transformed into an object ID before serialization
     Entity(EntityKey),
     List(Vec<Encodable>),
     Null,
+}
+
+impl Encodable {
+    /// Allows binding a context to an encodable, which makes it serializable with serde
+    pub fn bind<'a>(&'a self, ctx: &'a dyn EncodeCtx) -> ContextualizedEncodable<'a> {
+        ContextualizedEncodable {
+            encodable: self,
+            ctx,
+        }
+    }
+}
+
+/// The required context for encoding
+pub trait EncodeCtx {
+    /// Returns the object ID for the given entity, creating a new one if needed
+    fn object_for(&self, entity: EntityKey) -> ObjectId;
+}
+
+/// An encodable attached to a context. This may be serialized with serde.
+pub struct ContextualizedEncodable<'a> {
+    encodable: &'a Encodable,
+    ctx: &'a dyn EncodeCtx,
 }
 
 impl From<Point3<f64>> for Encodable {
@@ -90,9 +112,9 @@ impl<T: Into<Encodable>> From<Option<T>> for Encodable {
     }
 }
 
-impl Serialize for Encodable {
+impl<'a> Serialize for ContextualizedEncodable<'a> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        match self {
+        match self.encodable {
             Encodable::Vector(vector) => {
                 use serde::ser::SerializeTuple;
                 let mut tuple = serializer.serialize_tuple(3)?;
@@ -103,17 +125,12 @@ impl Serialize for Encodable {
             }
             Encodable::Scaler(value) => serializer.serialize_f64(*value),
             Encodable::Integer(value) => serializer.serialize_i64(*value),
-            Encodable::Entity(entity) => {
-                panic!(
-                    "can not serialize {:?}; entity should have been replaced by object ID",
-                    entity
-                );
-            }
+            Encodable::Entity(entity) => serializer.serialize_u64(self.ctx.object_for(*entity)),
             Encodable::List(list) => {
                 use serde::ser::SerializeSeq;
                 let mut seq = serializer.serialize_seq(Some(list.len()))?;
                 for elem in list {
-                    seq.serialize_element(elem)?
+                    seq.serialize_element(&elem.bind(self.ctx))?
                 }
                 seq.end()
             }
@@ -126,12 +143,23 @@ impl Serialize for Encodable {
 mod json_tests {
     use super::*;
 
+    const MOCK_OBJ_ID: ObjectId = 42;
+
+    struct MockEncodeCtx;
+
+    impl EncodeCtx for MockEncodeCtx {
+        fn object_for(&self, _entity: EntityKey) -> ObjectId {
+            MOCK_OBJ_ID
+        }
+    }
+
     fn assert_json_eq(value: Encodable, json: &str) {
         let expected: serde_json::Value =
             serde_json::from_str(json).expect("failed to parse test JSON");
-        let actual: serde_json::Value =
-            serde_json::from_str(&serde_json::to_string(&value).expect("failed to serialize"))
-                .expect("failed to parse the JSON we just generated");
+        let actual: serde_json::Value = serde_json::from_str(
+            &serde_json::to_string(&value.bind(&MockEncodeCtx)).expect("failed to serialize"),
+        )
+        .expect("failed to parse the JSON we just generated");
         assert_eq!(actual, expected);
     }
 
@@ -166,16 +194,15 @@ mod json_tests {
     }
 
     #[test]
-    #[should_panic]
     fn entity() {
         let e: Vec<EntityKey> = mock_keys(1);
-        assert_json_eq(e[0].into(), "should panic");
+        assert_json_eq(e[0].into(), "42"); // MOCK_OBJ_ID
     }
 
     #[test]
-    #[should_panic]
     fn list_of_entities() {
         let e: Vec<EntityKey> = mock_keys(3);
-        assert_json_eq(e.into(), "should panic");
+        // the mock context returns MOCK_OBJ_ID no matter what
+        assert_json_eq(e.into(), "[42, 42, 42]");
     }
 }

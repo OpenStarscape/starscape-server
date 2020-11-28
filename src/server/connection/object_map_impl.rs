@@ -1,80 +1,78 @@
 use super::*;
 use bimap::BiHashMap;
 
-pub type ObjectId = u64;
-
-pub struct ObjectMap {
+pub struct ObjectMapImpl {
     map: BiHashMap<EntityKey, ObjectId>,
     next_id: ObjectId,
 }
 
-impl ObjectMap {
-    pub fn new() -> Self {
-        Self {
+impl ObjectMapImpl {
+    pub fn new() -> RwLock<Self> {
+        RwLock::new(ObjectMapImpl {
             map: BiHashMap::new(),
             next_id: 1,
-        }
+        })
+    }
+}
+
+impl ObjectMap for RwLock<ObjectMapImpl> {
+    fn get_object(&self, entity: EntityKey) -> Option<ObjectId> {
+        self.read()
+            .expect("failed to lock object map")
+            .map
+            .get_by_left(&entity)
+            .cloned()
     }
 
-    pub fn register_entity(&mut self, entity: EntityKey) -> ObjectId {
-        let id = self.next_id;
-        self.next_id += 1;
-        if self.map.insert_no_overwrite(entity, id).is_err() {
-            panic!("{:?} already in the bimap", entity);
-        }
-        id
-    }
-
-    pub fn remove_entity(&mut self, entity: EntityKey) -> Option<ObjectId> {
-        self.map.remove_by_left(&entity).map(|(_, o)| o)
-    }
-
-    pub fn get_object(&self, entity: EntityKey) -> Option<ObjectId> {
-        self.map.get_by_left(&entity).cloned()
-    }
-
-    pub fn get_entity(&self, object: ObjectId) -> Option<EntityKey> {
-        self.map.get_by_right(&object).cloned()
-    }
-
-    /// Returns a "resolved" encodable if needed, or None if the unresolved encodable is fine
-    /// Entities and collections containing them need to be resolved to object IDs
-    pub fn resolve<'a>(&mut self, unresolved_value: &'a Encodable) -> Option<Encodable> {
-        match unresolved_value {
-            // if the encodable is an entity, we need to look up the connection-specific object ID
-            Encodable::Entity(entity) => {
-                Some(Encodable::Integer(match self.map.get_by_left(entity) {
-                    Some(o) => *o,
-                    None => self.register_entity(*entity),
-                } as i64))
-            }
-            // if this encodable is a list, it could contain entities that should be resolved
-            Encodable::List(list) => {
-                // Search throug the list, looking for an element that need to be resolved
-                match list
-                    .iter()
-                    .enumerate()
-                    .find_map(|(i, element)| self.resolve(element).map(|resolved| (i, resolved)))
-                {
-                    // if we find one
-                    Some((i, first_resolved)) => {
-                        // clone the first part of the vec that didn't have any resolvable elements
-                        let first_part = list.iter().take(i).cloned();
-                        // insert the element we resolved
-                        let with_first_resolved = first_part.chain(std::iter::once(first_resolved));
-                        // and resolve or clone the rest of the vec as needed
-                        let with_rest =
-                            with_first_resolved.chain(list[i + 1..].iter().map(|element| {
-                                self.resolve(element).unwrap_or_else(|| element.clone())
-                            }));
-                        Some(Encodable::List(with_rest.collect()))
+    fn get_or_create_object(&self, entity: EntityKey) -> ObjectId {
+        let obj = {
+            let read = self.read().expect("failed to lock object map");
+            read.map.get_by_left(&entity).cloned()
+        };
+        match obj {
+            Some(obj) => obj,
+            None => {
+                let mut write = self.write().expect("failed to lock object map");
+                // Because unlocking a reader and locking a writer isn't atomic, we need to check
+                // that the object hasn't been created in the gap
+                match write.map.get_by_left(&entity) {
+                    Some(obj) => *obj,
+                    None => {
+                        let id = write.next_id;
+                        write.next_id += 1;
+                        let overwitten = write.map.insert(entity, id);
+                        if overwitten != bimap::Overwritten::Neither {
+                            panic!("logic error: overwrite bimap value: {:?}", overwitten)
+                        }
+                        id
                     }
-                    // otherwise, no elements need to be resolved
-                    None => None,
                 }
             }
-            _ => None,
         }
+    }
+
+    fn get_entity(&self, object: ObjectId) -> Option<EntityKey> {
+        self.read()
+            .expect("failed to lock object map")
+            .map
+            .get_by_right(&object)
+            .cloned()
+    }
+
+    fn remove_entity(&self, entity: EntityKey) -> Option<ObjectId> {
+        self.write()
+            .expect("failed to lock object map")
+            .map
+            .remove_by_left(&entity)
+            .map(|(_, o)| o)
+    }
+
+    fn as_encode_ctx(&self) -> &dyn EncodeCtx {
+        self
+    }
+
+    fn as_decode_ctx(&self) -> &dyn DecodeCtx {
+        self
     }
 }
 
@@ -83,12 +81,12 @@ mod objects_tests {
     use super::*;
 
     #[test]
-    fn registered_entities_and_objects_can_be_looked_up() {
-        let mut map = ObjectMap::new();
+    fn objects_can_be_created_and_looked_up() {
+        let mut map = ObjectMapImpl::new();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
-            .map(|entity| map.register_entity(*entity))
+            .map(|entity| map.get_or_create_object(*entity))
             .collect();
         assert_eq!(map.get_entity(o[0]), Some(e[0]));
         assert_eq!(map.get_object(e[0]), Some(o[0]));
@@ -98,11 +96,11 @@ mod objects_tests {
 
     #[test]
     fn object_ids_count_up_from_1() {
-        let mut map = ObjectMap::new();
+        let mut map = ObjectMapImpl::new();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
-            .map(|entity| map.register_entity(*entity))
+            .map(|entity| map.get_or_create_object(*entity))
             .collect();
         assert_eq!(o[0], 1);
         assert_eq!(o[1], 2);
@@ -113,23 +111,30 @@ mod objects_tests {
     }
 
     #[test]
-    fn nonexistant_entities_and_objects_return_null() {
-        let mut map = ObjectMap::new();
+    fn nonexistant_entities_return_null() {
+        let mut map = ObjectMapImpl::new();
         let e = mock_keys(2);
-        let o = 47;
-        assert_eq!(map.get_entity(o), None);
         assert_eq!(map.get_object(e[0]), None);
-        map.register_entity(e[0]);
-        assert_eq!(map.get_entity(o), None);
+        map.get_or_create_object(e[0]);
         assert_eq!(map.get_object(e[1]), None);
     }
 
     #[test]
-    fn correct_object_removed() {
-        let mut map = ObjectMap::new();
+    fn nonexistant_objects_return_null() {
+        let mut map = ObjectMapImpl::new();
+        let e = mock_keys(1);
+        let o = 47;
+        assert_eq!(map.get_entity(o), None);
+        map.get_or_create_object(e[0]);
+        assert_eq!(map.get_entity(o), None);
+    }
+
+    #[test]
+    fn entity_can_be_removed() {
+        let mut map = ObjectMapImpl::new();
         let e = mock_keys(3);
-        map.register_entity(e[0]);
-        let o = map.register_entity(e[1]);
+        map.get_or_create_object(e[0]);
+        let o = map.get_or_create_object(e[1]);
         assert_eq!(map.remove_entity(e[2]), None);
         assert_eq!(map.remove_entity(e[1]), Some(o));
         assert_eq!(map.remove_entity(e[1]), None);
@@ -137,11 +142,11 @@ mod objects_tests {
 
     #[test]
     fn object_and_entity_null_after_removal() {
-        let mut map = ObjectMap::new();
+        let mut map = ObjectMapImpl::new();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
-            .map(|entity| map.register_entity(*entity))
+            .map(|entity| map.get_or_create_object(*entity))
             .collect();
         map.remove_entity(e[1]);
         assert_eq!(map.get_entity(o[1]), None);
@@ -149,15 +154,26 @@ mod objects_tests {
     }
 
     #[test]
-    #[should_panic]
-    fn panics_if_same_entity_is_registered_twice() {
-        let mut map = ObjectMap::new();
+    fn get_or_create_object_is_idempotent() {
+        let mut map = ObjectMapImpl::new();
         let e = mock_keys(1);
-        map.register_entity(e[0]);
-        map.register_entity(e[0]);
+        let o = map.get_or_create_object(e[0]);
+        assert_eq!(map.get_or_create_object(e[0]), o);
+        assert_eq!(map.get_object(e[0]), Some(o));
+        assert_eq!(map.get_or_create_object(e[0]), o);
+    }
+
+    #[test]
+    fn same_entity_given_new_id_after_being_removed() {
+        let mut map = ObjectMapImpl::new();
+        let e = mock_keys(1);
+        let o = map.get_or_create_object(e[0]);
+        assert_eq!(map.remove_entity(e[0]), Some(o));
+        assert_ne!(map.get_or_create_object(e[0]), o);
     }
 }
 
+/*
 #[cfg(test)]
 mod resolve_tests {
     use super::Encodable::*;
@@ -228,3 +244,4 @@ mod resolve_tests {
         assert_eq!(map.resolve(&original), Some(resolved));
     }
 }
+*/

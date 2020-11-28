@@ -7,6 +7,7 @@ pub trait Encoder {
         &self,
         object: ObjectId,
         property: &str,
+        ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>>;
 }

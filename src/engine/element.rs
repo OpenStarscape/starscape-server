@@ -1,5 +1,4 @@
 use super::*;
-use std::ops::Deref;
 
 /// A single piece of data in a component
 /// Changes can be subscribed to so updates can be dispatched to properties
