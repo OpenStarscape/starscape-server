@@ -27,7 +27,7 @@ impl Debug for WebrtcSession {
 }
 
 impl Session for WebrtcSession {
-    fn send_packet(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         Err("WebrtcSession::send() not implemented".into())
     }
 
