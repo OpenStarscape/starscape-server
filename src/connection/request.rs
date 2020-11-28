@@ -11,19 +11,20 @@ pub enum PropertyRequest {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum ConnectionRequest {
+pub enum RequestType {
     Property(ObjectProperty, PropertyRequest),
     Close,
 }
 
+/// An incomming message from a client, only used in the connection module
 #[derive(Debug, PartialEq, Clone)]
-pub struct ServerRequest {
+pub struct Request {
     pub connection: ConnectionKey,
-    pub request: ConnectionRequest,
+    pub request: RequestType,
 }
 
-impl ServerRequest {
-    pub fn new(connection: ConnectionKey, request: ConnectionRequest) -> Self {
+impl Request {
+    pub fn new(connection: ConnectionKey, request: RequestType) -> Self {
         Self {
             connection,
             request,

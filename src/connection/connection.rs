@@ -15,41 +15,30 @@ pub trait Connection {
     fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey>;
 }
 
-/// Used when we need a slotmap key before creating a connection
-impl Connection for () {
-    fn property_changed(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
-        panic!("property_changed() called on stub connection");
-    }
-    fn entity_destroyed(&self, _: &State, _: EntityKey) {
-        panic!("entity_destroyed() called on stub connection");
-    }
-    fn object_to_entity(&self, _: ObjectId) -> Option<EntityKey> {
-        panic!("object_to_entity() called on stub connection");
-    }
-}
-
-struct IncomingDataHandler {
+/// Receives data from the session layer (on the session's thread), decodes it into requests and
+/// sends those off to be processed by the session on the main thead.
+struct InboundDataHandler {
     connection_key: ConnectionKey,
     decoder: Box<dyn Decoder>,
-    request_tx: Sender<ServerRequest>,
+    request_tx: Sender<Request>,
 }
 
-impl IncomingDataHandler {
-    pub fn handle_incoming_data(&mut self, data: &[u8]) {
+impl InboundDataHandler {
+    pub fn handle_data(&mut self, data: &[u8]) {
         match self.decoder.decode(data.to_owned()) {
             Ok(requests) => {
                 requests.into_iter().for_each(|data| {
                     // dropping requests is fine if the channel is disconnected
                     let _ = self
                         .request_tx
-                        .send(ServerRequest::new(self.connection_key, data));
+                        .send(Request::new(self.connection_key, data));
                 });
             }
             Err(e) => {
                 warn!("can't decode incoming data: {}", e);
-                let _ = self.request_tx.send(ServerRequest::new(
+                let _ = self.request_tx.send(Request::new(
                     self.connection_key,
-                    ConnectionRequest::Close,
+                    RequestType::Close,
                 ));
             }
         }
@@ -66,17 +55,17 @@ impl ConnectionImpl {
     pub fn new(
         self_key: ConnectionKey,
         session_builder: Box<dyn SessionBuilder>,
-        request_tx: Sender<ServerRequest>,
+        request_tx: Sender<Request>,
         encoder: Box<dyn Encoder>,
         decoder: Box<dyn Decoder>,
     ) -> Result<Self, Box<dyn Error>> {
-        let mut handler = IncomingDataHandler {
+        let mut handler = InboundDataHandler {
             connection_key: self_key,
             decoder,
             request_tx,
         };
         let session =
-            session_builder.build(Box::new(move |data| handler.handle_incoming_data(data)))?;
+            session_builder.build(Box::new(move |data| handler.handle_data(data)))?;
         Ok(Self {
             encoder,
             obj_map: Box::new(ObjectMapImpl::new()),
@@ -87,7 +76,7 @@ impl ConnectionImpl {
     pub fn new_with_json(
         self_key: ConnectionKey,
         session_builder: Box<dyn SessionBuilder>,
-        request_tx: Sender<ServerRequest>,
+        request_tx: Sender<Request>,
     ) -> Result<Self, Box<dyn Error>> {
         let (encoder, decoder) = json_protocol_impls();
         Self::new(self_key, session_builder, request_tx, encoder, decoder)
@@ -156,7 +145,7 @@ mod tests {
             &self,
             object: ObjectId,
             property: &str,
-            ctx: &dyn EncodeCtx,
+            _ctx: &dyn EncodeCtx,
             value: &Encodable,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()

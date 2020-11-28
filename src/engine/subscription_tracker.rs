@@ -19,7 +19,7 @@ impl SubscriptionTracker {
         }
     }
 
-    pub fn send_notifications(&self, state: &State, prop_update_sink: &dyn PropertyUpdateSink) {
+    pub fn send_notifications(&self, state: &State, prop_update_sink: &dyn OutboundMessageHandler) {
         let subscribers = self.subscribers.read().expect("failed to lock subscribers");
         for (_ptr, sink) in &*subscribers {
             if let Some(sink) = sink.upgrade() {
@@ -78,27 +78,13 @@ mod tests {
     use super::*;
     use std::{cell::RefCell, error::Error};
 
-    struct MockPropertyUpdateSink;
-
-    impl PropertyUpdateSink for MockPropertyUpdateSink {
-        fn property_changed(
-            &self,
-            _connection_key: ConnectionKey,
-            _entity: EntityKey,
-            _property: &str,
-            _value: &Encodable,
-        ) -> Result<(), Box<dyn Error>> {
-            Ok(())
-        }
-    }
-
     struct MockSubscriber(RefCell<u32>);
 
     impl Subscriber for MockSubscriber {
         fn notify(
             &self,
             _state: &State,
-            _server: &dyn PropertyUpdateSink,
+            _server: &dyn OutboundMessageHandler,
         ) -> Result<(), Box<dyn Error>> {
             *self.0.borrow_mut() += 1;
             Ok(())
@@ -141,7 +127,7 @@ mod tests {
     fn can_send_with_no_subscribers() {
         let (tracker, _, _, _) = setup();
         let state = State::new();
-        let update_sink = MockPropertyUpdateSink {};
+        let update_sink = MockOutboundMessageHandler::new();
         tracker.send_notifications(&state, &update_sink);
     }
 
@@ -161,7 +147,7 @@ mod tests {
         let (tracker, _, sinks, mock_sinks) = setup();
         tracker.subscribe(&sinks[0]).expect("subscribing failed");
         let state = State::new();
-        let update_sink = MockPropertyUpdateSink {};
+        let update_sink = MockOutboundMessageHandler::new();
         tracker.send_notifications(&state, &update_sink);
         assert_eq!(*mock_sinks[0].0.borrow(), 1);
     }
@@ -212,7 +198,7 @@ mod tests {
             .unsubscribe(&Arc::downgrade(&sinks[1]))
             .expect("unsubscribing failed");
         let state = State::new();
-        let update_sink = MockPropertyUpdateSink {};
+        let update_sink = MockOutboundMessageHandler::new();
         tracker.send_notifications(&state, &update_sink);
         assert_eq!(*mock_sinks[0].0.borrow(), 1);
         assert_eq!(*mock_sinks[1].0.borrow(), 0);
