@@ -72,7 +72,6 @@ impl Listener for TcpListener {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::run_with_timeout;
     use ::mio::net::TcpStream;
     use std::{net::Ipv6Addr, thread, time::Duration};
 

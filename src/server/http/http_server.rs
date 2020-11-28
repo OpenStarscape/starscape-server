@@ -1,5 +1,8 @@
 use super::*;
 
+/// Uses Warp to spin up an HTTP server. At time of writing this is only used to initialize WebRTC,
+/// but it accepts an arbitrary Warp filter and so could easily be used for whatever else we
+/// needed.
 pub struct HttpServer {
     socket_addr: SocketAddr,
     shutdown_tx: Option<futures::channel::oneshot::Sender<()>>,

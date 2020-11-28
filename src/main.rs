@@ -4,19 +4,17 @@ extern crate log;
 #[macro_use(new_key_type)]
 extern crate slotmap;
 
-mod components;
+mod connection;
 mod engine;
 mod game;
+mod helpers;
 mod server;
-mod systems;
-mod util;
 
-use components::*;
+use connection::*;
 use engine::*;
 use game::*;
+use helpers::*;
 use server::*;
-use systems::*;
-use util::*;
 
 use anymap::AnyMap;
 use cgmath::*;

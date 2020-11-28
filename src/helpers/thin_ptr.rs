@@ -1,17 +1,19 @@
 use std::sync::{Arc, Weak};
 
+/// While a raw pointer can't be dereferenced in safe code, it can be compared with other pointers
+/// and hashed. Arc::ptr_eq() and Weak::ptr_eq() should not be used as they are very broken (see
+/// https://github.com/rust-lang/rust/issues/46139). This trait returns a "thin" pointer (basically
+/// just a void*) so it does not have that problem.
 pub trait ThinPtr {
     fn thin_ptr(&self) -> *const ();
 }
 
-/// Arc::ptr_eq() are broken. See https://github.com/rust-lang/rust/issues/46139. Use this instead
 impl<T: ?Sized> ThinPtr for Arc<T> {
     fn thin_ptr(&self) -> *const () {
         Arc::as_ptr(self) as *const ()
     }
 }
 
-/// Weak::ptr_eq() are broken. See https://github.com/rust-lang/rust/issues/46139. Use this instead
 impl<T: ?Sized> ThinPtr for Weak<T> {
     fn thin_ptr(&self) -> *const () {
         match self.upgrade() {

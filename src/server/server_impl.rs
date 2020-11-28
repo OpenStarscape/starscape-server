@@ -57,8 +57,7 @@ impl ServerImpl {
         info!("new session: {:?}", builder);
         // hack to get around slotmap only giving us a key after creation
         let key = self.connections.insert(Box::new(()));
-        let (encoder, decoder) = json_protocol_impls();
-        match ConnectionImpl::new(key, encoder, decoder, builder, self.request_tx.clone()) {
+        match ConnectionImpl::new_with_json(key, builder, self.request_tx.clone()) {
             Ok(c) => {
                 self.connections[key] = Box::new(c);
             }

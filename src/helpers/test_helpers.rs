@@ -10,6 +10,7 @@ use std::{
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
 
+/// Doesn't work for everything, but can be useful in tests
 pub fn attempt_any_to_string(any: &dyn Any) -> String {
     if let Some(s) = any.downcast_ref::<&str>() {
         format!("&str{{ {:?} }}", s)
@@ -26,6 +27,7 @@ pub fn attempt_any_to_string(any: &dyn Any) -> String {
     }
 }
 
+/// Try to run the given function, or panic if it takes too long
 /// Originally from https://github.com/rust-lang/rfcs/issues/2798#issuecomment-552949300
 pub fn run_with_specific_timeout<T, F>(d: Duration, f: F) -> T
 where
@@ -56,6 +58,7 @@ where
     }
 }
 
+/// Try to run the given function, or panic if it takes longer than DEFAULT_TIMEOUT
 pub fn run_with_timeout<T, F>(f: F) -> T
 where
     T: Send + 'static,
@@ -65,7 +68,8 @@ where
     run_with_specific_timeout(DEFAULT_TIMEOUT, f)
 }
 
-/// Should only be used once per type per test
+/// Returns a list of stotmap of the given length, should only be called once per test for each key
+/// type (else you'll get duplicate keys)
 pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
     let mut map = slotmap::DenseSlotMap::with_key();
     (0..number).map(|_| map.insert(())).collect()
