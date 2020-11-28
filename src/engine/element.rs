@@ -63,7 +63,6 @@ impl<T> Deref for Element<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::server::PropertyUpdateSink;
 
     struct MockSubscriber;
 
@@ -71,7 +70,7 @@ mod tests {
         fn notify(
             &self,
             _state: &State,
-            _server: &dyn PropertyUpdateSink,
+            _server: &dyn OutboundMessageHandler,
         ) -> Result<(), Box<dyn Error>> {
             panic!("MockSubscriber.notify() should not be called");
         }

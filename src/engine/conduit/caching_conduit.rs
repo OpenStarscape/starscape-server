@@ -18,7 +18,7 @@ impl CachingConduit {
 }
 
 impl Subscriber for CachingConduit {
-    fn notify(&self, state: &State, sink: &dyn PropertyUpdateSink) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, sink: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
         let mut cached = self
             .cached_value
@@ -78,23 +78,9 @@ mod tests {
         fn notify(
             &self,
             _state: &State,
-            _server: &dyn PropertyUpdateSink,
+            _server: &dyn OutboundMessageHandler,
         ) -> Result<(), Box<dyn Error>> {
             *self.0.borrow_mut() += 1;
-            Ok(())
-        }
-    }
-
-    struct MockPropertyUpdateSink;
-
-    impl PropertyUpdateSink for MockPropertyUpdateSink {
-        fn property_changed(
-            &self,
-            _connection: ConnectionKey,
-            _entity: EntityKey,
-            _property: &str,
-            _value: &Encodable,
-        ) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
     }
@@ -275,7 +261,7 @@ mod tests {
     #[test]
     fn notifies_subscribers_when_updated() {
         let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockPropertyUpdateSink;
+        let prop_update_sink = MockOutboundMessageHandler::new();
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
@@ -289,7 +275,7 @@ mod tests {
     #[test]
     fn notified_subscribers_when_updated_multiple_times() {
         let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockPropertyUpdateSink;
+        let prop_update_sink = MockOutboundMessageHandler::new();
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
@@ -307,7 +293,7 @@ mod tests {
     #[test]
     fn does_not_notify_property_update_sink_when_same_data_sent_twice() {
         let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockPropertyUpdateSink;
+        let prop_update_sink = MockOutboundMessageHandler::new();
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");

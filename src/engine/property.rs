@@ -27,9 +27,9 @@ struct ConnectionData {
 }
 
 impl Subscriber for ConnectionData {
-    fn notify(&self, state: &State, sink: &dyn PropertyUpdateSink) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, handler: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.get_value(state)?;
-        sink.property_changed(self.connection, self.entity, self.property_name, &value)
+        handler.property_update(self.connection, self.entity, self.property_name, &value)
             .map_err(|e| {
                 format!(
                     "error sending update for {:?}.{}: {}",
@@ -203,29 +203,6 @@ mod tests {
         }
     }
 
-    struct MockPropertyUpdateSink(RefCell<Vec<(ConnectionKey, EntityKey, String, Encodable)>>);
-
-    impl MockPropertyUpdateSink {
-        fn new() -> Self {
-            Self(RefCell::new(Vec::new()))
-        }
-    }
-
-    impl PropertyUpdateSink for MockPropertyUpdateSink {
-        fn property_changed(
-            &self,
-            connection: ConnectionKey,
-            entity: EntityKey,
-            property: &str,
-            value: &Encodable,
-        ) -> Result<(), Box<dyn Error>> {
-            self.0
-                .borrow_mut()
-                .push((connection, entity, property.to_owned(), value.clone()));
-            Ok(())
-        }
-    }
-
     fn setup() -> (
         State,
         PropertyImpl,
@@ -305,7 +282,7 @@ mod tests {
         let prop = "foo";
         let property = PropertyImpl::new(entities[0], prop, Box::new(conduit.clone()));
         let conns = mock_keys(1);
-        let prop_sink = MockPropertyUpdateSink::new();
+        let prop_sink = MockOutboundMessageHandler::new();
         let value = Encodable::Integer(42);
         conduit.borrow_mut().value_to_get = Ok(value.clone());
         property

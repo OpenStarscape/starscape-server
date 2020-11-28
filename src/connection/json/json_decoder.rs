@@ -61,14 +61,14 @@ impl JsonDecoder {
         &self,
         datagram: &serde_json::map::Map<String, Value>,
         property_request: PropertyRequest,
-    ) -> Result<ConnectionRequest, Box<dyn Error>> {
-        Ok(ConnectionRequest::Property(
+    ) -> Result<RequestType, Box<dyn Error>> {
+        Ok(RequestType::Property(
             Self::decode_obj_prop(&datagram)?,
             property_request,
         ))
     }
 
-    fn decode_datagram(&self, bytes: &[u8]) -> Result<ConnectionRequest, Box<dyn Error>> {
+    fn decode_datagram(&self, bytes: &[u8]) -> Result<RequestType, Box<dyn Error>> {
         // serde doesn't handle internally tagged enums terribly well
         // (https://github.com/serde-rs/serde/issues/1495)
         // and this is unlikely to be a bottleneck so easier to just deserialize into a Value
@@ -101,7 +101,7 @@ impl JsonDecoder {
 }
 
 impl Decoder for JsonDecoder {
-    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<ConnectionRequest>, Box<dyn Error>> {
+    fn decode(&mut self, bytes: Vec<u8>) -> Result<Vec<RequestType>, Box<dyn Error>> {
         let mut requests = Vec::new();
         for datagram in self.splitter.data(bytes) {
             requests.push(self.decode_datagram(&datagram)?);
@@ -113,10 +113,10 @@ impl Decoder for JsonDecoder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ConnectionRequest::*;
+    use RequestType::*;
     use PropertyRequest::*;
 
-    fn assert_results_in_request(json: &str, request: ConnectionRequest) {
+    fn assert_results_in_request(json: &str, request: RequestType) {
         let mut decoder = JsonDecoder::new();
         let result = decoder
             .decode(json.as_bytes().to_owned())

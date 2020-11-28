@@ -3,6 +3,7 @@
 use super::*;
 
 mod components;
+#[allow(clippy::module_inception)]
 mod game;
 mod systems;
 

@@ -1,11 +1,11 @@
+use super::*;
+
 use std::{
     any::Any,
-    sync::mpsc::{
-        channel,
-        RecvTimeoutError::{Disconnected, Timeout},
-    },
+    sync::mpsc::RecvTimeoutError::{Disconnected, Timeout},
     thread,
     time::Duration,
+	cell::RefCell,
 };
 
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(1);
@@ -73,6 +73,29 @@ where
 pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
     let mut map = slotmap::DenseSlotMap::with_key();
     (0..number).map(|_| map.insert(())).collect()
+}
+
+pub struct MockOutboundMessageHandler(pub RefCell<Vec<(ConnectionKey, EntityKey, String, Encodable)>>);
+
+impl MockOutboundMessageHandler {
+    pub fn new() -> Self {
+        Self(RefCell::new(Vec::new()))
+    }
+}
+
+impl OutboundMessageHandler for MockOutboundMessageHandler {
+    fn property_update(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>> {
+        self.0
+            .borrow_mut()
+            .push((connection, entity, property.to_owned(), value.clone()));
+        Ok(())
+    }
 }
 
 #[cfg(test)]
