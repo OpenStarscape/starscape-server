@@ -67,7 +67,7 @@ impl Debug for TcpListener {
     }
 }
 
-impl Listener for TcpListener {}
+impl ServerComponent for TcpListener {}
 
 #[cfg(test)]
 mod tests {

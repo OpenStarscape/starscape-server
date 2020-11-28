@@ -76,7 +76,6 @@ impl SubscriptionTracker {
 #[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use crate::server::ConnectionKey;
     use std::{cell::RefCell, error::Error};
 
     struct MockPropertyUpdateSink;

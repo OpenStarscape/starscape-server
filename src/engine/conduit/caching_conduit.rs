@@ -70,7 +70,6 @@ impl Conduit for Arc<CachingConduit> {
 #[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use crate::server::ConnectionKey;
     use std::{cell::RefCell, rc::Rc};
 
     struct MockSubscriber(RefCell<u32>);

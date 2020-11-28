@@ -1,3 +1,5 @@
+//! All things relating to encoding (serializing) data that is to be sent to the client
+
 use super::*;
 
 /// A value that can be encoded (aka serialized) and sent to a client. Note that it requires an
@@ -137,6 +139,18 @@ impl<'a> Serialize for ContextualizedEncodable<'a> {
             Encodable::Null => serializer.serialize_none(),
         }
     }
+}
+
+/// Encodes a specific data format (ex JSON)
+/// Any encoder should be compatible with any session (JSON should work with TCP, websockets, etc)
+pub trait Encoder {
+    fn encode_property_update(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+    ) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
 #[cfg(test)]

@@ -1,24 +1,22 @@
 use super::*;
 
-mod connection_impl;
-mod connection_trait;
-mod decodable;
-mod encodable;
-mod format;
-mod object_map_impl;
-mod object_map_trait;
+#[allow(clippy::module_inception)]
+mod connection;
+mod json;
+mod encode;
+mod decode;
+mod object_map;
 mod request;
 
-pub use connection_impl::ConnectionImpl;
-pub use connection_trait::Connection;
-pub use decodable::{Decodable, DecodableAs};
-pub use encodable::Encodable;
-pub use object_map_trait::{ObjectId, ObjectMap};
+pub use connection::{Connection, ConnectionImpl, ConnectionKey};
+pub use decode::{Decodable, DecodableAs};
+pub use encode::Encodable;
+pub use object_map::{ObjectId, ObjectMap};
 pub use request::{ConnectionRequest, ObjectProperty, PropertyRequest, ServerRequest};
 
-use decodable::DecodeCtx;
-use encodable::EncodeCtx;
-use format::*;
-use object_map_impl::ObjectMapImpl;
+use decode::{DecodeCtx, Decoder};
+use encode::{EncodeCtx, Encoder};
+use object_map::ObjectMapImpl;
+use json::json_protocol_impls;
 
 use serde::ser::{Serialize, Serializer};

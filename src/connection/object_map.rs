@@ -1,11 +1,48 @@
 use super::*;
 use bimap::BiHashMap;
 
+/// The ID a client uses to identify an object. Maps to an EntityKey.
+pub type ObjectId = u64;
+
+/// A two-directional mapping of entity keys to object IDs. There is an object map for each client.
+/// The implementation hides any mutex locking, exposing an interface that does not require mutable
+/// access.
+pub trait ObjectMap: Send + Sync {
+    /// Returns the corresponding object ID if the entity is known
+    fn get_object(&self, entity: EntityKey) -> Option<ObjectId>;
+    /// Returns the corrosponding object ID, or creates a new object ID associated with entity
+    fn get_or_create_object(&self, entity: EntityKey) -> ObjectId;
+    /// Returns the corresponding entity if the object ID is known
+    fn get_entity(&self, object: ObjectId) -> Option<EntityKey>;
+    /// Removes an entity/object ID pair from the map. Future calls to get_object() with entity
+    /// returns None, and future calls to get_or_create_object() creates a new ID. IDs are not
+    /// recycled.
+    fn remove_entity(&self, entity: EntityKey) -> Option<ObjectId>;
+    /// Just needs to return self, only required because Rust is stupid
+    fn as_encode_ctx(&self) -> &dyn EncodeCtx;
+    /// Just needs to return self, only required because Rust is stupid
+    fn as_decode_ctx(&self) -> &dyn DecodeCtx;
+}
+
+impl<T: ObjectMap> EncodeCtx for T {
+    fn object_for(&self, entity: EntityKey) -> ObjectId {
+        self.get_or_create_object(entity)
+    }
+}
+
+impl<T: ObjectMap> DecodeCtx for T {
+    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
+        self.get_entity(object)
+            .ok_or_else(|| format!("invalid object {}", object).into())
+    }
+}
+
 pub struct ObjectMapImpl {
     map: BiHashMap<EntityKey, ObjectId>,
     next_id: ObjectId,
 }
 
+/// A RwLock of this type is the normal ObjectMap implementation
 impl ObjectMapImpl {
     pub fn new() -> RwLock<Self> {
         RwLock::new(ObjectMapImpl {
@@ -82,7 +119,7 @@ mod objects_tests {
 
     #[test]
     fn objects_can_be_created_and_looked_up() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
@@ -96,7 +133,7 @@ mod objects_tests {
 
     #[test]
     fn object_ids_count_up_from_1() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
@@ -112,7 +149,7 @@ mod objects_tests {
 
     #[test]
     fn nonexistant_entities_return_null() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(2);
         assert_eq!(map.get_object(e[0]), None);
         map.get_or_create_object(e[0]);
@@ -121,7 +158,7 @@ mod objects_tests {
 
     #[test]
     fn nonexistant_objects_return_null() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(1);
         let o = 47;
         assert_eq!(map.get_entity(o), None);
@@ -131,7 +168,7 @@ mod objects_tests {
 
     #[test]
     fn entity_can_be_removed() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(3);
         map.get_or_create_object(e[0]);
         let o = map.get_or_create_object(e[1]);
@@ -142,7 +179,7 @@ mod objects_tests {
 
     #[test]
     fn object_and_entity_null_after_removal() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
@@ -155,7 +192,7 @@ mod objects_tests {
 
     #[test]
     fn get_or_create_object_is_idempotent() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(1);
         let o = map.get_or_create_object(e[0]);
         assert_eq!(map.get_or_create_object(e[0]), o);
@@ -165,83 +202,10 @@ mod objects_tests {
 
     #[test]
     fn same_entity_given_new_id_after_being_removed() {
-        let mut map = ObjectMapImpl::new();
+        let map = ObjectMapImpl::new();
         let e = mock_keys(1);
         let o = map.get_or_create_object(e[0]);
         assert_eq!(map.remove_entity(e[0]), Some(o));
         assert_ne!(map.get_or_create_object(e[0]), o);
     }
 }
-
-/*
-#[cfg(test)]
-mod resolve_tests {
-    use super::Encodable::*;
-    use super::*;
-
-    fn map_entities_objects() -> (ObjectMap, Vec<EntityKey>, Vec<ObjectId>) {
-        let mut map = ObjectMap::new();
-        let e = mock_keys(3);
-        let o = e
-            .iter()
-            .map(|entity| map.register_entity(*entity))
-            .collect();
-        (map, e, o)
-    }
-
-    #[test]
-    fn resolves_scaler_without_changing() {
-        let (mut map, _, _) = map_entities_objects();
-        assert_eq!(map.resolve(&Scaler(12.5)), None);
-    }
-
-    #[test]
-    fn resolves_list_without_changing() {
-        let (mut map, _, _) = map_entities_objects();
-        assert_eq!(map.resolve(&List(vec![Integer(7), Integer(12)])), None);
-    }
-
-    #[test]
-    fn resolves_entity_to_object_id() {
-        let (mut map, e, o) = map_entities_objects();
-        assert_eq!(map.resolve(&Entity(e[0])), Some(Integer(o[0] as i64)));
-        assert_eq!(map.resolve(&Entity(e[1])), Some(Integer(o[1] as i64)));
-    }
-
-    #[test]
-    fn resolves_list_of_entities_to_object_ids() {
-        let (mut map, e, o) = map_entities_objects();
-        let original = List(e.iter().map(|e| Entity(*e)).collect());
-        let resolved = List(o.iter().map(|o| Integer(*o as i64)).collect());
-        assert_eq!(map.resolve(&original), Some(resolved));
-    }
-
-    #[test]
-    fn resolves_list_with_entity_and_other_stuff() {
-        let (mut map, e, o) = map_entities_objects();
-        let original = List(vec![Integer(42), Entity(e[0]), Null]);
-        let resolved = List(vec![Integer(42), Integer(o[0] as i64), Null]);
-        assert_eq!(map.resolve(&original), Some(resolved));
-    }
-
-    #[test]
-    fn resolves_nested_lists_with_entities() {
-        let (mut map, e, o) = map_entities_objects();
-        let original = List(vec![
-            List(vec![List(vec![Entity(e[1]), Entity(e[2]), Null])]),
-            Integer(42),
-            Entity(e[0]),
-        ]);
-        let resolved = List(vec![
-            List(vec![List(vec![
-                Integer(o[1] as i64),
-                Integer(o[2] as i64),
-                Null,
-            ])]),
-            Integer(42),
-            Integer(o[0] as i64),
-        ]);
-        assert_eq!(map.resolve(&original), Some(resolved));
-    }
-}
-*/

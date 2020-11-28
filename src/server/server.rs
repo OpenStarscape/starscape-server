@@ -1,12 +1,27 @@
 use super::*;
 
-new_key_type! {
-    pub struct ConnectionKey;
+pub trait Server {
+    fn process_requests(&mut self, handler: &mut dyn RequestHandler);
+    fn number_of_connections(&self) -> usize;
+    fn property_update_sink(&self) -> &dyn PropertyUpdateSink;
 }
+
+pub trait PropertyUpdateSink {
+    fn property_changed(
+        &self,
+        connection_key: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>>;
+}
+
+/// Represents an object that lives for the lifetime of the server
+pub trait ServerComponent: Debug {}
 
 pub struct ServerImpl {
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
-    _listeners: Vec<Box<dyn Listener>>,
+    _listeners: Vec<Box<dyn ServerComponent>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<ServerRequest>,
     request_rx: Receiver<ServerRequest>,
@@ -16,7 +31,7 @@ impl ServerImpl {
     pub fn new(enable_tcp: bool, enable_webrtc: bool) -> Result<Self, Box<dyn Error>> {
         let (new_session_tx, new_session_rx) = channel();
         let (request_tx, request_rx) = channel();
-        let mut listeners: Vec<Box<dyn Listener>> = Vec::new();
+        let mut listeners: Vec<Box<dyn ServerComponent>> = Vec::new();
 
         // Is there a simpler way to make an empty warp filter?
         let mut warp_filter = warp::any()
@@ -123,23 +138,6 @@ impl ServerImpl {
     }
 }
 
-impl PropertyUpdateSink for ServerImpl {
-    fn property_changed(
-        &self,
-        connection_key: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>> {
-        if let Some(connection) = self.connections.get(connection_key) {
-            connection.property_changed(entity, property, &value)?;
-            Ok(())
-        } else {
-            Err(format!("connection {:?} has died", connection_key).into())
-        }
-    }
-}
-
 impl Server for ServerImpl {
     fn process_requests(&mut self, handler: &mut dyn RequestHandler) {
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
@@ -158,6 +156,24 @@ impl Server for ServerImpl {
         self
     }
 }
+
+impl PropertyUpdateSink for ServerImpl {
+    fn property_changed(
+        &self,
+        connection_key: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>> {
+        if let Some(connection) = self.connections.get(connection_key) {
+            connection.property_changed(entity, property, &value)?;
+            Ok(())
+        } else {
+            Err(format!("connection {:?} has died", connection_key).into())
+        }
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
