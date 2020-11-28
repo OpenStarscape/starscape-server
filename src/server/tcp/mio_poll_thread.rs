@@ -1,3 +1,5 @@
+//! This should probably be replaced by some async tokio bullshit now that we're using that anyway
+
 use super::*;
 use ::mio::{event::Evented, Events, Poll, PollOpt, Ready, Registration, SetReadiness, Token};
 use std::{
@@ -90,7 +92,6 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::util::run_with_timeout;
     use std::sync::Mutex;
     use std::{thread, time::Duration};
 

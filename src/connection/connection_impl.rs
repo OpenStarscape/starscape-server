@@ -37,10 +37,10 @@ pub struct ConnectionImpl {
 impl ConnectionImpl {
     pub fn new(
         self_key: ConnectionKey,
-        encoder: Box<dyn Encoder>,
-        decoder: Box<dyn Decoder>,
         session_builder: Box<dyn SessionBuilder>,
         request_tx: Sender<ServerRequest>,
+        encoder: Box<dyn Encoder>,
+        decoder: Box<dyn Decoder>,
     ) -> Result<Self, Box<dyn Error>> {
         let mut handler = IncomingDataHandler {
             connection_key: self_key,
@@ -54,6 +54,15 @@ impl ConnectionImpl {
             obj_map: Box::new(ObjectMapImpl::new()),
             session: Mutex::new(session),
         })
+    }
+
+    pub fn new_with_json(
+        self_key: ConnectionKey,
+        session_builder: Box<dyn SessionBuilder>,
+        request_tx: Sender<ServerRequest>,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (encoder, decoder) = json_protocol_impls();
+        Self::new(self_key, session_builder, request_tx, encoder, decoder)
     }
 
     fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
@@ -101,8 +110,7 @@ impl Connection for ConnectionImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use slotmap::Key;
-    use std::{cell::RefCell, rc::Rc, sync::mpsc::channel};
+    use std::{cell::RefCell, rc::Rc};
     use Encodable::*;
 
     struct MockEncoder {

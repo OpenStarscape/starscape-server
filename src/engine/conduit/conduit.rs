@@ -1,5 +1,4 @@
 use super::*;
-use crate::server::{Decodable, Encodable};
 
 /// The interface between a property and the state
 pub trait Conduit: CloneConduit {
