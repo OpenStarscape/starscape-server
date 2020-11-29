@@ -37,12 +37,12 @@ impl<T: ObjectMap> DecodeCtx for T {
     }
 }
 
+/// A RwLock of this type is the normal ObjectMap implementation
 pub struct ObjectMapImpl {
     map: BiHashMap<EntityKey, ObjectId>,
     next_id: ObjectId,
 }
 
-/// A RwLock of this type is the normal ObjectMap implementation
 impl ObjectMapImpl {
     pub fn new() -> RwLock<Self> {
         RwLock::new(ObjectMapImpl {
