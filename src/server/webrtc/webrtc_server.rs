@@ -4,30 +4,35 @@ use super::*;
 /// this needs to be aborted externally.
 async fn run_server(
     dispatcher: WebrtcDispatcher,
-    bundle_rx: Receiver<(SocketAddr, Vec<u8>)>,
+    outbound_bundle_rx: Receiver<(SocketAddr, Vec<u8>)>,
     mut webrtc_server: webrtc_unreliable::Server,
 ) {
     let mut message_buf = Vec::new();
     loop {
-        let received = match webrtc_server.recv().await {
+        // TODO: abort the server's recv() when an outbound message is ready, or otherwise send it
+        match webrtc_server.recv().await {
             Ok(received) => {
                 message_buf.clear();
                 message_buf.extend(received.message.as_ref());
                 dispatcher.dispatch_inbound(received.remote_addr, &message_buf);
-                Some((received.message_type, received.remote_addr))
             }
             Err(err) => {
                 error!("could not receive RTC message: {}", err);
-                None
             }
-        };
+        }
 
-        if let Some((message_type, remote_addr)) = received {
-            if let Err(err) = webrtc_server
-                .send(&message_buf, message_type, &remote_addr)
-                .await
-            {
-                error!("could not send message to {}: {}", remote_addr, err);
+        // doing this loop the obvious `while let Ok((...)) = ...` way leads to some crazy error
+        loop {
+            let outbound = outbound_bundle_rx.try_recv();
+            if let Ok((addr, bundle)) = outbound {
+                if let Err(err) = webrtc_server
+                    .send(&bundle, webrtc_unreliable::MessageType::Text, &addr)
+                    .await
+                {
+                    warn!("could not send message to {}: {}", addr, err);
+                }
+            } else {
+                break;
             }
         }
     }
@@ -47,13 +52,13 @@ impl WebrtcServer {
         let listen_addr = "192.168.42.232:42424".parse()?;
         let webrtc_server = block_on(webrtc_unreliable::Server::new(listen_addr, listen_addr))?;
         let endpoint = webrtc_server.session_endpoint();
-        let (bundle_tx, bundle_rx) = channel();
-        let dispatcher = WebrtcDispatcher::new(new_session_tx, bundle_tx);
+        let (outbound_bundle_tx, outbound_bundle_rx) = channel();
+        let dispatcher = WebrtcDispatcher::new(new_session_tx, outbound_bundle_tx);
 
         // Use futures::future::Abortable to kill the server on command
         let (abort_handle, abort_registration) = future::AbortHandle::new_pair();
         let abortable_server = future::Abortable::new(
-            run_server(dispatcher, bundle_rx, webrtc_server),
+            run_server(dispatcher, outbound_bundle_rx, webrtc_server),
             abort_registration,
         );
         let join_handle = tokio::spawn(abortable_server);

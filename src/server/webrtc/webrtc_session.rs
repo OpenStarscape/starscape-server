@@ -4,19 +4,19 @@ use super::*;
 pub struct WebrtcSession {
     dispatcher: WebrtcDispatcher,
     addr: SocketAddr,
-    bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+    outbound_bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
 }
 
 impl WebrtcSession {
     pub fn new(
         dispatcher: WebrtcDispatcher,
         addr: SocketAddr,
-        bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+        outbound_bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
     ) -> Self {
         Self {
             dispatcher,
             addr,
-            bundle_tx,
+            outbound_bundle_tx,
         }
     }
 }
@@ -24,16 +24,16 @@ impl WebrtcSession {
 impl SessionBuilder for WebrtcSession {
     fn build(
         self: Box<Self>,
-        mut handler: InboundBundleHandler,
+        handler: InboundBundleHandler,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
-        self.dispatcher.set_inbound_handler(self.addr, handler)?;
+        self.dispatcher.set_inbound_handler(&self.addr, handler)?;
         Ok(self)
     }
 }
 
 impl Session for WebrtcSession {
     fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
-        self.bundle_tx.send((self.addr, data.to_vec()))?;
+        self.outbound_bundle_tx.send((self.addr, data.to_vec()))?;
         Ok(())
     }
 
@@ -42,6 +42,7 @@ impl Session for WebrtcSession {
             "returning max WebRTC message length as {}, but in practice it's likely lower",
             webrtc_unreliable::MAX_MESSAGE_LEN
         );
+        // TODO: implement this smarter based on what actually works in browsers
         webrtc_unreliable::MAX_MESSAGE_LEN
     }
 }
