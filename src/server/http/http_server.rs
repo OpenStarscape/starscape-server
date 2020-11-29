@@ -16,7 +16,7 @@ impl HttpServer {
         port: Option<u16>,
     ) -> Result<Self, Box<dyn Error>> {
         let address = address.unwrap_or_else(|| Ipv4Addr::LOCALHOST.into());
-        let port = port.unwrap_or(80);
+        let port = port.unwrap_or(56_000);
         let socket_addr = SocketAddr::new(address, port);
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
         trace!("starting HTTP server on {:?}", socket_addr);
