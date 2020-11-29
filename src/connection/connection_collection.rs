@@ -34,6 +34,7 @@ pub trait InboundMessageHandler {
 /// Holds all the active connections for a game. process_requests() should be called by the game
 /// once per network tick.
 pub struct ConnectionCollection {
+    root_entity: EntityKey,
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
     new_session_tx: Sender<Box<dyn SessionBuilder>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
@@ -42,11 +43,12 @@ pub struct ConnectionCollection {
 }
 
 impl ConnectionCollection {
-    pub fn new() -> Self {
+    pub fn new(root_entity: EntityKey) -> Self {
         let connections = DenseSlotMap::with_key();
         let (new_session_tx, new_session_rx) = channel();
         let (request_tx, request_rx) = channel();
         Self {
+            root_entity,
             connections,
             new_session_tx,
             new_session_rx,
@@ -98,8 +100,9 @@ impl ConnectionCollection {
 
         let mut failed_to_build = false;
         let request_tx = self.request_tx.clone();
+        let root_entity = self.root_entity;
         let key = self.connections.insert_with_key(|key| {
-            match ConnectionImpl::new_with_json(key, builder, request_tx) {
+            match ConnectionImpl::new_with_json(key, root_entity, builder, request_tx) {
                 Ok(conn) => Box::new(conn),
                 Err(e) => {
                     failed_to_build = true;
@@ -279,7 +282,8 @@ mod tests {
 
     #[test]
     fn can_create_connection_from_session_builder() {
-        let mut cc = ConnectionCollection::new();
+        let e = mock_keys(1);
+        let mut cc = ConnectionCollection::new(e[0]);
         let builder = Box::new(MockSessionBuilder(true));
         cc.new_session_sender()
             .send(builder)
@@ -292,7 +296,8 @@ mod tests {
 
     #[test]
     fn does_not_create_connection_when_building_session_fails() {
-        let mut cc = ConnectionCollection::new();
+        let e = mock_keys(1);
+        let mut cc = ConnectionCollection::new(e[0]);
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
         cc.new_session_sender()
@@ -305,7 +310,8 @@ mod tests {
 
     #[test]
     fn sends_requests_to_handler() {
-        let mut cc = ConnectionCollection::new();
+        let e = mock_keys(1);
+        let mut cc = ConnectionCollection::new(e[0]);
         let entities = mock_keys(2);
         let connections = mock_keys(1); // cc.connections.insert(Box::new(MockConnection(entities[0])));
         for request in vec![

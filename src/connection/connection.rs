@@ -64,12 +64,21 @@ pub struct ConnectionImpl {
 impl ConnectionImpl {
     pub fn new(
         self_key: ConnectionKey,
+        root_entity: EntityKey,
         session_builder: Box<dyn SessionBuilder>,
         request_tx: Sender<Request>,
         encoder: Box<dyn Encoder>,
         decoder: Box<dyn Decoder>,
     ) -> Result<Self, Box<dyn Error>> {
         let obj_map = Arc::new(ObjectMapImpl::new());
+        let root_obj_id = obj_map.get_or_create_object(root_entity);
+        if root_obj_id != 1 {
+            // should never happen
+            error!(
+                "root ObjectID for {:?} is {} instead of 1",
+                self_key, root_obj_id
+            );
+        }
         let mut handler = InboundDataHandler {
             connection_key: self_key,
             decoder,
@@ -86,11 +95,19 @@ impl ConnectionImpl {
 
     pub fn new_with_json(
         self_key: ConnectionKey,
+        root_entity: EntityKey,
         session_builder: Box<dyn SessionBuilder>,
         request_tx: Sender<Request>,
     ) -> Result<Self, Box<dyn Error>> {
         let (encoder, decoder) = json_protocol_impls();
-        Self::new(self_key, session_builder, request_tx, encoder, decoder)
+        Self::new(
+            self_key,
+            root_entity,
+            session_builder,
+            request_tx,
+            encoder,
+            decoder,
+        )
     }
 
     fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
