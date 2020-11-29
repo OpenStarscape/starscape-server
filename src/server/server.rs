@@ -29,11 +29,8 @@ impl Server {
         }
 
         if enable_webrtc {
-            let (rtc_warp_filter, webrtc): (
-                warp::filters::BoxedFilter<(Box<dyn warp::Reply>,)>,
-                WebrtcListener,
-            ) = WebrtcListener::new(new_session_tx)
-                .map_err(|e| format!("failed to create WebrtcListener: {}", e))?;
+            let (rtc_warp_filter, webrtc) = WebrtcServer::new(new_session_tx)
+                .map_err(|e| format!("failed to create WebrtcServer: {}", e))?;
             components.push(Box::new(webrtc));
             warp_filter = warp_filter.or(rtc_warp_filter).unify().boxed();
         }

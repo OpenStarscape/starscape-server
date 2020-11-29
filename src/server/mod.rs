@@ -10,7 +10,7 @@ mod tcp;
 mod webrtc;
 
 pub use server::Server;
-pub use session::{Session, SessionBuilder, InboundBundleHandler};
+pub use session::{InboundBundleHandler, Session, SessionBuilder};
 
 use http::*;
 use server::ServerComponent;

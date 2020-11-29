@@ -69,6 +69,7 @@ impl ConnectionCollection {
         }
         // Then process pending requests
         while let Ok(request) = self.request_rx.try_recv() {
+            info!("got request: {:?}", request);
             self.request(handler, request);
         }
     }
@@ -158,7 +159,7 @@ impl ConnectionCollection {
                 if let Err(e) =
                     self.property_request(handler, request.connection, obj, &prop, action)
                 {
-                    error!("error processing request: {:?}", e);
+                    warn!("error processing request: {:?}", e);
                 }
             }
             RequestType::Close => {

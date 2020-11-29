@@ -1,34 +1,40 @@
 use super::*;
 
-#[derive(Debug)]
-pub struct WebrtcSessionBuilder {}
+/// Implements both the session and session builder (session builder turns into session when built)
+pub struct WebrtcSession {
+    dispatcher: WebrtcDispatcher,
+    addr: SocketAddr,
+    bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+}
 
-impl WebrtcSessionBuilder {
-    pub fn new() -> Self {
-        Self {}
+impl WebrtcSession {
+    pub fn new(
+        dispatcher: WebrtcDispatcher,
+        addr: SocketAddr,
+        bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+    ) -> Self {
+        Self {
+            dispatcher,
+            addr,
+            bundle_tx,
+        }
     }
 }
 
-impl SessionBuilder for WebrtcSessionBuilder {
+impl SessionBuilder for WebrtcSession {
     fn build(
         self: Box<Self>,
-        mut handle_incoming_data: Box<dyn FnMut(&[u8]) + Send>,
+        mut handler: InboundBundleHandler,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
-        Err("WebrtcSessionBuilder::build() not implemented".into())
-    }
-}
-
-struct WebrtcSession {}
-
-impl Debug for WebrtcSession {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WebrtcSession") // Not fully implemented
+        self.dispatcher.set_inbound_handler(self.addr, handler)?;
+        Ok(self)
     }
 }
 
 impl Session for WebrtcSession {
     fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
-        Err("WebrtcSession::send() not implemented".into())
+        self.bundle_tx.send((self.addr, data.to_vec()))?;
+        Ok(())
     }
 
     fn max_packet_len(&self) -> usize {
@@ -37,5 +43,11 @@ impl Session for WebrtcSession {
             webrtc_unreliable::MAX_MESSAGE_LEN
         );
         webrtc_unreliable::MAX_MESSAGE_LEN
+    }
+}
+
+impl Debug for WebrtcSession {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "WebrtcSession for {}", self.addr)
     }
 }
