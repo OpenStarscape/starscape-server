@@ -1,6 +1,6 @@
 use super::*;
 
-pub type ObjectProperty = (ObjectId, String);
+pub type EntityProperty = (EntityKey, String);
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum PropertyRequest {
@@ -12,7 +12,7 @@ pub enum PropertyRequest {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum RequestType {
-    Property(ObjectProperty, PropertyRequest),
+    Property(EntityProperty, PropertyRequest),
     Close,
 }
 

@@ -82,7 +82,7 @@ impl ConnectionCollection {
         // stub connection in that case (and then immediately remove it). A mess, I know.
         struct StubConnection;
         impl Connection for StubConnection {
-            fn property_changed(
+            fn property_update(
                 &self,
                 _: EntityKey,
                 _: &str,
@@ -93,10 +93,6 @@ impl ConnectionCollection {
             }
             fn entity_destroyed(&self, _: &State, _: EntityKey) {
                 error!("entity_destroyed() called on StubConnection");
-            }
-            fn object_to_entity(&self, _: ObjectId) -> Option<EntityKey> {
-                error!("object_to_entity() called on StubConnection");
-                None
             }
         }
 
@@ -121,17 +117,10 @@ impl ConnectionCollection {
         &self,
         handler: &mut dyn InboundMessageHandler,
         connection_key: ConnectionKey,
-        object_id: ObjectId,
+        entity: EntityKey,
         property: &str,
         action: PropertyRequest,
     ) -> Result<(), String> {
-        let connection = self
-            .connections
-            .get(connection_key)
-            .ok_or("request on invalid connection")?;
-        let entity = connection
-            .object_to_entity(object_id)
-            .ok_or("object not known to connection")?;
         match action {
             PropertyRequest::Set(value) => {
                 handler.set(entity, property, &value)?;
@@ -139,8 +128,8 @@ impl ConnectionCollection {
             PropertyRequest::Get => {
                 let value = handler.get(entity, property)?;
                 error!(
-                    "get {}.{} returned {:?} (reply not implemented)",
-                    object_id, property, value
+                    "get {:?}.{} returned {:?} (reply not implemented)",
+                    entity, property, value
                 );
             }
             PropertyRequest::Subscribe => {
@@ -155,9 +144,9 @@ impl ConnectionCollection {
 
     fn request(&mut self, handler: &mut dyn InboundMessageHandler, request: Request) {
         match request.request {
-            RequestType::Property((obj, prop), action) => {
+            RequestType::Property((entity, prop), action) => {
                 if let Err(e) =
-                    self.property_request(handler, request.connection, obj, &prop, action)
+                    self.property_request(handler, request.connection, entity, &prop, action)
                 {
                     warn!("error processing request: {:?}", e);
                 }
@@ -181,7 +170,7 @@ impl OutboundMessageHandler for ConnectionCollection {
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(connection) = self.connections.get(connection) {
-            connection.property_changed(entity, property, &value)?;
+            connection.property_update(entity, property, &value)?;
             Ok(())
         } else {
             Err(format!("connection {:?} has died", connection).into())
@@ -226,7 +215,7 @@ mod tests {
     struct MockConnection(EntityKey);
 
     impl Connection for MockConnection {
-        fn property_changed(
+        fn property_update(
             &self,
             _entity: EntityKey,
             _property: &str,
@@ -236,10 +225,6 @@ mod tests {
         }
 
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
-
-        fn object_to_entity(&self, _object: ObjectId) -> Option<EntityKey> {
-            Some(self.0)
-        }
     }
 
     struct MockInboundHandler(RefCell<Vec<(String, EntityKey, String)>>);
@@ -321,16 +306,16 @@ mod tests {
     #[test]
     fn sends_requests_to_handler() {
         let mut cc = ConnectionCollection::new();
-        let entities = mock_keys(1);
-        let conn_key = cc.connections.insert(Box::new(MockConnection(entities[0])));
+        let entities = mock_keys(2);
+        let connections = mock_keys(1); // cc.connections.insert(Box::new(MockConnection(entities[0])));
         for request in vec![
             Request::new(
-                conn_key,
-                RequestType::Property((1, "foo".into()), PropertyRequest::Subscribe),
+                connections[0],
+                RequestType::Property((entities[0], "foo".into()), PropertyRequest::Subscribe),
             ),
             Request::new(
-                conn_key,
-                RequestType::Property((1, "bar".into()), PropertyRequest::Get),
+                connections[0],
+                RequestType::Property((entities[1], "bar".into()), PropertyRequest::Get),
             ),
         ] {
             cc.request_tx.send(request).unwrap();
@@ -341,7 +326,7 @@ mod tests {
             *handler.0.borrow(),
             vec![
                 ("subscribe".into(), entities[0], "foo".into()),
-                ("get".into(), entities[0], "bar".into()),
+                ("get".into(), entities[1], "bar".into()),
             ]
         );
     }

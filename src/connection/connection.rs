@@ -8,14 +8,13 @@ new_key_type! {
 /// Manages a single client connection. Both the session type (TCP, WebRTC, etc) and the format
 /// (JSON, etc) are abstracted.
 pub trait Connection {
-    fn property_changed(
+    fn property_update(
         &self,
         entity: EntityKey,
         property: &str,
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>>;
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
-    fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey>;
 }
 
 /// Receives data from the session layer (on the session's thread), decodes it into requests and
@@ -23,12 +22,16 @@ pub trait Connection {
 struct InboundDataHandler {
     connection_key: ConnectionKey,
     decoder: Box<dyn Decoder>,
+    decode_ctx: Arc<dyn DecodeCtx>,
     request_tx: Sender<Request>,
 }
 
 impl InboundDataHandler {
     pub fn handle_data(&mut self, data: &[u8]) {
-        match self.decoder.decode(data.to_owned()) {
+        match self
+            .decoder
+            .decode(self.decode_ctx.as_ref(), data.to_owned())
+        {
             Ok(requests) => {
                 requests.into_iter().for_each(|request| {
                     if let Err(e) = self
@@ -54,7 +57,7 @@ impl InboundDataHandler {
 
 pub struct ConnectionImpl {
     encoder: Box<dyn Encoder>,
-    obj_map: Box<dyn ObjectMap>,
+    obj_map: Arc<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
 }
 
@@ -66,15 +69,17 @@ impl ConnectionImpl {
         encoder: Box<dyn Encoder>,
         decoder: Box<dyn Decoder>,
     ) -> Result<Self, Box<dyn Error>> {
+        let obj_map = Arc::new(ObjectMapImpl::new());
         let mut handler = InboundDataHandler {
             connection_key: self_key,
             decoder,
+            decode_ctx: obj_map.clone(),
             request_tx,
         };
         let session = session_builder.build(Box::new(move |data| handler.handle_data(data)))?;
         Ok(Self {
             encoder,
-            obj_map: Box::new(ObjectMapImpl::new()),
+            obj_map,
             session: Mutex::new(session),
         })
     }
@@ -98,7 +103,7 @@ impl ConnectionImpl {
 }
 
 impl Connection for ConnectionImpl {
-    fn property_changed(
+    fn property_update(
         &self,
         entity: EntityKey,
         property: &str,
@@ -123,10 +128,6 @@ impl Connection for ConnectionImpl {
     fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
         self.obj_map.remove_entity(entity);
         // TODO: tell client object was destroyed
-    }
-
-    fn object_to_entity(&self, object: ObjectId) -> Option<EntityKey> {
-        self.obj_map.get_entity(object)
     }
 }
 
@@ -225,7 +226,7 @@ mod tests {
             let obj_id = 1;
             let conn = ConnectionImpl {
                 encoder: Box::new(encoder.clone()),
-                obj_map: Box::new(MockObjectMap(entity, obj_id)),
+                obj_map: Arc::new(MockObjectMap(entity, obj_id)),
                 session: Mutex::new(Box::new(MockSession)),
             };
             Self {
@@ -241,7 +242,7 @@ mod tests {
     fn serializes_normal_property_update() {
         let test = Test::new();
         test.conn
-            .property_changed(test.entity, "foo", &Scaler(12.5))
+            .property_update(test.entity, "foo", &Scaler(12.5))
             .expect("error updating property");
         assert_eq!(
             test.encoder.borrow().log,
