@@ -14,16 +14,17 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Result<Game, Box<dyn Error>> {
-        let connections = ConnectionCollection::new();
+        let mut state = State::new();
+        let god = create_god(&mut state);
+        let connections = ConnectionCollection::new(god);
         let server = Server::new(true, true, connections.new_session_sender())?;
         let mut game = Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
-            state: State::new(),
+            state,
             connections,
             _server: server,
         };
-        let _god = create_god(&mut game.state);
         let _ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
         create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
         let planet = game.state.create_entity();
