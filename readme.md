@@ -1,4 +1,4 @@
-# OSpServerRs
+# OpenStarscape Server
 
 The OpenStarscape game engine and server
 

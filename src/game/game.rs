@@ -17,7 +17,7 @@ impl Game {
         let mut state = State::new();
         let god = create_god(&mut state);
         let connections = ConnectionCollection::new(god);
-        let server = Server::new(true, true, connections.new_session_sender())?;
+        let server = Server::new(true, true, connections.session_sender())?;
         let mut game = Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
@@ -57,6 +57,8 @@ impl Game {
                 }
             }
         }
+
+        self.connections.flush_outbound_messages(&mut self.state);
 
         self.state.time += self.step_dt;
         !self.should_quit

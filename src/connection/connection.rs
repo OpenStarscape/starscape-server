@@ -8,13 +8,19 @@ new_key_type! {
 /// Manages a single client connection. Both the session type (TCP, WebRTC, etc) and the format
 /// (JSON, etc) are abstracted.
 pub trait Connection {
-    fn property_update(
+    /// Send a property's value to a client. If is_update is true this is a response to a change in
+    /// a subscribed property. If false, this is a response to a get request.
+    fn property_value(
         &self,
         entity: EntityKey,
         property: &str,
         value: &Encodable,
+        is_update: bool,
     ) -> Result<(), Box<dyn Error>>;
+    /// Inform a client that an entity no longer exists on the server.
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
+    /// Called at the end of each network tick to send any pending bundles
+    fn flush(&self);
 }
 
 /// Receives data from the session layer (on the session's thread), decodes it into requests and
@@ -110,21 +116,25 @@ impl ConnectionImpl {
         )
     }
 
-    fn write_buffer(&self, buffer: &[u8], operation: &str) -> Result<(), Box<dyn Error>> {
-        let mut session = self.session.lock().expect("failed to lock writer");
-        match session.yeet_bundle(&buffer) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(format!("can not {}; error writing to writer: {}", operation, e).into()),
-        }
+    fn queue_message(&self, data: Vec<u8>) -> Result<(), Box<dyn Error>> {
+        let mut session = self
+            .session
+            .lock()
+            .map_err(|e| format!("failed to lock session: {}", e))?;
+        session
+            .yeet_bundle(&data)
+            .map_err(|e| format!("failed to yeet bundle: {}", e))?;
+        Ok(())
     }
 }
 
 impl Connection for ConnectionImpl {
-    fn property_update(
+    fn property_value(
         &self,
         entity: EntityKey,
         property: &str,
         value: &Encodable,
+        is_update: bool,
     ) -> Result<(), Box<dyn Error>> {
         let object = self.obj_map.get_object(entity).ok_or_else(|| {
             format!(
@@ -132,13 +142,22 @@ impl Connection for ConnectionImpl {
                 entity
             )
         })?;
-        let buffer = self.encoder.encode_property_update(
-            object,
-            property,
-            self.obj_map.as_encode_ctx(),
-            value,
-        )?;
-        self.write_buffer(&buffer, "update")?;
+        let buffer = if is_update {
+            self.encoder.encode_property_update(
+                object,
+                property,
+                self.obj_map.as_encode_ctx(),
+                value,
+            )?
+        } else {
+            self.encoder.encode_get_response(
+                object,
+                property,
+                self.obj_map.as_encode_ctx(),
+                value,
+            )?
+        };
+        self.queue_message(buffer)?;
         Ok(())
     }
 
@@ -146,6 +165,8 @@ impl Connection for ConnectionImpl {
         self.obj_map.remove_entity(entity);
         // TODO: tell client object was destroyed
     }
+
+    fn flush(&self) {}
 }
 
 #[cfg(test)]
@@ -166,6 +187,18 @@ mod tests {
 
     impl Encoder for Rc<RefCell<MockEncoder>> {
         fn encode_property_update(
+            &self,
+            object: ObjectId,
+            property: &str,
+            _ctx: &dyn EncodeCtx,
+            value: &Encodable,
+        ) -> Result<Vec<u8>, Box<dyn Error>> {
+            self.borrow_mut()
+                .log
+                .push((object, property.to_owned(), (*value).clone()));
+            Ok(vec![])
+        }
+        fn encode_get_response(
             &self,
             object: ObjectId,
             property: &str,
@@ -259,7 +292,7 @@ mod tests {
     fn serializes_normal_property_update() {
         let test = Test::new();
         test.conn
-            .property_update(test.entity, "foo", &Scaler(12.5))
+            .property_value(test.entity, "foo", &Scaler(12.5), true)
             .expect("error updating property");
         assert_eq!(
             test.encoder.borrow().log,

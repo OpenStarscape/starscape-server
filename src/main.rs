@@ -28,7 +28,7 @@ use slotmap::DenseSlotMap;
 use std::error::Error;
 use std::{
     any::type_name,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::{Debug, Formatter},
     marker::PhantomData,
     ops::Deref,

@@ -27,6 +27,23 @@ impl Encoder for JsonEncoder {
         message.end()?;
         Ok(serializer.into_inner())
     }
+    fn encode_get_response(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
+        let buffer = Vec::with_capacity(128);
+        let mut serializer = serde_json::Serializer::new(buffer);
+        let mut message = serializer.serialize_struct("Message", 4)?;
+        message.serialize_field("mtype", "value")?;
+        message.serialize_field("object", &object)?;
+        message.serialize_field("property", property)?;
+        message.serialize_field("value", &value.bind(ctx))?;
+        message.end()?;
+        Ok(serializer.into_inner())
+    }
 }
 
 #[cfg(test)]
@@ -63,6 +80,24 @@ mod tests {
 				\"object\": 42,
 				\"property\": \"foobar\",
 				\"value\": 12.5
+			}",
+        )
+    }
+
+    #[test]
+    fn basic_property_value() {
+        let p = JsonEncoder::new();
+        let obj = 8;
+        let prop = "abc";
+        let value = Encodable::Integer(19);
+        assert_json_eq(
+            &p.encode_get_response(obj, prop, &MockEncoderCtx, &value)
+                .expect("failed to serialize property update"),
+            "{
+				\"mtype\": \"value\",
+				\"object\": 8,
+				\"property\": \"abc\",
+				\"value\": 19
 			}",
         )
     }

@@ -36,6 +36,7 @@ pub trait InboundMessageHandler {
 pub struct ConnectionCollection {
     root_entity: EntityKey,
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
+    pending_get_requests: HashSet<(ConnectionKey, EntityKey, String)>,
     new_session_tx: Sender<Box<dyn SessionBuilder>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<Request>,
@@ -44,12 +45,12 @@ pub struct ConnectionCollection {
 
 impl ConnectionCollection {
     pub fn new(root_entity: EntityKey) -> Self {
-        let connections = DenseSlotMap::with_key();
         let (new_session_tx, new_session_rx) = channel();
         let (request_tx, request_rx) = channel();
         Self {
             root_entity,
-            connections,
+            connections: DenseSlotMap::with_key(),
+            pending_get_requests: HashSet::new(),
             new_session_tx,
             new_session_rx,
             request_tx,
@@ -58,7 +59,7 @@ impl ConnectionCollection {
     }
 
     /// When a SessionBuilder is sent over this channel, it will be used to create a new connection
-    pub fn new_session_sender(&self) -> Sender<Box<dyn SessionBuilder>> {
+    pub fn session_sender(&self) -> Sender<Box<dyn SessionBuilder>> {
         self.new_session_tx.clone()
     }
 
@@ -76,6 +77,40 @@ impl ConnectionCollection {
         }
     }
 
+    /// Called after game state has been fully updated before waiting for the next tick
+    pub fn flush_outbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
+        let get_requests: Vec<(ConnectionKey, EntityKey, String)> =
+            self.pending_get_requests.drain().collect();
+        for (connection, entity, property) in get_requests {
+            if let Err(e) = self.respond_to_get_request(connection, entity, &property, handler) {
+                warn!(
+                    "failed to process {:?}.{} get for {:?}: {}",
+                    entity, property, connection, e
+                );
+                // TODO: implement sending errors to client
+            }
+        }
+        for (_, connection) in self.connections.iter() {
+            connection.flush();
+        }
+    }
+
+    fn respond_to_get_request(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        handler: &dyn InboundMessageHandler,
+    ) -> Result<(), Box<dyn Error>> {
+        let value = handler.get(entity, property)?;
+        let connection = self
+            .connections
+            .get(connection)
+            .ok_or(format!("{:?} does not exist", connection))?;
+        connection.property_value(entity, property, &value, false)?;
+        Ok(())
+    }
+
     fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
         info!("new session: {:?}", builder);
 
@@ -84,17 +119,21 @@ impl ConnectionCollection {
         // stub connection in that case (and then immediately remove it). A mess, I know.
         struct StubConnection;
         impl Connection for StubConnection {
-            fn property_update(
+            fn property_value(
                 &self,
                 _: EntityKey,
                 _: &str,
                 _: &Encodable,
+                _: bool,
             ) -> Result<(), Box<dyn Error>> {
                 error!("property_changed() called on StubConnection");
                 Err("StubConnection".into())
             }
             fn entity_destroyed(&self, _: &State, _: EntityKey) {
                 error!("entity_destroyed() called on StubConnection");
+            }
+            fn flush(&self) {
+                error!("flush() called on StubConnection");
             }
         }
 
@@ -117,9 +156,9 @@ impl ConnectionCollection {
     }
 
     fn property_request(
-        &self,
+        &mut self,
         handler: &mut dyn InboundMessageHandler,
-        connection_key: ConnectionKey,
+        connection: ConnectionKey,
         entity: EntityKey,
         property: &str,
         action: PropertyRequest,
@@ -129,17 +168,16 @@ impl ConnectionCollection {
                 handler.set(entity, property, &value)?;
             }
             PropertyRequest::Get => {
-                let value = handler.get(entity, property)?;
-                error!(
-                    "get {:?}.{} returned {:?} (reply not implemented)",
-                    entity, property, value
-                );
+                // it doesn't matter if it's already there or not, it's not an error to make two
+                // get requests but it will only result in one response.
+                self.pending_get_requests
+                    .insert((connection, entity, property.into()));
             }
             PropertyRequest::Subscribe => {
-                handler.subscribe(entity, property, connection_key)?;
+                handler.subscribe(entity, property, connection)?;
             }
             PropertyRequest::Unsubscribe => {
-                handler.unsubscribe(entity, property, connection_key)?;
+                handler.unsubscribe(entity, property, connection)?;
             }
         };
         Ok(())
@@ -173,7 +211,7 @@ impl OutboundMessageHandler for ConnectionCollection {
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(connection) = self.connections.get(connection) {
-            connection.property_update(entity, property, &value)?;
+            connection.property_value(entity, property, &value, true)?;
             Ok(())
         } else {
             Err(format!("connection {:?} has died", connection).into())
@@ -218,16 +256,17 @@ mod tests {
     struct MockConnection(EntityKey);
 
     impl Connection for MockConnection {
-        fn property_update(
+        fn property_value(
             &self,
             _entity: EntityKey,
             _property: &str,
             _value: &Encodable,
+            _is_update: bool,
         ) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
-
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
+        fn flush(&self) {}
     }
 
     struct MockInboundHandler(RefCell<Vec<(String, EntityKey, String)>>);
@@ -285,7 +324,7 @@ mod tests {
         let e = mock_keys(1);
         let mut cc = ConnectionCollection::new(e[0]);
         let builder = Box::new(MockSessionBuilder(true));
-        cc.new_session_sender()
+        cc.session_sender()
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockInboundHandler::new();
@@ -300,7 +339,7 @@ mod tests {
         let mut cc = ConnectionCollection::new(e[0]);
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
-        cc.new_session_sender()
+        cc.session_sender()
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockInboundHandler::new();
@@ -328,6 +367,7 @@ mod tests {
         }
         let mut handler = MockInboundHandler::new();
         cc.process_inbound_messages(&mut handler);
+        cc.flush_outbound_messages(&mut handler);
         assert_eq!(
             *handler.0.borrow(),
             vec![
