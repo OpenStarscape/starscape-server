@@ -144,7 +144,16 @@ impl<'a> Serialize for ContextualizedEncodable<'a> {
 /// Encodes a specific data format (ex JSON)
 /// Any encoder should be compatible with any session (JSON should work with TCP, websockets, etc)
 pub trait Encoder {
+    /// An update to a subscribed property resulting from a change
     fn encode_property_update(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+    ) -> Result<Vec<u8>, Box<dyn Error>>;
+    /// A response to a clients get requst on a property
+    fn encode_get_response(
         &self,
         object: ObjectId,
         property: &str,
