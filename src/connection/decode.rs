@@ -12,7 +12,7 @@ pub enum Decodable {
     Null,
 }
 
-/// The context required for decoding a Decodable
+/// The context required for decoding a Decodable. The normal implementation is ObjectMapImpl.
 pub trait DecodeCtx: Send + Sync {
     /// Returns the entity for the given object ID, or Err if it does not exist
     fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>>;

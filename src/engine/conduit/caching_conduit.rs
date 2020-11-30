@@ -38,6 +38,7 @@ impl Subscriber for CachingConduit {
 
 impl Conduit for Arc<CachingConduit> {
     fn get_value(&self, _state: &State) -> Result<Encodable, String> {
+        // TODO: don't assume cached_value is up to date
         Ok(self
             .cached_value
             .lock()
@@ -46,24 +47,33 @@ impl Conduit for Arc<CachingConduit> {
     }
 
     fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
+        // TODO: don't set if same as cache
         self.conduit.set_value(state, value)
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
-        if self.subscribers.subscribe(subscriber)? {
-            self.conduit
+        if self.subscribers.subscribe(subscriber)?.was_empty {
+            if let Err(e) = self
+                .conduit
                 .subscribe(state, &(self.clone() as Arc<dyn Subscriber>))
+            {
+                error!("subscribing caching conduit: {}", e);
+            }
+            Ok(())
         } else {
             Ok(())
         }
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
-        if self.subscribers.unsubscribe(subscriber)? {
-            self.conduit.unsubscribe(
+        if self.subscribers.unsubscribe(subscriber)?.is_now_empty {
+            if let Err(e) = self.conduit.unsubscribe(
                 state,
                 &Arc::downgrade(&(self.clone() as Arc<dyn Subscriber>)),
-            )
+            ) {
+                error!("unsubscribing caching conduit: {}", e);
+            }
+            Ok(())
         } else {
             Ok(())
         }
