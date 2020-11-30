@@ -1,5 +1,7 @@
 use super::*;
 
+/// A handle to a component, only used within the engine module. Outside the engine components are
+/// referred to by their type and EntityKey
 #[derive(Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[repr(transparent)]
 pub struct ComponentKey<T> {
@@ -7,7 +9,7 @@ pub struct ComponentKey<T> {
     phantom: PhantomData<*const T>,
 }
 
-// Required because of https://github.com/rust-lang/rust/issues/26925
+/// Required because of https://github.com/rust-lang/rust/issues/26925
 impl<T> Clone for ComponentKey<T> {
     fn clone(&self) -> Self {
         ComponentKey::<T> {
@@ -17,10 +19,10 @@ impl<T> Clone for ComponentKey<T> {
     }
 }
 
-// Required because of https://github.com/rust-lang/rust/issues/26925
+/// Required because of https://github.com/rust-lang/rust/issues/26925
 impl<T> Copy for ComponentKey<T> {}
 
-// Required because of https://github.com/rust-lang/rust/issues/26925
+/// Required because of https://github.com/rust-lang/rust/issues/26925
 impl<T> std::fmt::Debug for ComponentKey<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.data)

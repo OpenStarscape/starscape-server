@@ -1,5 +1,15 @@
 use super::*;
 
+/// Returned by SubscriptionTracker::subscribe(), used instead of a raw bool for code readablity
+pub struct SubscribeReport {
+    pub was_empty: bool,
+}
+
+/// Returned by SubscriptionTracker::unsubscribe(), used instead of a raw bool for code readablity
+pub struct UnsubscribeReport {
+    pub is_now_empty: bool,
+}
+
 /// Object that keeps track of and notifies a set of subscribers
 pub struct SubscriptionTracker {
     subscribers: RwLock<Vec<(*const (), Weak<dyn Subscriber>)>>,
@@ -15,15 +25,23 @@ impl SubscriptionTracker {
     pub fn queue_notifications(&self, pending: &mut NotifQueue) {
         let subscribers = self.subscribers.read().expect("failed to lock subscribers");
         if !subscribers.is_empty() {
-            pending.extend(subscribers.iter().map(|(_ptr, sink)| sink.clone()));
+            pending.extend(
+                subscribers
+                    .iter()
+                    .map(|(_ptr, subscriber)| subscriber.clone()),
+            );
         }
     }
 
-    pub fn send_notifications(&self, state: &State, prop_update_sink: &dyn OutboundMessageHandler) {
+    pub fn send_notifications(
+        &self,
+        state: &State,
+        prop_update_subscriber: &dyn OutboundMessageHandler,
+    ) {
         let subscribers = self.subscribers.read().expect("failed to lock subscribers");
-        for (_ptr, sink) in &*subscribers {
-            if let Some(sink) = sink.upgrade() {
-                if let Err(e) = sink.notify(state, prop_update_sink) {
+        for (_ptr, subscriber) in &*subscribers {
+            if let Some(subscriber) = subscriber.upgrade() {
+                if let Err(e) = subscriber.notify(state, prop_update_subscriber) {
                     error!("failed to process notification: {}", e);
                 }
             } else {
@@ -32,8 +50,7 @@ impl SubscriptionTracker {
         }
     }
 
-    // Returns true if there were no previous subscriptions
-    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<bool, String> {
+    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<SubscribeReport, String> {
         let mut subscribers = self
             .subscribers
             .write()
@@ -42,18 +59,20 @@ impl SubscriptionTracker {
         let subscriber_ptr = subscriber.thin_ptr();
         if subscribers
             .iter()
-            .any(|(ptr, _sink)| *ptr == subscriber_ptr)
+            .any(|(ptr, _subscriber)| *ptr == subscriber_ptr)
         {
             Err("subscriber subscribed multiple times".into())
         } else {
             let was_empty = subscribers.is_empty();
             subscribers.push((subscriber_ptr, subscriber));
-            Ok(was_empty)
+            Ok(SubscribeReport { was_empty })
         }
     }
 
-    // Returns true if there are now no subscriptions
-    pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<bool, String> {
+    pub fn unsubscribe(
+        &self,
+        subscriber: &Weak<dyn Subscriber>,
+    ) -> Result<UnsubscribeReport, String> {
         let subscriber_ptr = subscriber.thin_ptr();
         let mut subscribers = self
             .subscribers
@@ -61,12 +80,13 @@ impl SubscriptionTracker {
             .expect("failed to lock subscribers");
         match subscribers
             .iter()
-            .position(|(ptr, _sink)| *ptr == subscriber_ptr)
+            .position(|(ptr, _subscriber)| *ptr == subscriber_ptr)
         {
             None => Err("unsubscribed subscriber not already subscribed".into()),
             Some(i) => {
                 subscribers.swap_remove(i);
-                Ok(subscribers.is_empty())
+                let is_now_empty = subscribers.is_empty();
+                Ok(UnsubscribeReport { is_now_empty })
             }
         }
     }
@@ -97,23 +117,23 @@ mod tests {
         Vec<Arc<dyn Subscriber>>,
         Vec<Arc<MockSubscriber>>,
     ) {
-        let mock_sinks: Vec<Arc<MockSubscriber>> = (0..3)
+        let mock_subscribers: Vec<Arc<MockSubscriber>> = (0..3)
             .map(|_| Arc::new(MockSubscriber(RefCell::new(0))))
             .collect();
         (
             SubscriptionTracker::new(),
             Vec::new(),
-            mock_sinks
+            mock_subscribers
                 .iter()
-                .map(|sink| sink.clone() as Arc<dyn Subscriber>)
+                .map(|subscriber| subscriber.clone() as Arc<dyn Subscriber>)
                 .collect(),
-            mock_sinks,
+            mock_subscribers,
         )
     }
 
-    fn pending_contains(pending: &NotifQueue, sink: &Arc<dyn Subscriber>) -> bool {
-        let sink = Arc::downgrade(&sink).thin_ptr();
-        pending.iter().any(|i| i.thin_ptr() == sink)
+    fn pending_contains(pending: &NotifQueue, subscriber: &Arc<dyn Subscriber>) -> bool {
+        let subscriber = Arc::downgrade(&subscriber).thin_ptr();
+        pending.iter().any(|i| i.thin_ptr() == subscriber)
     }
 
     #[test]
@@ -127,89 +147,166 @@ mod tests {
     fn can_send_with_no_subscribers() {
         let (tracker, _, _, _) = setup();
         let state = State::new();
-        let update_sink = MockOutboundMessageHandler::new();
-        tracker.send_notifications(&state, &update_sink);
+        let update_subscriber = MockOutboundMessageHandler::new();
+        tracker.send_notifications(&state, &update_subscriber);
     }
 
     #[test]
     fn queues_single_subscriber() {
-        let (tracker, mut notifs, sinks, _) = setup();
+        let (tracker, mut notifs, subscribers, _) = setup();
         tracker
-            .subscribe(&sinks[0].clone())
+            .subscribe(&subscribers[0].clone())
             .expect("subscribing failed");
         tracker.queue_notifications(&mut notifs);
         assert_eq!(notifs.len(), 1);
-        assert!(pending_contains(&notifs, &sinks[0]));
+        assert!(pending_contains(&notifs, &subscribers[0]));
     }
 
     #[test]
     fn sends_to_single_subscriber() {
-        let (tracker, _, sinks, mock_sinks) = setup();
-        tracker.subscribe(&sinks[0]).expect("subscribing failed");
+        let (tracker, _, subscribers, mock_subscribers) = setup();
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
         let state = State::new();
-        let update_sink = MockOutboundMessageHandler::new();
-        tracker.send_notifications(&state, &update_sink);
-        assert_eq!(*mock_sinks[0].0.borrow(), 1);
+        let update_subscriber = MockOutboundMessageHandler::new();
+        tracker.send_notifications(&state, &update_subscriber);
+        assert_eq!(*mock_subscribers[0].0.borrow(), 1);
     }
 
     #[test]
     fn notifies_multiple_subscribers() {
-        let (tracker, mut notifs, sinks, _) = setup();
-        for sink in &sinks {
-            tracker.subscribe(&sink).expect("subscribing failed");
+        let (tracker, mut notifs, subscribers, _) = setup();
+        for subscriber in &subscribers {
+            tracker.subscribe(&subscriber).expect("subscribing failed");
         }
         tracker.queue_notifications(&mut notifs);
         assert_eq!(notifs.len(), 3);
-        for sink in sinks {
-            assert!(pending_contains(&notifs, &sink));
+        for subscriber in subscribers {
+            assert!(pending_contains(&notifs, &subscriber));
         }
     }
 
     #[test]
     fn subscribing_same_subscriber_twice_errors() {
-        let (tracker, _, sinks, _) = setup();
-        tracker.subscribe(&sinks[0]).expect("subscribing failed");
-        assert!(tracker.subscribe(&sinks[0]).is_err());
+        let (tracker, _, subscribers, _) = setup();
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        assert!(tracker.subscribe(&subscribers[0]).is_err());
     }
 
     #[test]
     fn unsubscribing_stops_notifications_queueing() {
-        let (tracker, mut notifs, sinks, _) = setup();
-        for sink in &sinks {
-            tracker.subscribe(&sink).expect("subscribing failed");
+        let (tracker, mut notifs, subscribers, _) = setup();
+        for subscriber in &subscribers {
+            tracker.subscribe(&subscriber).expect("subscribing failed");
         }
         tracker
-            .unsubscribe(&Arc::downgrade(&sinks[1]))
+            .unsubscribe(&Arc::downgrade(&subscribers[1]))
             .expect("unsubscribing failed");
         tracker.queue_notifications(&mut notifs);
         assert_eq!(notifs.len(), 2);
-        assert!(pending_contains(&notifs, &sinks[0]));
-        assert!(!pending_contains(&notifs, &sinks[1]));
-        assert!(pending_contains(&notifs, &sinks[2]));
+        assert!(pending_contains(&notifs, &subscribers[0]));
+        assert!(!pending_contains(&notifs, &subscribers[1]));
+        assert!(pending_contains(&notifs, &subscribers[2]));
     }
 
     #[test]
     fn unsubscribing_stops_notifications_sending() {
-        let (tracker, _, sinks, mock_sinks) = setup();
-        for sink in &sinks {
-            tracker.subscribe(&sink).expect("subscribing failed");
+        let (tracker, _, subscribers, mock_subscribers) = setup();
+        for subscriber in &subscribers {
+            tracker.subscribe(&subscriber).expect("subscribing failed");
         }
         tracker
-            .unsubscribe(&Arc::downgrade(&sinks[1]))
+            .unsubscribe(&Arc::downgrade(&subscribers[1]))
             .expect("unsubscribing failed");
         let state = State::new();
-        let update_sink = MockOutboundMessageHandler::new();
-        tracker.send_notifications(&state, &update_sink);
-        assert_eq!(*mock_sinks[0].0.borrow(), 1);
-        assert_eq!(*mock_sinks[1].0.borrow(), 0);
-        assert_eq!(*mock_sinks[2].0.borrow(), 1);
+        let update_subscriber = MockOutboundMessageHandler::new();
+        tracker.send_notifications(&state, &update_subscriber);
+        assert_eq!(*mock_subscribers[0].0.borrow(), 1);
+        assert_eq!(*mock_subscribers[1].0.borrow(), 0);
+        assert_eq!(*mock_subscribers[2].0.borrow(), 1);
     }
 
     #[test]
     fn unsubscribing_when_not_subscribed_errors() {
-        let (tracker, _, sinks, _) = setup();
-        assert!(tracker.unsubscribe(&Arc::downgrade(&sinks[0])).is_err());
-        tracker.subscribe(&sinks[0]).expect("subscribing failed");
-        assert!(tracker.unsubscribe(&Arc::downgrade(&sinks[1])).is_err());
+        let (tracker, _, subscribers, _) = setup();
+        assert!(tracker
+            .unsubscribe(&Arc::downgrade(&subscribers[0]))
+            .is_err());
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        assert!(tracker
+            .unsubscribe(&Arc::downgrade(&subscribers[1]))
+            .is_err());
+    }
+
+    #[test]
+    fn first_subscriber_reports_was_empty() {
+        let (tracker, _, subscribers, _) = setup();
+        let report = tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        assert_eq!(report.was_empty, true);
+    }
+
+    #[test]
+    fn subsequent_subscribers_do_not_report_was_empty() {
+        let (tracker, _, subscribers, _) = setup();
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        let report = tracker
+            .subscribe(&subscribers[1])
+            .expect("subscribing failed");
+        assert_eq!(report.was_empty, false);
+        let report = tracker
+            .subscribe(&subscribers[2])
+            .expect("subscribing failed");
+        assert_eq!(report.was_empty, false);
+    }
+
+    #[test]
+    fn adding_removing_and_adding_new_subscriber_reports_was_empty() {
+        let (tracker, _, subscribers, _) = setup();
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        tracker
+            .unsubscribe(&Arc::downgrade(&subscribers[0]))
+            .expect("unsubscribing failed");
+        let report = tracker
+            .subscribe(&subscribers[1])
+            .expect("subscribing failed");
+        assert_eq!(report.was_empty, true);
+    }
+
+    #[test]
+    fn removing_only_subscriber_reports_emtpy() {
+        let (tracker, _, subscribers, _) = setup();
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        let report = tracker
+            .unsubscribe(&Arc::downgrade(&subscribers[0]))
+            .expect("unsubscribing failed");
+        assert_eq!(report.is_now_empty, true);
+    }
+
+    #[test]
+    fn removing_one_of_two_subscribers_does_not_report_empty() {
+        let (tracker, _, subscribers, _) = setup();
+        tracker
+            .subscribe(&subscribers[0])
+            .expect("subscribing failed");
+        tracker
+            .subscribe(&subscribers[1])
+            .expect("subscribing failed");
+        let report = tracker
+            .unsubscribe(&Arc::downgrade(&subscribers[0]))
+            .expect("unsubscribing failed");
+        assert_eq!(report.is_now_empty, false);
     }
 }

@@ -24,7 +24,7 @@ impl Encodable {
     }
 }
 
-/// The required context for encoding
+/// The required context for encoding. The normal implementation is ObjectMapImpl.
 pub trait EncodeCtx {
     /// Returns the object ID for the given entity, creating a new one if needed
     fn object_for(&self, entity: EntityKey) -> ObjectId;
