@@ -60,7 +60,7 @@ impl DispatchTarget {
 struct DispatcherInner {
     session_map: HashMap<SocketAddr, DispatchTarget>,
     new_session_tx: Sender<Box<dyn SessionBuilder>>,
-    outbound_bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+    outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
 }
 
 /// Dispatches inbound data to the correct session based on source address
@@ -70,12 +70,12 @@ pub struct WebrtcDispatcher(Arc<Mutex<DispatcherInner>>);
 impl WebrtcDispatcher {
     pub fn new(
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
-        outbound_bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+        outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
     ) -> Self {
         Self(Arc::new(Mutex::new(DispatcherInner {
             session_map: HashMap::new(),
             new_session_tx,
-            outbound_bundle_tx,
+            outbound_tx,
         })))
     }
 
@@ -107,7 +107,7 @@ impl WebrtcDispatcher {
                     target.dispatch(data);
                     locked.session_map.insert(addr, target);
                     let session =
-                        WebrtcSession::new(self.clone(), addr, locked.outbound_bundle_tx.clone());
+                        WebrtcSession::new(self.clone(), addr, locked.outbound_tx.clone());
                     if let Err(e) = locked.new_session_tx.send(Box::new(session)) {
                         error!("failed to send WebRTC session builder: {}", e);
                     }
@@ -134,13 +134,13 @@ mod tests {
     #[allow(clippy::type_complexity)]
     fn new_test() -> (
         Receiver<Box<dyn SessionBuilder>>,
-        Receiver<(SocketAddr, Vec<u8>)>,
+        tokio::sync::mpsc::Receiver<(SocketAddr, Vec<u8>)>,
         WebrtcDispatcher,
     ) {
         let (new_session_tx, new_session_rx) = channel();
-        let (outbound_bundle_tx, outbound_bundle_rx) = channel();
-        let dispatcher = WebrtcDispatcher::new(new_session_tx, outbound_bundle_tx);
-        (new_session_rx, outbound_bundle_rx, dispatcher)
+        let (outbound_tx, outbound_rx) = tokio::sync::mpsc::channel(10);
+        let dispatcher = WebrtcDispatcher::new(new_session_tx, outbound_tx);
+        (new_session_rx, outbound_rx, dispatcher)
     }
 
     #[test]
@@ -271,7 +271,7 @@ mod tests {
 
     #[test]
     fn created_session_can_send_bundle() {
-        let (new_session, outbound_bundle_rx, dispatcher) = new_test();
+        let (new_session, mut outbound_rx, dispatcher) = new_test();
         dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
@@ -282,8 +282,7 @@ mod tests {
         session
             .yeet_bundle(&test_data(2))
             .expect("failed to yeet bundle");
-        let (addr, bundle) = outbound_bundle_rx
-            .recv_timeout(Duration::from_secs(1))
+        let (addr, bundle) = run_with_timeout(move || block_on(outbound_rx.recv()))
             .expect("failed to receive bundle");
         assert_eq!(addr, test_addr(1));
         assert_eq!(bundle, test_data(2));
