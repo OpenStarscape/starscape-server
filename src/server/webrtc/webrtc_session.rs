@@ -4,19 +4,19 @@ use super::*;
 pub struct WebrtcSession {
     dispatcher: WebrtcDispatcher,
     addr: SocketAddr,
-    outbound_bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+    outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
 }
 
 impl WebrtcSession {
     pub fn new(
         dispatcher: WebrtcDispatcher,
         addr: SocketAddr,
-        outbound_bundle_tx: Sender<(SocketAddr, Vec<u8>)>,
+        outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
     ) -> Self {
         Self {
             dispatcher,
             addr,
-            outbound_bundle_tx,
+            outbound_tx,
         }
     }
 }
@@ -33,8 +33,19 @@ impl SessionBuilder for WebrtcSession {
 
 impl Session for WebrtcSession {
     fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
-        self.outbound_bundle_tx.send((self.addr, data.to_vec()))?;
-        Ok(())
+        match self.outbound_tx.try_send((self.addr, data.to_vec())) {
+            Ok(()) => Ok(()),
+            Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => Err(format!(
+                "WebRTC outbound channel is full (can't send bundle to {})",
+                self.addr
+            )
+            .into()),
+            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => Err(format!(
+                "WebRTC outbound channel closed (can't send bundle to {})",
+                self.addr
+            )
+            .into()),
+        }
     }
 
     fn max_packet_len(&self) -> usize {
