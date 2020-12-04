@@ -7,7 +7,7 @@ use super::*;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Encodable {
     Vector(Vector3<f64>),
-    Scaler(f64),
+    Scalar(f64),
     Integer(i64),
     Entity(EntityKey),
     List(Vec<Encodable>),
@@ -28,13 +28,13 @@ impl From<Vector3<f64>> for Encodable {
 
 impl From<f64> for Encodable {
     fn from(value: f64) -> Self {
-        Encodable::Scaler(value)
+        Encodable::Scalar(value)
     }
 }
 
 impl From<f32> for Encodable {
     fn from(value: f32) -> Self {
-        Encodable::Scaler(f64::from(value))
+        Encodable::Scalar(f64::from(value))
     }
 }
 

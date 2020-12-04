@@ -24,7 +24,7 @@ impl<'a> Serialize for Contextualized<'a, Encodable> {
                 tuple.serialize_element(&vector.z)?;
                 tuple.end()
             }
-            Encodable::Scaler(value) => serializer.serialize_f64(*value),
+            Encodable::Scalar(value) => serializer.serialize_f64(*value),
             Encodable::Integer(value) => serializer.serialize_i64(*value),
             Encodable::Entity(entity) => {
                 use serde::ser::SerializeTuple;
@@ -196,7 +196,7 @@ mod message_tests {
         let p = JsonEncoder::new();
         let obj = 42;
         let prop = "foobar";
-        let value = Encodable::Scaler(12.5);
+        let value = Encodable::Scalar(12.5);
         assert_json_eq(
             &p.encode_property_update(obj, prop, &MockEncoderCtx, &value)
                 .expect("failed to serialize property update"),
