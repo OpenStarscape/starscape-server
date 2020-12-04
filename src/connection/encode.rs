@@ -127,17 +127,33 @@ impl<'a> Serialize for ContextualizedEncodable<'a> {
             }
             Encodable::Scaler(value) => serializer.serialize_f64(*value),
             Encodable::Integer(value) => serializer.serialize_i64(*value),
-            Encodable::Entity(entity) => serializer.serialize_u64(self.ctx.object_for(*entity)),
+            Encodable::Entity(entity) => {
+                use serde::ser::SerializeTuple;
+                let mut outer = serializer.serialize_tuple(1)?;
+                outer.serialize_element(&self.ctx.object_for(*entity))?;
+                outer.end()
+            }
             Encodable::List(list) => {
-                use serde::ser::SerializeSeq;
-                let mut seq = serializer.serialize_seq(Some(list.len()))?;
-                for elem in list {
-                    seq.serialize_element(&elem.bind(self.ctx))?
-                }
-                seq.end()
+                use serde::ser::SerializeTuple;
+                let mut outer = serializer.serialize_tuple(1)?;
+                outer.serialize_element(&WrappedList(list, self.ctx))?;
+                outer.end()
             }
             Encodable::Null => serializer.serialize_none(),
         }
+    }
+}
+
+struct WrappedList<'a>(&'a Vec<Encodable>, &'a dyn EncodeCtx);
+
+impl<'a> Serialize for WrappedList<'a> {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for elem in self.0 {
+            seq.serialize_element(&elem.bind(self.1))?
+        }
+        seq.end()
     }
 }
 
@@ -208,7 +224,8 @@ mod json_tests {
 
     #[test]
     fn list_of_ints() {
-        assert_json_eq(vec![1, 2, 3, 69, 42].into(), "[1, 2, 3, 69, 42]");
+        // Wrapped in an additional list to keep it unambiguous with object IDs and vectors
+        assert_json_eq(vec![1, 2, 3, 69, 42].into(), "[[1, 2, 3, 69, 42]]");
     }
 
     #[test]
@@ -219,13 +236,13 @@ mod json_tests {
     #[test]
     fn entity() {
         let e: Vec<EntityKey> = mock_keys(1);
-        assert_json_eq(e[0].into(), "42"); // MOCK_OBJ_ID
+        assert_json_eq(e[0].into(), "[42]"); // MOCK_OBJ_ID
     }
 
     #[test]
     fn list_of_entities() {
         let e: Vec<EntityKey> = mock_keys(3);
         // the mock context returns MOCK_OBJ_ID no matter what
-        assert_json_eq(e.into(), "[42, 42, 42]");
+        assert_json_eq(e.into(), "[[[42], [42], [42]]]");
     }
 }
