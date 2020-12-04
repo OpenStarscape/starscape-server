@@ -25,5 +25,3 @@ use encode::{EncodeCtx, Encoder};
 use json::json_protocol_impls;
 use object_map::ObjectMapImpl;
 use request::{EntityProperty, PropertyRequest, Request, RequestType};
-
-use serde::ser::{Serialize, Serializer};
