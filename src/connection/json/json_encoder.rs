@@ -32,7 +32,7 @@ impl<'a> Serialize for Contextualized<'a, Encodable> {
                 outer.serialize_element(&self.ctx.object_for(*entity))?;
                 outer.end()
             }
-            Encodable::List(list) => {
+            Encodable::Array(list) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;
                 outer.serialize_element(&Contextualized::new(list, self.ctx))?;

@@ -89,9 +89,9 @@ pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
         "position",
         Box::new(ElementConduit::new(
             move |state: &State| Ok(&state.component::<Body>(entity)?.position),
-            move |state: &mut State, value: &Decodable| {
+            move |state: &mut State, value: &Decoded| {
                 let (notifs, body) = state.component_mut::<Body>(entity)?;
-                body.position.set(notifs, value.decode()?);
+                body.position.set(notifs, value.try_get()?);
                 Ok(())
             },
         )),
