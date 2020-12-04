@@ -292,11 +292,11 @@ mod tests {
     fn serializes_normal_property_update() {
         let test = Test::new();
         test.conn
-            .property_value(test.entity, "foo", &Scaler(12.5), true)
+            .property_value(test.entity, "foo", &Scalar(12.5), true)
             .expect("error updating property");
         assert_eq!(
             test.encoder.borrow().log,
-            vec![(test.obj_id, "foo".to_owned(), Scaler(12.5))]
+            vec![(test.obj_id, "foo".to_owned(), Scalar(12.5))]
         );
     }
 }

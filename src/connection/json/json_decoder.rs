@@ -13,7 +13,7 @@ impl TryFrom<serde_json::Value> for Decodable {
                 if let Some(i) = n.as_i64() {
                     Ok(Decodable::Integer(i))
                 } else if let Some(f) = n.as_f64() {
-                    Ok(Decodable::Scaler(f))
+                    Ok(Decodable::Scalar(f))
                 } else {
                     Err("bad number")
                 }
@@ -127,38 +127,120 @@ impl Decoder for JsonDecoder {
 }
 
 #[cfg(test)]
-mod tests {
+struct MockDecodeCtx {
+    e: Vec<EntityKey>,
+}
+
+#[cfg(test)]
+impl MockDecodeCtx {
+    fn new(count: u32) -> Self {
+        Self {
+            e: mock_keys(count),
+        }
+    }
+}
+
+#[cfg(test)]
+impl std::ops::Index<usize> for MockDecodeCtx {
+    type Output = EntityKey;
+    fn index(&self, i: usize) -> &EntityKey {
+        &self.e[i]
+    }
+}
+
+#[cfg(test)]
+impl DecodeCtx for MockDecodeCtx {
+    fn entity_for(&self, obj: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
+        if obj < self.e.len() as u64 {
+            Ok(self.e[obj as usize])
+        } else {
+            Err(format!("invalid test object {}", obj).into())
+        }
+    }
+}
+
+#[cfg(test)]
+mod decode_tests {
+    use super::*;
+    use Encodable::*;
+
+    struct TerrifiedDecodeCtx;
+
+    impl DecodeCtx for TerrifiedDecodeCtx {
+        fn entity_for(&self, _obj: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
+            panic!("should not have been called")
+        }
+    }
+
+    fn assert_decodes_to_with_ctx(_ctx: &dyn DecodeCtx, json: &str, expected: Decodable) {
+        let mut deserializer = serde_json::Deserializer::from_slice(json.as_bytes());
+        let value = Value::deserialize(&mut deserializer).expect("failed to deserialize");
+        let actual: Decodable = value.try_into().expect("failed to turn into decodable");
+        assert_eq!(actual, expected);
+    }
+
+    fn assert_decodes_to(json: &str, expected: Decodable) {
+        assert_decodes_to_with_ctx(&TerrifiedDecodeCtx, json, expected)
+    }
+
+    #[test]
+    fn integer() {
+        assert_decodes_to("-583", Integer(-583));
+    }
+
+    #[test]
+    fn scalar() {
+        assert_decodes_to("784.25", Scalar(784.25));
+    }
+
+    #[test]
+    fn null() {
+        assert_decodes_to("null", Null);
+    }
+
+    // TODO: enable when implemented
+    /*
+    #[test]
+    fn vector() {
+        assert_decodes_to("[-12, 0.0, 2.5]", Vector(Vector3::new(-12.0, 0.0, 2.5)));
+    }
+
+    #[test]
+    fn list() {
+        assert_decodes_to("[[[1, 2, 3], 74, -0.5]]", List(vec![Vector(Vector3::new(1.0, 2.0, 3.0)), Integer(74), Scalar(-0.5)]));
+    }
+
+    #[test]
+    fn entity() {
+        let ctx = MockDecodeCtx::new(12);
+        assert_decodes_to_with_ctx(&ctx, "[7]", Entity(ctx[7]));
+    }
+
+    #[test]
+    fn list_with_entities() {
+        let ctx = MockDecodeCtx::new(12);
+        assert_decodes_to_with_ctx(&ctx, "[[[4], 7, [2]]]", List(vec![Entity(ctx[4]), Integer(7), Entity(ctx[2])]));
+    }
+    */
+}
+
+#[cfg(test)]
+mod message_tests {
     use super::*;
     use PropertyRequest::*;
     use RequestType::*;
 
-    struct MockDecodeCtx {
-        e: Vec<EntityKey>,
-    }
-
-    impl DecodeCtx for MockDecodeCtx {
-        fn entity_for(&self, obj: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
-            if obj < self.e.len() as u64 {
-                Ok(self.e[obj as usize])
-            } else {
-                Err(format!("invalid test object {}", obj).into())
-            }
-        }
-    }
-
-    fn assert_results_in_request(e: &Vec<EntityKey>, json: &str, request: RequestType) {
+    fn assert_results_in_request(ctx: &dyn DecodeCtx, json: &str, request: RequestType) {
         let mut decoder = JsonDecoder::new();
-        let ctx = MockDecodeCtx { e: e.clone() };
         let result = decoder
-            .decode(&ctx, json.as_bytes().to_owned())
+            .decode(ctx, json.as_bytes().to_owned())
             .expect("failed to decode");
         assert_eq!(result, vec![request]);
     }
 
     fn assert_results_in_error(json: &str, msg: &str) {
         let mut decoder = JsonDecoder::new();
-        let e = mock_keys(12);
-        let ctx = MockDecodeCtx { e };
+        let ctx = MockDecodeCtx::new(12);
         match decoder.decode(&ctx, json.as_bytes().to_owned()) {
             Ok(output) => panic!("should have errored, instead gave: {:?}", output),
             Err(e) if !format!("{}", e).contains(msg) => {
@@ -170,7 +252,7 @@ mod tests {
 
     #[test]
     fn basic_get_request() {
-        let e = mock_keys(12);
+        let e = MockDecodeCtx::new(12);
         assert_results_in_request(
             &e,
             "{ \
@@ -184,7 +266,7 @@ mod tests {
 
     #[test]
     fn basic_set_request() {
-        let e = mock_keys(12);
+        let e = MockDecodeCtx::new(12);
         assert_results_in_request(
             &e,
             "{ \
@@ -199,7 +281,7 @@ mod tests {
 
     #[test]
     fn basic_subscribe_request() {
-        let e = mock_keys(12);
+        let e = MockDecodeCtx::new(12);
         assert_results_in_request(
             &e,
             "{ \
@@ -213,7 +295,7 @@ mod tests {
 
     #[test]
     fn basic_unsubscribe_request() {
-        let e = mock_keys(12);
+        let e = MockDecodeCtx::new(12);
         assert_results_in_request(
             &e,
             "{ \
@@ -247,12 +329,11 @@ mod tests {
         ];
         let mut decoder = JsonDecoder::new();
         let mut result = Vec::new();
-        let e = mock_keys(12);
-        let ctx = MockDecodeCtx { e: e.clone() };
+        let e = MockDecodeCtx::new(12);
         for json in json {
             result.extend(
                 decoder
-                    .decode(&ctx, json.as_bytes().to_owned())
+                    .decode(&e, json.as_bytes().to_owned())
                     .expect("failed to decode"),
             );
         }
@@ -285,10 +366,9 @@ mod tests {
                 \"property\": \"xyz\" \
 			}\n";
         let mut decoder = JsonDecoder::new();
-        let e = mock_keys(12);
-        let ctx = MockDecodeCtx { e: e.clone() };
+        let e = MockDecodeCtx::new(12);
         let result = decoder
-            .decode(&ctx, json.as_bytes().to_owned())
+            .decode(&e, json.as_bytes().to_owned())
             .expect("failed to decode");
         assert_eq!(
             result,
@@ -323,12 +403,11 @@ mod tests {
         ];
         let mut decoder = JsonDecoder::new();
         let mut result = Vec::new();
-        let e = mock_keys(12);
-        let ctx = MockDecodeCtx { e: e.clone() };
+        let e = MockDecodeCtx::new(12);
         for json in json {
             result.extend(
                 decoder
-                    .decode(&ctx, json.as_bytes().to_owned())
+                    .decode(&e, json.as_bytes().to_owned())
                     .expect("failed to decode"),
             );
         }

@@ -16,17 +16,17 @@ impl Decodable {
     pub fn vector(&self) -> DecodableResult<Vector3<f64>> {
         match self {
             Decodable::List(list) if list.len() == 3 => Ok(Vector3::new(
-                list[0].scaler()?,
-                list[1].scaler()?,
-                list[2].scaler()?,
+                list[0].scalar()?,
+                list[1].scalar()?,
+                list[2].scalar()?,
             )),
             _ => Err(format!("{:?} is not a 3D vector", self)),
         }
     }
 
-    pub fn scaler(&self) -> DecodableResult<f64> {
+    pub fn scalar(&self) -> DecodableResult<f64> {
         match self {
-            Decodable::Scaler(value) => Ok(*value),
+            Decodable::Scalar(value) => Ok(*value),
             Decodable::Integer(value) => Ok(*value as f64),
             _ => Err(format!("{:?} is not a number", self)),
         }
@@ -34,7 +34,7 @@ impl Decodable {
 
     pub fn integer(&self) -> DecodableResult<i64> {
         match self {
-            Decodable::Scaler(value) => Ok(*value as i64),
+            Decodable::Scalar(value) => Ok(*value as i64),
             Decodable::Integer(value) => Ok(*value),
             _ => Err(format!("{:?} is not a number", self)),
         }
@@ -72,7 +72,7 @@ impl DecodableAs<Point3<f64>> for Decodable {
 
 impl DecodableAs<f64> for Decodable {
     fn decode(&self) -> Result<f64, String> {
-        self.scaler()
+        self.scalar()
     }
 }
 
@@ -154,17 +154,17 @@ mod json_tests {
         assert_decodes_to(&Integer(i), i);
         assert_decodes_to(&Integer(i), f);
         assert_decodes_to(&Integer(i), u);
-        assert_decodes_to(&Scaler(f), i);
-        assert_decodes_to(&Scaler(f), f);
-        assert_decodes_to(&Scaler(f), u);
+        assert_decodes_to(&Scalar(f), i);
+        assert_decodes_to(&Scalar(f), f);
+        assert_decodes_to(&Scalar(f), u);
     }
 
     #[test]
     fn vectors_and_points_decode_correctly() {
         let point = Point3::new(1.0, 2.5, -3.0);
         let vector = point.to_vec();
-        let decodable = List(vec![Scaler(point.x), Scaler(point.y), Scaler(point.z)]);
-        let mismatched_typed_decodable = List(vec![Integer(1), Scaler(point.y), Scaler(point.z)]);
+        let decodable = List(vec![Scalar(point.x), Scalar(point.y), Scalar(point.z)]);
+        let mismatched_typed_decodable = List(vec![Integer(1), Scalar(point.y), Scalar(point.z)]);
         assert_decodes_to(&decodable, point);
         assert_decodes_to(&decodable, vector);
         assert_decodes_to(&mismatched_typed_decodable, vector);
