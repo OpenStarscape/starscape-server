@@ -1,33 +1,6 @@
 use super::*;
 use serde::de::Deserialize;
 use serde_json::Value;
-use std::convert::{TryFrom, TryInto};
-
-impl TryFrom<serde_json::Value> for Decodable {
-    type Error = &'static str;
-    fn try_from(value: serde_json::Value) -> Result<Self, Self::Error> {
-        match value {
-            Value::Null => Ok(Decodable::Null),
-            Value::Bool(_) => Err("decoding bool not implemented"),
-            Value::Number(n) => {
-                if let Some(i) = n.as_i64() {
-                    Ok(Decodable::Integer(i))
-                } else if let Some(f) = n.as_f64() {
-                    Ok(Decodable::Scalar(f))
-                } else {
-                    Err("bad number")
-                }
-            }
-            Value::String(_) => Err("decoding string not implemented"),
-            Value::Array(array) => {
-                let result: Result<Vec<Decodable>, Self::Error> =
-                    array.into_iter().map(TryFrom::try_from).collect();
-                Ok(Decodable::List(result?))
-            }
-            Value::Object(_) => Err("decoding map not implemented"),
-        }
-    }
-}
 
 pub struct JsonDecoder {
     splitter: DatagramSplitter,
@@ -40,6 +13,70 @@ impl JsonDecoder {
         }
     }
 
+    /// For disambiguation purposes, some types are wrapped in an array. This function handles them.
+    fn decode_array(&self, ctx: &dyn DecodeCtx, array: &[Value]) -> Result<Decodable, String> {
+        match array.len() {
+            3 => {
+                let component = |value: &Value| {
+                    value
+                        .as_f64()
+                        .ok_or_else(|| format!("{} is an invalid vector component", value))
+                };
+                Ok(Decodable::Vector(Vector3::new(
+                    component(&array[0])?,
+                    component(&array[1])?,
+                    component(&array[2])?,
+                )))
+            }
+            1 => {
+                if let Some(obj_id) = array[0].as_i64() {
+                    // An array-wrapped int is an object ID
+                    match ctx.entity_for(obj_id as u64) {
+                        Some(entity) => Ok(Decodable::Entity(entity)),
+                        None => Err(format!("object {} does not exist", obj_id)),
+                    }
+                } else if let Some(array) = array[0].as_array() {
+                    // An array-wrapped array is an actual array
+                    let result: Result<Vec<_>, _> = array
+                        .iter()
+                        .map(|value| self.decode_value(ctx, value))
+                        .collect();
+                    Ok(Decodable::List(result?))
+                } else {
+                    Err(format!(
+                        "{} is an array-wrapped value, but not an object ID",
+                        array[0]
+                    ))
+                }
+            }
+            len => Err(format!(
+                "non-wrapped array with length {} is not valid",
+                len
+            )),
+        }
+    }
+
+    /// Ideally we would implement some strange Deserialize trait for minimal copying, but aint
+    /// nobody got time for that.
+    fn decode_value(&self, ctx: &dyn DecodeCtx, value: &Value) -> Result<Decodable, String> {
+        match value {
+            Value::Null => Ok(Decodable::Null),
+            Value::Bool(_) => Err("decoding bool not implemented".to_string()),
+            Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Ok(Decodable::Integer(i))
+                } else if let Some(f) = n.as_f64() {
+                    Ok(Decodable::Scalar(f))
+                } else {
+                    Err(format!("{} is an invalid number", value))
+                }
+            }
+            Value::String(_) => Err("decoding string not implemented".to_string()),
+            Value::Array(array) => self.decode_array(ctx, array),
+            Value::Object(_) => Err("decoding map not implemented".to_string()),
+        }
+    }
+
     fn decode_obj_prop(
         ctx: &dyn DecodeCtx,
         datagram: &serde_json::map::Map<String, Value>,
@@ -49,7 +86,7 @@ impl JsonDecoder {
             .ok_or("request does not have an object ID")?
             .as_u64()
             .ok_or("object ID not an unsigned int")?;
-        let entity = ctx.entity_for(obj)?;
+        let entity = ctx.entity_for(obj).ok_or("unknown object")?;
         let prop = datagram
             .get("property")
             .ok_or("request does not have a property")?
@@ -93,11 +130,12 @@ impl JsonDecoder {
                 ctx,
                 &datagram,
                 PropertyRequest::Set(
-                    datagram
-                        .get("value")
-                        .ok_or("set request does not have a value")?
-                        .clone()
-                        .try_into()?,
+                    self.decode_value(
+                        ctx,
+                        datagram
+                            .get("value")
+                            .ok_or("set request does not have a value")?,
+                    )?,
                 ),
             )?,
             "get" => self.wrap_property_request(ctx, &datagram, PropertyRequest::Get)?,
@@ -150,12 +188,8 @@ impl std::ops::Index<usize> for MockDecodeCtx {
 
 #[cfg(test)]
 impl DecodeCtx for MockDecodeCtx {
-    fn entity_for(&self, obj: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
-        if obj < self.e.len() as u64 {
-            Ok(self.e[obj as usize])
-        } else {
-            Err(format!("invalid test object {}", obj).into())
-        }
+    fn entity_for(&self, obj: ObjectId) -> Option<EntityKey> {
+        self.e.get(obj as usize).cloned()
     }
 }
 
@@ -167,20 +201,39 @@ mod decode_tests {
     struct TerrifiedDecodeCtx;
 
     impl DecodeCtx for TerrifiedDecodeCtx {
-        fn entity_for(&self, _obj: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
+        fn entity_for(&self, _obj: ObjectId) -> Option<EntityKey> {
             panic!("should not have been called")
         }
     }
 
-    fn assert_decodes_to_with_ctx(_ctx: &dyn DecodeCtx, json: &str, expected: Decodable) {
+    fn decode(ctx: &dyn DecodeCtx, json: &str) -> Result<Decodable, Box<dyn Error>> {
+        let decoder = JsonDecoder::new();
         let mut deserializer = serde_json::Deserializer::from_slice(json.as_bytes());
         let value = Value::deserialize(&mut deserializer).expect("failed to deserialize");
-        let actual: Decodable = value.try_into().expect("failed to turn into decodable");
+        Ok(decoder.decode_value(ctx, &value)?)
+    }
+
+    fn assert_decodes_to_with_ctx(ctx: &dyn DecodeCtx, json: &str, expected: Decodable) {
+        let actual = decode(ctx, json).expect("failed to turn into decodable");
         assert_eq!(actual, expected);
     }
 
     fn assert_decodes_to(json: &str, expected: Decodable) {
         assert_decodes_to_with_ctx(&TerrifiedDecodeCtx, json, expected)
+    }
+
+    fn assert_results_in_error_with_ctx(ctx: &dyn DecodeCtx, json: &str, msg: &str) {
+        match decode(ctx, json) {
+            Ok(output) => panic!("should have errored, instead gave: {:?}", output),
+            Err(e) if !format!("{}", e).contains(msg) => {
+                panic!("{:?} does not contain {:?}", e, msg)
+            }
+            _ => (),
+        }
+    }
+
+    fn assert_results_in_error(json: &str, msg: &str) {
+        assert_results_in_error_with_ctx(&TerrifiedDecodeCtx, json, msg)
     }
 
     #[test]
@@ -198,8 +251,6 @@ mod decode_tests {
         assert_decodes_to("null", Null);
     }
 
-    // TODO: enable when implemented
-    /*
     #[test]
     fn vector() {
         assert_decodes_to("[-12, 0.0, 2.5]", Vector(Vector3::new(-12.0, 0.0, 2.5)));
@@ -207,7 +258,14 @@ mod decode_tests {
 
     #[test]
     fn list() {
-        assert_decodes_to("[[[1, 2, 3], 74, -0.5]]", List(vec![Vector(Vector3::new(1.0, 2.0, 3.0)), Integer(74), Scalar(-0.5)]));
+        assert_decodes_to(
+            "[[[1, 1, 1], 74, -0.5]]",
+            List(vec![
+                Vector(Vector3::new(1.0, 1.0, 1.0)),
+                Integer(74),
+                Scalar(-0.5),
+            ]),
+        );
     }
 
     #[test]
@@ -219,9 +277,37 @@ mod decode_tests {
     #[test]
     fn list_with_entities() {
         let ctx = MockDecodeCtx::new(12);
-        assert_decodes_to_with_ctx(&ctx, "[[[4], 7, [2]]]", List(vec![Entity(ctx[4]), Integer(7), Entity(ctx[2])]));
+        assert_decodes_to_with_ctx(
+            &ctx,
+            "[[[4], 7, [2]]]",
+            List(vec![Entity(ctx[4]), Integer(7), Entity(ctx[2])]),
+        );
     }
-    */
+
+    #[test]
+    fn array_size_two_is_error() {
+        assert_results_in_error("[1, 2]", "length 2");
+    }
+
+    #[test]
+    fn array_size_zero_is_error() {
+        assert_results_in_error("[]", "length 0");
+    }
+
+    #[test]
+    fn vector_of_obj_ids_is_error() {
+        assert_results_in_error("[[1], [2], [3]]", "invalid vector component");
+    }
+
+    #[test]
+    fn array_wrapped_scalar_is_error() {
+        assert_results_in_error("[7.1]", "not an object ID");
+    }
+
+    #[test]
+    fn unknown_object_is_error() {
+        assert_results_in_error_with_ctx(&MockDecodeCtx::new(12), "[88]", "88 does not exist");
+    }
 }
 
 #[cfg(test)]

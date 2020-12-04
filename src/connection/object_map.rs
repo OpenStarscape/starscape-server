@@ -31,9 +31,8 @@ impl<T: ObjectMap> EncodeCtx for T {
 }
 
 impl<T: ObjectMap> DecodeCtx for T {
-    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>> {
+    fn entity_for(&self, object: ObjectId) -> Option<EntityKey> {
         self.get_entity(object)
-            .ok_or_else(|| format!("invalid object {}", object).into())
     }
 }
 
