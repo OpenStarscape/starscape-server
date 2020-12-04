@@ -14,7 +14,11 @@ impl JsonDecoder {
     }
 
     /// For disambiguation purposes, some types are wrapped in an array. This function handles them.
-    fn decode_array(&self, ctx: &dyn DecodeCtx, array: &[Value]) -> Result<Decodable, String> {
+    fn decode_wrapper_array(
+        &self,
+        ctx: &dyn DecodeCtx,
+        array: &[Value],
+    ) -> Result<Decoded, String> {
         match array.len() {
             3 => {
                 let component = |value: &Value| {
@@ -22,7 +26,7 @@ impl JsonDecoder {
                         .as_f64()
                         .ok_or_else(|| format!("{} is an invalid vector component", value))
                 };
-                Ok(Decodable::Vector(Vector3::new(
+                Ok(Decoded::Vector(Vector3::new(
                     component(&array[0])?,
                     component(&array[1])?,
                     component(&array[2])?,
@@ -32,7 +36,7 @@ impl JsonDecoder {
                 if let Some(obj_id) = array[0].as_i64() {
                     // An array-wrapped int is an object ID
                     match ctx.entity_for(obj_id as u64) {
-                        Some(entity) => Ok(Decodable::Entity(entity)),
+                        Some(entity) => Ok(Decoded::Entity(entity)),
                         None => Err(format!("object {} does not exist", obj_id)),
                     }
                 } else if let Some(array) = array[0].as_array() {
@@ -41,7 +45,7 @@ impl JsonDecoder {
                         .iter()
                         .map(|value| self.decode_value(ctx, value))
                         .collect();
-                    Ok(Decodable::List(result?))
+                    Ok(Decoded::Array(result?))
                 } else {
                     Err(format!(
                         "{} is an array-wrapped value, but not an object ID",
@@ -58,21 +62,21 @@ impl JsonDecoder {
 
     /// Ideally we would implement some strange Deserialize trait for minimal copying, but aint
     /// nobody got time for that.
-    fn decode_value(&self, ctx: &dyn DecodeCtx, value: &Value) -> Result<Decodable, String> {
+    fn decode_value(&self, ctx: &dyn DecodeCtx, value: &Value) -> Result<Decoded, String> {
         match value {
-            Value::Null => Ok(Decodable::Null),
+            Value::Null => Ok(Decoded::Null),
             Value::Bool(_) => Err("decoding bool not implemented".to_string()),
             Value::Number(n) => {
                 if let Some(i) = n.as_i64() {
-                    Ok(Decodable::Integer(i))
+                    Ok(Decoded::Integer(i))
                 } else if let Some(f) = n.as_f64() {
-                    Ok(Decodable::Scalar(f))
+                    Ok(Decoded::Scalar(f))
                 } else {
                     Err(format!("{} is an invalid number", value))
                 }
             }
             Value::String(_) => Err("decoding string not implemented".to_string()),
-            Value::Array(array) => self.decode_array(ctx, array),
+            Value::Array(array) => self.decode_wrapper_array(ctx, array),
             Value::Object(_) => Err("decoding map not implemented".to_string()),
         }
     }
@@ -206,19 +210,19 @@ mod decode_tests {
         }
     }
 
-    fn decode(ctx: &dyn DecodeCtx, json: &str) -> Result<Decodable, Box<dyn Error>> {
+    fn decode(ctx: &dyn DecodeCtx, json: &str) -> Result<Decoded, Box<dyn Error>> {
         let decoder = JsonDecoder::new();
         let mut deserializer = serde_json::Deserializer::from_slice(json.as_bytes());
         let value = Value::deserialize(&mut deserializer).expect("failed to deserialize");
         Ok(decoder.decode_value(ctx, &value)?)
     }
 
-    fn assert_decodes_to_with_ctx(ctx: &dyn DecodeCtx, json: &str, expected: Decodable) {
+    fn assert_decodes_to_with_ctx(ctx: &dyn DecodeCtx, json: &str, expected: Decoded) {
         let actual = decode(ctx, json).expect("failed to turn into decodable");
         assert_eq!(actual, expected);
     }
 
-    fn assert_decodes_to(json: &str, expected: Decodable) {
+    fn assert_decodes_to(json: &str, expected: Decoded) {
         assert_decodes_to_with_ctx(&TerrifiedDecodeCtx, json, expected)
     }
 
@@ -257,10 +261,10 @@ mod decode_tests {
     }
 
     #[test]
-    fn list() {
+    fn array() {
         assert_decodes_to(
             "[[[1, 1, 1], 74, -0.5]]",
-            List(vec![
+            Array(vec![
                 Vector(Vector3::new(1.0, 1.0, 1.0)),
                 Integer(74),
                 Scalar(-0.5),
@@ -275,12 +279,12 @@ mod decode_tests {
     }
 
     #[test]
-    fn list_with_entities() {
+    fn array_with_entities() {
         let ctx = MockDecodeCtx::new(12);
         assert_decodes_to_with_ctx(
             &ctx,
             "[[[4], 7, [2]]]",
-            List(vec![Entity(ctx[4]), Integer(7), Entity(ctx[2])]),
+            Array(vec![Entity(ctx[4]), Integer(7), Entity(ctx[2])]),
         );
     }
 
@@ -303,6 +307,8 @@ mod decode_tests {
     fn array_wrapped_scalar_is_error() {
         assert_results_in_error("[7.1]", "not an object ID");
     }
+
+    // TODO: test if floats they don't have a decimal component (7.0) are parsed as floats
 
     #[test]
     fn unknown_object_is_error() {
@@ -361,7 +367,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": null \
             }\n",
-            Property((e[9], "xyz".to_owned()), Set(Decodable::Null)),
+            Property((e[9], "xyz".to_owned()), Set(Decoded::Null)),
         );
     }
 
@@ -427,7 +433,7 @@ mod message_tests {
             result,
             vec![
                 Property((e[2], "foobar".to_owned()), Get),
-                Property((e[8], "abc".to_owned()), Set(Decodable::Integer(12))),
+                Property((e[8], "abc".to_owned()), Set(Decoded::Integer(12))),
                 Property((e[11], "xyz".to_owned()), Subscribe)
             ]
         );
@@ -460,7 +466,7 @@ mod message_tests {
             result,
             vec![
                 Property((e[3], "foobar".to_owned()), Get),
-                Property((e[5], "abc".to_owned()), Set(Decodable::Integer(12))),
+                Property((e[5], "abc".to_owned()), Set(Decoded::Integer(12))),
                 Property((e[7], "xyz".to_owned()), Subscribe)
             ]
         );
@@ -501,7 +507,7 @@ mod message_tests {
             result,
             vec![
                 Property((e[9], "foobar".to_owned()), Get),
-                Property((e[2], "abc".to_owned()), Set(Decodable::Integer(12))),
+                Property((e[2], "abc".to_owned()), Set(Decoded::Integer(12))),
                 Property((e[1], "xyz".to_owned()), Subscribe)
             ]
         );

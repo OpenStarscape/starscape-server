@@ -4,7 +4,7 @@ pub type EntityProperty = (EntityKey, String);
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum PropertyRequest {
-    Set(Decodable),
+    Set(Decoded),
     Get,
     Subscribe,
     Unsubscribe,

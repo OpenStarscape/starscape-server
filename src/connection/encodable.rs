@@ -10,7 +10,7 @@ pub enum Encodable {
     Scalar(f64),
     Integer(i64),
     Entity(EntityKey),
-    List(Vec<Encodable>),
+    Array(Vec<Encodable>),
     Null,
 }
 
@@ -73,7 +73,7 @@ where
     Encodable: From<T>,
 {
     fn from(vec: Vec<T>) -> Self {
-        Encodable::List(vec.into_iter().map(From::from).collect())
+        Encodable::Array(vec.into_iter().map(From::from).collect())
     }
 }
 
@@ -90,31 +90,4 @@ impl<T: Into<Encodable>> From<Option<T>> for Encodable {
             None => Encodable::Null,
         }
     }
-}
-
-/// The required context for encoding. The normal implementation is ObjectMapImpl.
-pub trait EncodeCtx {
-    /// Returns the object ID for the given entity, creating a new one if needed
-    fn object_for(&self, entity: EntityKey) -> ObjectId;
-}
-
-/// Encodes a specific data format (ex JSON)
-/// Any encoder should be compatible with any session (JSON should work with TCP, websockets, etc)
-pub trait Encoder {
-    /// An update to a subscribed property resulting from a change
-    fn encode_property_update(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>>;
-    /// A response to a clients get requst on a property
-    fn encode_get_response(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>>;
 }

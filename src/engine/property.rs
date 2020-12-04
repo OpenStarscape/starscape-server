@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 
 pub trait Property {
     fn get_value(&self, state: &State) -> Result<Encodable, String>;
-    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String>;
+    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String>;
     fn subscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String>;
     fn unsubscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String>;
     fn finalize(&self, state: &State);
@@ -68,7 +68,7 @@ impl Property for PropertyImpl {
         self.conduit.get_value(state)
     }
 
-    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {
         self.conduit.set_value(state, value)
     }
 
@@ -172,7 +172,7 @@ mod tests {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
+        fn set_value(&self, _state: &mut State, _value: &Decoded) -> Result<(), String> {
             panic!("unexpected call");
         }
 

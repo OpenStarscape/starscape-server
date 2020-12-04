@@ -11,7 +11,7 @@ impl<T, GetFn, SetFn> ElementConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
     for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
+    SetFn: Fn(&mut State, &Decoded) -> Result<(), String>,
     GetFn: Clone + 'static,
     SetFn: Clone + 'static,
 {
@@ -24,7 +24,7 @@ impl<T, GetFn, SetFn> Conduit for ElementConduit<GetFn, SetFn>
 where
     T: Into<Encodable> + PartialEq + Clone,
     for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    SetFn: Fn(&mut State, &Decodable) -> Result<(), String>,
+    SetFn: Fn(&mut State, &Decoded) -> Result<(), String>,
     GetFn: Clone + 'static,
     SetFn: Clone + 'static,
 {
@@ -32,7 +32,7 @@ where
         Ok((*(self.getter)(state)?).clone().into())
     }
 
-    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {
         (self.setter)(state, value)
     }
 

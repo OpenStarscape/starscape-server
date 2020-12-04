@@ -264,7 +264,7 @@ impl State {
 }
 
 impl InboundMessageHandler for State {
-    fn set(&mut self, entity: EntityKey, property: &str, value: &Decodable) -> Result<(), String> {
+    fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String> {
         let property = self.property(entity, property)?.clone();
         property.set_value(self, value)
     }

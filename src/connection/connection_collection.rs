@@ -15,7 +15,7 @@ pub trait OutboundMessageHandler {
 /// Processes requests from a client. Implemented by State in the engine and used by
 /// ConnectionCollection.
 pub trait InboundMessageHandler {
-    fn set(&mut self, entity: EntityKey, property: &str, value: &Decodable) -> Result<(), String>;
+    fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String>;
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String>;
     fn subscribe(
         &mut self,
@@ -282,7 +282,7 @@ mod tests {
             &mut self,
             entity: EntityKey,
             property: &str,
-            _value: &Decodable,
+            _value: &Decoded,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()

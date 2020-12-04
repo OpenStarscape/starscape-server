@@ -46,7 +46,7 @@ impl Conduit for Arc<CachingConduit> {
             .clone())
     }
 
-    fn set_value(&self, state: &mut State, value: &Decodable) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {
         // TODO: don't set if same as cache
         self.conduit.set_value(state, value)
     }
@@ -118,7 +118,7 @@ mod tests {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
+        fn set_value(&self, _state: &mut State, _value: &Decoded) -> Result<(), String> {
             panic!("unexpected call");
         }
 

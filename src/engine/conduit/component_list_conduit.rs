@@ -25,7 +25,7 @@ impl<T: 'static> Conduit for ComponentListConduit<T> {
         Ok(entities.into())
     }
 
-    fn set_value(&self, _state: &mut State, _value: &Decodable) -> Result<(), String> {
+    fn set_value(&self, _state: &mut State, _value: &Decoded) -> Result<(), String> {
         Err("read_only_property".into())
     }
 
