@@ -2,21 +2,9 @@
 
 use super::*;
 
-/// A value received from a client which can be decoded into a value. Prefer the accessor methods or
-/// simply .decode() rather than matching directly
-#[derive(Debug, PartialEq, Clone)]
-pub enum Decodable {
-    Scaler(f64),
-    Integer(i64),
-    List(Vec<Decodable>),
-    Null,
-}
-
-/// The context required for decoding a Decodable. The normal implementation is ObjectMapImpl.
-pub trait DecodeCtx: Send + Sync {
-    /// Returns the entity for the given object ID, or Err if it does not exist
-    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>>;
-}
+/// A value received from a client. Same type as Encodable, but different name used for clearity.
+/// Easiest way to use is to simply call .decode() in a context in which the type is implied.
+pub type Decodable = Encodable;
 
 pub trait DecodableAs<T> {
     fn decode(&self) -> Result<T, String>;
@@ -66,10 +54,7 @@ impl Decodable {
     }
 
     pub fn is_null(&self) -> bool {
-        match self {
-            Decodable::Null => true,
-            _ => false,
-        }
+        matches!(self, Decodable::Null)
     }
 }
 
@@ -132,6 +117,12 @@ impl DecodableAs<()> for Decodable {
     }
 }
 
+/// The context required for decoding a Decodable. The normal implementation is ObjectMapImpl.
+pub trait DecodeCtx: Send + Sync {
+    /// Returns the entity for the given object ID, or Err if it does not exist
+    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, Box<dyn Error>>;
+}
+
 /// Decodes a stream of bytes from the session into requests
 pub trait Decoder: Send {
     fn decode(
@@ -144,7 +135,7 @@ pub trait Decoder: Send {
 #[cfg(test)]
 mod json_tests {
     use super::*;
-    use Decodable::*;
+    use Encodable::*;
 
     fn assert_decodes_to<T>(decodable: &Decodable, expected: T)
     where
