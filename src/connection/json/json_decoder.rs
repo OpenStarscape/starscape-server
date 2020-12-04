@@ -251,6 +251,11 @@ mod decode_tests {
     }
 
     #[test]
+    fn scalar_even_when_decimal_is_zero() {
+        assert_decodes_to("784.0", Scalar(784.0));
+    }
+
+    #[test]
     fn null() {
         assert_decodes_to("null", Null);
     }
@@ -308,7 +313,10 @@ mod decode_tests {
         assert_results_in_error("[7.1]", "not an object ID");
     }
 
-    // TODO: test if floats they don't have a decimal component (7.0) are parsed as floats
+    #[test]
+    fn array_wrapped_scalar_is_error_even_when_decimal_is_zero() {
+        assert_results_in_error("[7.0]", "not an object ID");
+    }
 
     #[test]
     fn unknown_object_is_error() {
