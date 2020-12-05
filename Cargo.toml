@@ -1,5 +1,5 @@
 [package]
-name = "osp_server_rs"
+name = "starscape-server"
 version = "0.1.0"
 authors = ["William Wold <wm@wmww.sh>"]
 edition = "2018"
