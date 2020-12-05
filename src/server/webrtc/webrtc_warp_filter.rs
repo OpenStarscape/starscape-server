@@ -1,4 +1,19 @@
 use super::*;
+use warp::{http, reply::Reply};
+
+trait CustomUnwrapResponse {
+    fn or_internal_server_error(self) -> Box<dyn warp::Reply>;
+}
+
+impl<T: warp::Reply + 'static, E: Error> CustomUnwrapResponse for Result<T, E> {
+    fn or_internal_server_error(self) -> Box<dyn warp::Reply> {
+        self.map(|ok| -> Box<dyn warp::Reply> { Box::new(ok) })
+            .unwrap_or_else(|err| -> Box<dyn warp::Reply> {
+                warn!("failed to build WebRTC HTTP response: {}", err);
+                Box::new(http::status::StatusCode::INTERNAL_SERVER_ERROR.into_response())
+            })
+    }
+}
 
 /// Responds to an HTTP request, which is the first step in initializing a WebRTC connection. Type
 /// signature is figured out with help from https://github.com/seanmonstar/warp/issues/362.
@@ -9,26 +24,26 @@ async fn handle_http_request(
 ) -> Result<Box<dyn warp::Reply>, core::convert::Infallible> {
     // Requires futures::StreamExt to be in scope
     let stream = stream.map(|stream| stream.map(|mut buffer| buffer.to_bytes()));
-    match endpoint.http_session_request(stream).await {
-        Ok(mut resp) => {
+    match endpoint.session_request(stream).await {
+        Ok(body) => {
             // It would be nice to be able to send off a SessionBuilder here, but alas we do not
             // know the address the WebRTC packets will come from, so can not match this request
             // with future packets. Instead, the connection will be created when we get our first
             // packet.
-            resp.headers_mut().insert(
-                hyper::header::ACCESS_CONTROL_ALLOW_ORIGIN,
-                hyper::header::HeaderValue::from_static("*"),
-            );
-            Ok(Box::new(resp.map(hyper::Body::from)))
+            Ok(http::Response::builder()
+                .status(http::status::StatusCode::OK)
+                .header(http::header::CONTENT_TYPE, "application/json")
+                .header(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+                .body(body)
+                .or_internal_server_error())
         }
         Err(err) => {
             warn!("WebRTC request from {:?} got error response", remote_addr);
-            Ok(Box::new(
-                hyper::Response::builder()
-                    .status(hyper::StatusCode::BAD_REQUEST)
-                    .body(hyper::Body::from(format!("error: {}", err)))
-                    .expect("failed to build BAD_REQUEST response"),
-            ))
+            Ok(http::Response::builder()
+                .status(http::status::StatusCode::BAD_REQUEST)
+                .header(http::header::CONTENT_TYPE, "text/plain")
+                .body(format!("error: {}", err))
+                .or_internal_server_error())
         }
     }
 }
