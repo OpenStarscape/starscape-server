@@ -50,12 +50,9 @@ impl InboundDataHandler {
             }
             Err(e) => {
                 warn!(
-                    "can't decode inbound bundle: {}. closing connection {:?}",
+                    "can't decode inbound bundle: {} on {:?}",
                     e, self.connection_key
                 );
-                let _ = self
-                    .request_tx
-                    .send(Request::new(self.connection_key, RequestType::Close));
             }
         }
     }
