@@ -159,12 +159,12 @@ impl Decoder for JsonDecoder {
         &mut self,
         ctx: &dyn DecodeCtx,
         bytes: Vec<u8>,
-    ) -> Result<Vec<RequestType>, Box<dyn Error>> {
-        let mut requests = Vec::new();
+        callback: &dyn Fn(RequestType),
+    ) -> Result<(), Box<dyn Error>> {
         for datagram in self.splitter.data(bytes) {
-            requests.push(self.decode_datagram(ctx, &datagram)?);
+            callback(self.decode_datagram(ctx, &datagram)?);
         }
-        Ok(requests)
+        Ok(())
     }
 }
 
@@ -332,8 +332,9 @@ mod message_tests {
 
     fn assert_results_in_request(ctx: &dyn DecodeCtx, json: &str, request: RequestType) {
         let mut decoder = JsonDecoder::new();
-        let result = decoder
-            .decode(ctx, json.as_bytes().to_owned())
+        let mut result = Vec::new();
+        decoder
+            .decode(ctx, json.as_bytes().to_owned(), &|req| result.push(req))
             .expect("failed to decode");
         assert_eq!(result, vec![request]);
     }
@@ -341,8 +342,8 @@ mod message_tests {
     fn assert_results_in_error(json: &str, msg: &str) {
         let mut decoder = JsonDecoder::new();
         let ctx = MockDecodeCtx::new(12);
-        match decoder.decode(&ctx, json.as_bytes().to_owned()) {
-            Ok(output) => panic!("should have errored, instead gave: {:?}", output),
+        match decoder.decode(&ctx, json.as_bytes().to_owned(), &|_| ()) {
+            Ok(output) => panic!("did not error"),
             Err(e) if !format!("{}", e).contains(msg) => {
                 panic!("{:?} does not contain {:?}", e, msg)
             }
@@ -431,11 +432,9 @@ mod message_tests {
         let mut result = Vec::new();
         let e = MockDecodeCtx::new(12);
         for json in json {
-            result.extend(
-                decoder
-                    .decode(&e, json.as_bytes().to_owned())
-                    .expect("failed to decode"),
-            );
+            decoder
+                .decode(&e, json.as_bytes().to_owned(), &|req| result.push(req))
+                .expect("failed to decode")
         }
         assert_eq!(
             result,
@@ -467,8 +466,9 @@ mod message_tests {
 			}\n";
         let mut decoder = JsonDecoder::new();
         let e = MockDecodeCtx::new(12);
-        let result = decoder
-            .decode(&e, json.as_bytes().to_owned())
+        let mut result = Vec::new();
+        decoder
+            .decode(&e, json.as_bytes().to_owned(), &|req| result.push(req))
             .expect("failed to decode");
         assert_eq!(
             result,
@@ -505,11 +505,9 @@ mod message_tests {
         let mut result = Vec::new();
         let e = MockDecodeCtx::new(12);
         for json in json {
-            result.extend(
-                decoder
-                    .decode(&e, json.as_bytes().to_owned())
-                    .expect("failed to decode"),
-            );
+            decoder
+                .decode(&e, json.as_bytes().to_owned(), &|req| result.push(req))
+                .expect("failed to decode");
         }
         assert_eq!(
             result,

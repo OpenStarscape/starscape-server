@@ -40,5 +40,6 @@ pub trait Decoder: Send {
         &mut self,
         ctx: &dyn DecodeCtx,
         bytes: Vec<u8>,
-    ) -> Result<Vec<RequestType>, Box<dyn Error>>;
+        callback: &dyn Fn(RequestType),
+    ) -> Result<(), Box<dyn Error>>;
 }

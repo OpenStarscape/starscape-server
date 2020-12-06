@@ -175,6 +175,8 @@ impl ConnectionCollection {
             }
             PropertyRequest::Subscribe => {
                 handler.subscribe(entity, property, connection)?;
+                self.pending_get_requests
+                    .insert((connection, entity, property.into()));
             }
             PropertyRequest::Unsubscribe => {
                 handler.unsubscribe(entity, property, connection)?;

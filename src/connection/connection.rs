@@ -34,29 +34,24 @@ struct InboundDataHandler {
 
 impl InboundDataHandler {
     pub fn handle_data(&mut self, data: &[u8]) {
-        match self
+        if let Err(e) = self
             .decoder
-            .decode(self.decode_ctx.as_ref(), data.to_owned())
-        {
-            Ok(requests) => {
-                requests.into_iter().for_each(|request| {
-                    if let Err(e) = self
-                        .request_tx
-                        .send(Request::new(self.connection_key, request))
-                    {
-                        warn!("Failed to handle data for {:?}: {}", self.connection_key, e);
-                    }
-                });
-            }
-            Err(e) => {
-                warn!(
-                    "can't decode inbound bundle: {}. closing connection {:?}",
-                    e, self.connection_key
-                );
-                let _ = self
+            .decode(self.decode_ctx.as_ref(), data.to_owned(), &|request| {
+                if let Err(e) = self
                     .request_tx
-                    .send(Request::new(self.connection_key, RequestType::Close));
-            }
+                    .send(Request::new(self.connection_key, request))
+                {
+                    warn!("Failed to handle data for {:?}: {}", self.connection_key, e);
+                }
+            })
+        {
+            warn!(
+                "can't decode inbound bundle: {}. closing connection {:?}",
+                e, self.connection_key
+            );
+            let _ = self
+                .request_tx
+                .send(Request::new(self.connection_key, RequestType::Close));
         }
     }
 }
