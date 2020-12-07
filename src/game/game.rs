@@ -1,7 +1,7 @@
 use super::*;
 use std::{thread::sleep, time::Duration};
 
-const STEPS_PER_SEC: u64 = 15;
+const STEPS_PER_SEC: u64 = 30;
 
 pub struct Game {
     should_quit: bool,
@@ -44,9 +44,9 @@ impl Game {
         let moon = game.state.create_entity();
         Body::new()
             .with_position(Point3::new(60_000.0, 0.0, 0.0))
-            .with_velocity(Vector3::new(0.0, 10_000.0, 0.0))
+            .with_velocity(Vector3::new(0.0, 0.0, 10_000.0))
             .with_sphere_shape(2_000.0)
-            .with_mass(1.0e+13)
+            .with_mass(1.0e+14)
             .install(&mut game.state, moon);
         Ok(game)
     }

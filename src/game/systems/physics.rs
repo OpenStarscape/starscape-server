@@ -97,6 +97,7 @@ pub fn apply_motion(state: &mut State, dt: f64) {
     for (_, body) in iter {
         body.position
             .set(notifs, *body.position + dt * *body.velocity);
+        //info!("position: {:?}", *body.position);
     }
 }
 
