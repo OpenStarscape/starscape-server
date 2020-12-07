@@ -1,7 +1,7 @@
 use super::*;
 use std::{thread::sleep, time::Duration};
 
-const STEPS_PER_SEC: u64 = 30;
+const STEPS_PER_SEC: u64 = 15;
 
 pub struct Game {
     should_quit: bool,
@@ -25,14 +25,31 @@ impl Game {
             connections,
             _server: server,
         };
-        let _ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
-        create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
+        let _ship_a = create_ship(
+            &mut game.state,
+            Point3::new(100_000.0, 0.0, 0.0),
+            Vector3::new(0.0, 0.0, 5_000.0),
+        );
+        let _ship_b = create_ship(
+            &mut game.state,
+            Point3::new(0.0, 0.0, 60_000.0),
+            Vector3::new(10_000.0, 1_000.0, 4_000.0),
+        );
+        let sun = game.state.create_entity();
+        game.state.install_component(
+            sun,
+            Body::new()
+                .with_position(Point3::origin())
+                .with_mass(1.0e+15),
+        );
+        game.state.install_component(sun, GravityBody());
         let planet = game.state.create_entity();
         game.state.install_component(
             planet,
             Body::new()
-                .with_position(Point3::origin())
-                .with_mass(1.0e+18),
+                .with_position(Point3::new(60_000.0, 0.0, 0.0))
+                .with_velocity(Vector3::new(0.0, 0.0, -12_000.0))
+                .with_mass(1.0e+15), //.with_mass(1.0e+18),
         );
         game.state.install_component(planet, GravityBody());
         Ok(game)
