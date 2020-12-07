@@ -35,23 +35,19 @@ impl Game {
             Point3::new(0.0, 0.0, 60_000.0),
             Vector3::new(10_000.0, 1_000.0, 4_000.0),
         );
-        let sun = game.state.create_entity();
-        game.state.install_component(
-            sun,
-            Body::new()
-                .with_position(Point3::origin())
-                .with_mass(1.0e+15),
-        );
-        game.state.install_component(sun, GravityBody());
         let planet = game.state.create_entity();
-        game.state.install_component(
-            planet,
-            Body::new()
-                .with_position(Point3::new(60_000.0, 0.0, 0.0))
-                .with_velocity(Vector3::new(0.0, 0.0, -12_000.0))
-                .with_mass(1.0e+15), //.with_mass(1.0e+18),
-        );
-        game.state.install_component(planet, GravityBody());
+        Body::new()
+            .with_position(Point3::origin())
+            .with_sphere_shape(6_000.0)
+            .with_mass(1.0e+15)
+            .install(&mut game.state, planet);
+        let moon = game.state.create_entity();
+        Body::new()
+            .with_position(Point3::new(60_000.0, 0.0, 0.0))
+            .with_velocity(Vector3::new(0.0, 10_000.0, 0.0))
+            .with_sphere_shape(2_000.0)
+            .with_mass(1.0e+13)
+            .install(&mut game.state, moon);
         Ok(game)
     }
 
