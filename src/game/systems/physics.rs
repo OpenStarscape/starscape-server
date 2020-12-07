@@ -111,7 +111,7 @@ mod gravity_tests {
         let entity = state.create_entity();
         state.install_component(entity, body);
         if gravity {
-            state.install_component(entity, GravityBody());
+            state.install_component(entity, GravityBody);
         }
         entity
     }
