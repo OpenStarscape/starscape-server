@@ -19,10 +19,18 @@ pub trait Connection {
     ) -> Result<(), Box<dyn Error>>;
     /// Inform a client that an entity no longer exists on the server.
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
+    /// Process a request from the client
+    fn handle_request(
+        &mut self,
+        handler: &mut dyn InboundMessageHandler,
+        entity: &EntityKey,
+        property: &str,
+        action: &PropertyRequest,
+    );
     /// Called at the end of each network tick to send any pending bundles
-    fn flush(&self);
+    fn flush(&mut self, handler: &mut dyn InboundMessageHandler);
     /// Called just after connection is removed from the connection map before it is dropped
-    fn finalize(&self, handler: &mut dyn InboundMessageHandler);
+    fn finalize(&mut self, handler: &mut dyn InboundMessageHandler);
 }
 
 /// Receives data from the session layer (on the session's thread), decodes it into requests and
@@ -70,9 +78,11 @@ impl InboundBundleHandler for ConnectionInboundHandler {
 }
 
 pub struct ConnectionImpl {
+    self_key: ConnectionKey,
     encoder: Box<dyn Encoder>,
     obj_map: Arc<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
+    pending_get_requests: HashSet<(EntityKey, String)>,
 }
 
 impl ConnectionImpl {
@@ -101,9 +111,11 @@ impl ConnectionImpl {
         };
         let session = session_builder.build(Box::new(handler))?;
         Ok(Self {
+            self_key,
             encoder,
             obj_map,
             session: Mutex::new(session),
+            pending_get_requests: HashSet::new(),
         })
     }
 
@@ -144,12 +156,10 @@ impl Connection for ConnectionImpl {
         value: &Encodable,
         is_update: bool,
     ) -> Result<(), Box<dyn Error>> {
-        let object = self.obj_map.get_object(entity).ok_or_else(|| {
-            format!(
-                "property_changed() with entity {:?} not in object map",
-                entity
-            )
-        })?;
+        let object = self
+            .obj_map
+            .get_object(entity)
+            .ok_or_else(|| format!("{:?} not in object map", entity))?;
         let buffer = if is_update {
             self.encoder.encode_property_update(
                 object,
@@ -174,9 +184,47 @@ impl Connection for ConnectionImpl {
         // TODO: tell client object was destroyed
     }
 
-    fn flush(&self) {}
+    fn handle_request(
+        &mut self,
+        handler: &mut dyn InboundMessageHandler,
+        entity: &EntityKey,
+        property: &str,
+        action: &PropertyRequest,
+    ) {
+        if let Err(e) = match action {
+            PropertyRequest::Set(value) => handler.set(*entity, property, &value),
+            PropertyRequest::Get => {
+                // it doesn't matter if it's already there or not, it's not an error to make two
+                // get requests but it will only result in one response.
+                self.pending_get_requests.insert((*entity, property.into()));
+                Ok(())
+            }
+            PropertyRequest::Subscribe => handler.subscribe(*entity, property, self.self_key),
+            PropertyRequest::Unsubscribe => handler.unsubscribe(*entity, property, self.self_key),
+        } {
+            warn!(
+                "failed to process {:?} on {:?}.{}: {}",
+                action, entity, property, e
+            );
+        }
+    }
 
-    fn finalize(&self, _handler: &mut dyn InboundMessageHandler) {}
+    fn flush(&mut self, handler: &mut dyn InboundMessageHandler) {
+        let pending_get_requests =
+            std::mem::replace(&mut self.pending_get_requests, HashSet::new());
+        for (entity, property) in pending_get_requests.iter() {
+            match handler.get(*entity, property) {
+                Ok(value) => {
+                    if let Err(e) = self.property_value(*entity, property, &value, false) {
+                        warn!("failed to get {:?}.{}: {}", entity, property, e);
+                    }
+                }
+                Err(e) => warn!("failed to sand value on {:?}: {}", self.self_key, e),
+            }
+        }
+    }
+
+    fn finalize(&mut self, _handler: &mut dyn InboundMessageHandler) {}
 }
 
 #[cfg(test)]
@@ -280,14 +328,17 @@ mod tests {
 
     impl Test {
         fn new() -> Self {
+            use slotmap::Key;
             let encoder = MockEncoder::new();
             let entities = mock_keys(1);
             let entity = entities[0];
             let obj_id = 1;
             let conn = ConnectionImpl {
+                self_key: ConnectionKey::null(),
                 encoder: Box::new(encoder.clone()),
                 obj_map: Arc::new(MockObjectMap(entity, obj_id)),
                 session: Mutex::new(Box::new(MockSession)),
+                pending_get_requests: HashSet::new(),
             };
             Self {
                 encoder,
