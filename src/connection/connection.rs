@@ -83,6 +83,7 @@ pub struct ConnectionImpl {
     obj_map: Arc<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
     pending_get_requests: HashSet<(EntityKey, String)>,
+    subscriptions: HashSet<(EntityKey, String)>,
 }
 
 impl ConnectionImpl {
@@ -116,6 +117,7 @@ impl ConnectionImpl {
             obj_map,
             session: Mutex::new(session),
             pending_get_requests: HashSet::new(),
+            subscriptions: HashSet::new(),
         })
     }
 
@@ -199,8 +201,30 @@ impl Connection for ConnectionImpl {
                 self.pending_get_requests.insert((*entity, property.into()));
                 Ok(())
             }
-            PropertyRequest::Subscribe => handler.subscribe(*entity, property, self.self_key),
-            PropertyRequest::Unsubscribe => handler.unsubscribe(*entity, property, self.self_key),
+            PropertyRequest::Subscribe => {
+                let key = (*entity, property.to_string());
+                if self.subscriptions.contains(&key) {
+                    Err("tried to subscribe multiple times".into())
+                } else {
+                    handler
+                        .subscribe(*entity, property, self.self_key)
+                        .map(|()| {
+                            self.subscriptions.insert(key);
+                        })
+                }
+            }
+            PropertyRequest::Unsubscribe => {
+                let key = (*entity, property.to_string());
+                if self.subscriptions.contains(&key) {
+                    handler
+                        .unsubscribe(*entity, property, self.self_key)
+                        .map(|()| {
+                            self.subscriptions.remove(&key);
+                        })
+                } else {
+                    Err("tried to unsubscribe when not subscribed".into())
+                }
+            }
         } {
             warn!(
                 "failed to process {:?} on {:?}.{}: {}",
@@ -224,7 +248,16 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn finalize(&mut self, _handler: &mut dyn InboundMessageHandler) {}
+    fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
+        for (entity, prop) in self.subscriptions.drain() {
+            if let Err(e) = handler.unsubscribe(entity, &prop, self.self_key) {
+                warn!(
+                    "failed to unsubscribe from {:?}.{} during finalization of {:?}: {}",
+                    entity, prop, self.self_key, e
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -339,6 +372,7 @@ mod tests {
                 obj_map: Arc::new(MockObjectMap(entity, obj_id)),
                 session: Mutex::new(Box::new(MockSession)),
                 pending_get_requests: HashSet::new(),
+                subscriptions: HashSet::new(),
             };
             Self {
                 encoder,
