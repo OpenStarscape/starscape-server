@@ -44,7 +44,7 @@ impl InboundBundleHandler for ConnectionInboundHandler {
                         .request_tx
                         .send(Request::new(self.connection_key, request))
                     {
-                        warn!("Failed to handle data for {:?}: {}", self.connection_key, e);
+                        warn!("failed to handle data for {:?}: {}", self.connection_key, e);
                     }
                 });
             }
@@ -54,6 +54,15 @@ impl InboundBundleHandler for ConnectionInboundHandler {
                     e, self.connection_key
                 );
             }
+        }
+    }
+
+    fn close(&mut self) {
+        if let Err(e) = self
+            .request_tx
+            .send(Request::new(self.connection_key, RequestType::Close))
+        {
+            warn!("failed to close {:?}: {}", self.connection_key, e);
         }
     }
 }

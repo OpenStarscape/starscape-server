@@ -104,6 +104,18 @@ impl Body {
         );
         state.install_property(
             entity,
+            "velocity",
+            Box::new(ElementConduit::new(
+                move |state: &State| Ok(&state.component::<Body>(entity)?.velocity),
+                move |state: &mut State, value: &Decoded| {
+                    let (notifs, body) = state.component_mut::<Body>(entity)?;
+                    body.velocity.set(notifs, value.try_get()?);
+                    Ok(())
+                },
+            )),
+        );
+        state.install_property(
+            entity,
             "mass",
             Box::new(ElementConduit::new(
                 move |state: &State| Ok(&state.component::<Body>(entity)?.mass),

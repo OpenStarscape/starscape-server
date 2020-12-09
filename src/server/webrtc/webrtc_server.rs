@@ -51,7 +51,8 @@ async fn run_server(
                             .send(&bundle, webrtc_unreliable::MessageType::Text, &addr)
                             .await
                         {
-                            warn!("could not send message to {}: {}", addr, err);
+                            warn!("could not send message to {}, closing session: {}", addr, err);
+                            dispatcher.close_session(&addr);
                         }
                         // If there are multiple outbound messages queued up, processing them now
                         // without letting go of the server lock is more efficient than starting
