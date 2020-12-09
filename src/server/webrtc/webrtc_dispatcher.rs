@@ -60,6 +60,15 @@ impl DispatchTarget {
     }
 }
 
+impl Drop for DispatchTarget {
+    fn drop(&mut self) {
+        if let Self::Handler(handler) = self {
+            handler.close();
+        }
+        // if we're a self::Buffer we will fail to build the connection if we try to (which is fine)
+    }
+}
+
 struct DispatcherInner {
     session_map: HashMap<SocketAddr, DispatchTarget>,
     new_session_tx: Sender<Box<dyn SessionBuilder>>,
@@ -119,6 +128,16 @@ impl WebrtcDispatcher {
             Err(e) => error!("failed to lock WebRTC dispatcher: {}", e),
         }
     }
+
+    pub fn close_session(&self, addr: &SocketAddr) {
+        match self.lock() {
+            Ok(mut locked) => match locked.session_map.remove(addr) {
+                Some(_) => (),
+                None => error!("failed to close unknown WebRTC session {}", addr),
+            },
+            Err(e) => error!("failed to lock WebRTC dispatcher: {}", e),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -152,6 +171,12 @@ mod tests {
                 .lock()
                 .expect("failed to lock handler mutex")
                 .push(Handled::Data(data.to_vec()));
+        }
+        fn close(&mut self) {
+            self.0
+                .lock()
+                .expect("failed to lock handler mutex")
+                .push(Handled::Close);
         }
     }
 
@@ -294,5 +319,21 @@ mod tests {
             .expect("failed to receive bundle");
         assert_eq!(addr, test_addr(1));
         assert_eq!(bundle, test_data(2));
+    }
+
+    #[test]
+    fn can_be_closed() {
+        let (new_session, _, dispatcher) = new_test();
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
+        let builder = new_session
+            .recv_timeout(Duration::from_secs(1))
+            .expect("no session builder");
+        let inbound = MockHandler::new();
+        let _ = builder.build(Box::new(inbound.clone()));
+        dispatcher.close_session(&test_addr(1));
+        assert_eq!(
+            *inbound.0.lock().expect("failed to lock mutex"),
+            vec![Handled::Data(test_data(1)), Handled::Close]
+        );
     }
 }

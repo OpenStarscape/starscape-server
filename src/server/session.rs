@@ -4,6 +4,7 @@ use std::fmt::Debug;
 
 pub trait InboundBundleHandler: Send {
     fn handle(&mut self, data: &[u8]);
+    fn close(&mut self);
 }
 
 /// A client that is trying to connect
