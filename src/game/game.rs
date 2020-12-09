@@ -77,3 +77,9 @@ impl Game {
         !self.should_quit
     }
 }
+
+impl Drop for Game {
+    fn drop(&mut self) {
+        self.connections.finalize(&mut self.state);
+    }
+}
