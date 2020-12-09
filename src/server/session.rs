@@ -2,7 +2,9 @@ use super::*;
 
 use std::fmt::Debug;
 
-pub type InboundBundleHandler = Box<dyn FnMut(&[u8]) + Send>;
+pub trait InboundBundleHandler: Send {
+    fn handle(&mut self, data: &[u8]);
+}
 
 /// A client that is trying to connect
 pub trait SessionBuilder: Send + Debug {
@@ -10,7 +12,7 @@ pub trait SessionBuilder: Send + Debug {
     /// have already arrived, plus all future packets.
     fn build(
         self: Box<Self>,
-        handle_bundle: InboundBundleHandler,
+        handler: Box<dyn InboundBundleHandler>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>>;
 }
 

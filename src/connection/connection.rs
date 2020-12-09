@@ -25,15 +25,15 @@ pub trait Connection {
 
 /// Receives data from the session layer (on the session's thread), decodes it into requests and
 /// sends those off to be processed by the session on the main thead.
-struct InboundDataHandler {
+struct ConnectionInboundHandler {
     connection_key: ConnectionKey,
     decoder: Box<dyn Decoder>,
     decode_ctx: Arc<dyn DecodeCtx>,
     request_tx: Sender<Request>,
 }
 
-impl InboundDataHandler {
-    pub fn handle_data(&mut self, data: &[u8]) {
+impl InboundBundleHandler for ConnectionInboundHandler {
+    fn handle(&mut self, data: &[u8]) {
         match self
             .decoder
             .decode(self.decode_ctx.as_ref(), data.to_owned())
@@ -82,13 +82,13 @@ impl ConnectionImpl {
                 self_key, root_obj_id
             );
         }
-        let mut handler = InboundDataHandler {
+        let handler = ConnectionInboundHandler {
             connection_key: self_key,
             decoder,
             decode_ctx: obj_map.clone(),
             request_tx,
         };
-        let session = session_builder.build(Box::new(move |data| handler.handle_data(data)))?;
+        let session = session_builder.build(Box::new(handler))?;
         Ok(Self {
             encoder,
             obj_map,

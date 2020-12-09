@@ -243,7 +243,7 @@ mod tests {
     impl SessionBuilder for MockSessionBuilder {
         fn build(
             self: Box<Self>,
-            _handle_incoming_data: Box<dyn FnMut(&[u8]) + Send>,
+            _handler: Box<dyn InboundBundleHandler>,
         ) -> Result<Box<dyn Session>, Box<dyn Error>> {
             if self.0 {
                 Ok(Box::new(MockSession))
