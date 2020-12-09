@@ -98,16 +98,16 @@ impl WebrtcDispatcher {
             .set_handler(handler)
     }
 
-    pub fn dispatch_inbound(&self, addr: SocketAddr, data: &[u8]) {
+    pub fn dispatch_inbound(&self, addr: &SocketAddr, data: &[u8]) {
         match self.lock() {
-            Ok(mut locked) => match locked.session_map.get_mut(&addr) {
+            Ok(mut locked) => match locked.session_map.get_mut(addr) {
                 Some(target) => target.dispatch(data),
                 None => {
                     let mut target = DispatchTarget::new();
                     target.dispatch(data);
-                    locked.session_map.insert(addr, target);
+                    locked.session_map.insert(*addr, target);
                     let session =
-                        WebrtcSession::new(self.clone(), addr, locked.outbound_tx.clone());
+                        WebrtcSession::new(self.clone(), *addr, locked.outbound_tx.clone());
                     if let Err(e) = locked.new_session_tx.send(Box::new(session)) {
                         error!("failed to send WebRTC session builder: {}", e);
                     }
@@ -146,7 +146,7 @@ mod tests {
     #[test]
     fn creates_session_on_new_address() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -158,8 +158,8 @@ mod tests {
     #[test]
     fn creates_multiple_sessions_for_multiple_addresses() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
-        dispatcher.dispatch_inbound(test_addr(2), &test_data(2));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(2), &test_data(2));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -169,7 +169,7 @@ mod tests {
         builder
             .build(Box::new(|_| ()))
             .expect("failed to build session");
-        dispatcher.dispatch_inbound(test_addr(3), &test_data(3));
+        dispatcher.dispatch_inbound(&test_addr(3), &test_data(3));
         let _ = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -178,7 +178,7 @@ mod tests {
     #[test]
     fn dispatches_initial_packet_given_before_session_created() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -201,9 +201,9 @@ mod tests {
     #[test]
     fn dispatches_multiple_packets_before_session_created() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(2));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(3));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(2));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(3));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -228,7 +228,7 @@ mod tests {
         let (new_session, _, dispatcher) = new_test();
         let count = 105;
         for i in 0..count {
-            dispatcher.dispatch_inbound(test_addr(1), &test_data(i));
+            dispatcher.dispatch_inbound(&test_addr(1), &test_data(i));
         }
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
@@ -247,7 +247,7 @@ mod tests {
     #[test]
     fn dispatches_data_after_session_created() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -261,8 +261,8 @@ mod tests {
                     .push(data.to_vec())
             }
         }));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(2));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(3));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(2));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(3));
         assert_eq!(
             *inbound.lock().expect("failed to lock mutex"),
             vec![test_data(1), test_data(2), test_data(3)]
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn created_session_can_send_bundle() {
         let (new_session, mut outbound_rx, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
