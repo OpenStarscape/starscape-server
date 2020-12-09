@@ -135,6 +135,9 @@ impl ConnectionCollection {
             fn flush(&self) {
                 error!("flush() called on StubConnection");
             }
+            fn finalize(&self, _: &mut dyn InboundMessageHandler) {
+                error!("finalize() called on StubConnection");
+            }
         }
 
         let mut failed_to_build = false;
@@ -194,8 +197,9 @@ impl ConnectionCollection {
             }
             RequestType::Close => {
                 info!("closing connection {:?}", request.connection);
-                if self.connections.remove(request.connection).is_none() {
-                    error!("invalid connection closed: {:?}", request.connection);
+                match self.connections.remove(request.connection) {
+                    Some(connection) => connection.finalize(handler),
+                    None => error!("invalid connection closed: {:?}", request.connection),
                 }
             }
         };
@@ -267,6 +271,7 @@ mod tests {
         }
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
         fn flush(&self) {}
+        fn finalize(&self, _: &mut dyn InboundMessageHandler) {}
     }
 
     struct MockInboundHandler(RefCell<Vec<(String, EntityKey, String)>>);
@@ -376,4 +381,6 @@ mod tests {
             ]
         );
     }
+
+    // TODO: test connections are finalized
 }

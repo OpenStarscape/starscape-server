@@ -21,6 +21,8 @@ pub trait Connection {
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
     /// Called at the end of each network tick to send any pending bundles
     fn flush(&self);
+    /// Called just after connection is removed from the connection map before it is dropped
+    fn finalize(&self, handler: &mut dyn InboundMessageHandler);
 }
 
 /// Receives data from the session layer (on the session's thread), decodes it into requests and
@@ -173,6 +175,8 @@ impl Connection for ConnectionImpl {
     }
 
     fn flush(&self) {}
+
+    fn finalize(&self, _handler: &mut dyn InboundMessageHandler) {}
 }
 
 #[cfg(test)]
