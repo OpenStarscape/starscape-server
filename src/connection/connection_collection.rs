@@ -36,7 +36,6 @@ pub trait InboundMessageHandler {
 pub struct ConnectionCollection {
     root_entity: EntityKey,
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
-    pending_get_requests: HashSet<(ConnectionKey, EntityKey, String)>,
     new_session_tx: Sender<Box<dyn SessionBuilder>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<Request>,
@@ -50,7 +49,6 @@ impl ConnectionCollection {
         Self {
             root_entity,
             connections: DenseSlotMap::with_key(),
-            pending_get_requests: HashSet::new(),
             new_session_tx,
             new_session_rx,
             request_tx,
@@ -79,36 +77,9 @@ impl ConnectionCollection {
 
     /// Called after game state has been fully updated before waiting for the next tick
     pub fn flush_outbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
-        let get_requests: Vec<(ConnectionKey, EntityKey, String)> =
-            self.pending_get_requests.drain().collect();
-        for (connection, entity, property) in get_requests {
-            if let Err(e) = self.respond_to_get_request(connection, entity, &property, handler) {
-                warn!(
-                    "failed to process {:?}.{} get for {:?}: {}",
-                    entity, property, connection, e
-                );
-                // TODO: implement sending errors to client
-            }
+        for (_, connection) in self.connections.iter_mut() {
+            connection.flush(handler);
         }
-        for (_, connection) in self.connections.iter() {
-            connection.flush();
-        }
-    }
-
-    fn respond_to_get_request(
-        &self,
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        handler: &dyn InboundMessageHandler,
-    ) -> Result<(), Box<dyn Error>> {
-        let value = handler.get(entity, property)?;
-        let connection = self
-            .connections
-            .get(connection)
-            .ok_or(format!("{:?} does not exist", connection))?;
-        connection.property_value(entity, property, &value, false)?;
-        Ok(())
     }
 
     fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
@@ -132,10 +103,19 @@ impl ConnectionCollection {
             fn entity_destroyed(&self, _: &State, _: EntityKey) {
                 error!("entity_destroyed() called on StubConnection");
             }
-            fn flush(&self) {
+            fn handle_request(
+                &mut self,
+                _: &mut dyn InboundMessageHandler,
+                _: &EntityKey,
+                _: &str,
+                _: &PropertyRequest,
+            ) {
+                error!("handle_request() called on StubConnection");
+            }
+            fn flush(&mut self, _: &mut dyn InboundMessageHandler) {
                 error!("flush() called on StubConnection");
             }
-            fn finalize(&self, _: &mut dyn InboundMessageHandler) {
+            fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
                 error!("finalize() called on StubConnection");
             }
         }
@@ -158,47 +138,21 @@ impl ConnectionCollection {
         }
     }
 
-    fn property_request(
-        &mut self,
-        handler: &mut dyn InboundMessageHandler,
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        action: PropertyRequest,
-    ) -> Result<(), String> {
-        match action {
-            PropertyRequest::Set(value) => {
-                handler.set(entity, property, &value)?;
-            }
-            PropertyRequest::Get => {
-                // it doesn't matter if it's already there or not, it's not an error to make two
-                // get requests but it will only result in one response.
-                self.pending_get_requests
-                    .insert((connection, entity, property.into()));
-            }
-            PropertyRequest::Subscribe => {
-                handler.subscribe(entity, property, connection)?;
-            }
-            PropertyRequest::Unsubscribe => {
-                handler.unsubscribe(entity, property, connection)?;
-            }
-        };
-        Ok(())
-    }
-
     fn request(&mut self, handler: &mut dyn InboundMessageHandler, request: Request) {
         match request.request {
             RequestType::Property((entity, prop), action) => {
-                if let Err(e) =
-                    self.property_request(handler, request.connection, entity, &prop, action)
-                {
-                    warn!("error processing request: {:?}", e);
+                match self.connections.get_mut(request.connection) {
+                    Some(connection) => connection.handle_request(handler, &entity, &prop, &action),
+                    None => warn!(
+                        "request {:?} {:?}.{} on dead connection {:?}",
+                        action, entity, prop, request.connection
+                    ),
                 }
             }
             RequestType::Close => {
                 info!("closing connection {:?}", request.connection);
                 match self.connections.remove(request.connection) {
-                    Some(connection) => connection.finalize(handler),
+                    Some(mut connection) => connection.finalize(handler),
                     None => error!("invalid connection closed: {:?}", request.connection),
                 }
             }
@@ -270,8 +224,16 @@ mod tests {
             Ok(())
         }
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
-        fn flush(&self) {}
-        fn finalize(&self, _: &mut dyn InboundMessageHandler) {}
+        fn handle_request(
+            &mut self,
+            _: &mut dyn InboundMessageHandler,
+            _: &EntityKey,
+            _: &str,
+            _: &PropertyRequest,
+        ) {
+        }
+        fn flush(&mut self, _: &mut dyn InboundMessageHandler) {}
+        fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {}
     }
 
     struct MockInboundHandler(RefCell<Vec<(String, EntityKey, String)>>);
@@ -352,6 +314,7 @@ mod tests {
         assert_eq!(cc.connections.len(), 0);
     }
 
+    /*
     #[test]
     fn sends_requests_to_handler() {
         let e = mock_keys(1);
@@ -381,6 +344,7 @@ mod tests {
             ]
         );
     }
+    */
 
     // TODO: test connections are finalized
 }
