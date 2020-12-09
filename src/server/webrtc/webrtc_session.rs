@@ -24,7 +24,7 @@ impl WebrtcSession {
 impl SessionBuilder for WebrtcSession {
     fn build(
         self: Box<Self>,
-        handler: InboundBundleHandler,
+        handler: Box<dyn InboundBundleHandler>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
         self.dispatcher.set_inbound_handler(&self.addr, handler)?;
         // This will send a packet 1 byte longer than Chromium's limit:
