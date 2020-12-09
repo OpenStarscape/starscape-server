@@ -158,6 +158,12 @@ impl ConnectionCollection {
             }
         };
     }
+
+    pub fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
+        for (_, mut connection) in self.connections.drain() {
+            connection.finalize(handler);
+        }
+    }
 }
 
 impl OutboundMessageHandler for ConnectionCollection {
