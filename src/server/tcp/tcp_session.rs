@@ -4,7 +4,7 @@ use std::io::{ErrorKind::WouldBlock, Read, Write};
 
 fn try_to_read_data(
     stream: &mut TcpStream,
-    handle_incoming_data: &mut dyn FnMut(&[u8]),
+    handler: &mut dyn InboundBundleHandler,
 ) -> Result<(), Box<dyn Error>> {
     let mut buffer = [0 as u8; 1024];
     loop {
@@ -14,7 +14,7 @@ fn try_to_read_data(
                 return Err("connection closed".into());
             }
             Ok(len) => {
-                handle_incoming_data(&buffer[0..len]);
+                handler.handle(&buffer[0..len]);
                 // Keep looping until we get a WouldBlock or other error…
             }
             Err(ref e) if e.kind() == WouldBlock => return Ok(()),
@@ -37,10 +37,10 @@ impl TcpSessionBuilder {
 impl SessionBuilder for TcpSessionBuilder {
     fn build(
         self: Box<Self>,
-        mut handle_packet: InboundBundleHandler,
+        mut handler: Box<dyn InboundBundleHandler>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
         let thread = new_mio_poll_thread(self.stream.try_clone()?, move |listener| {
-            try_to_read_data(listener, &mut *handle_packet)
+            try_to_read_data(listener, &mut *handler)
         })?;
         Ok(Box::new(TcpSession {
             stream: self.stream,

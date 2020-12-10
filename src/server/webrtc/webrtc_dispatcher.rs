@@ -10,7 +10,7 @@ enum DispatchTarget {
     /// is the number of packets.
     OverflowedBuffer(usize),
     /// This is used after a real connection has been set up
-    Handler(InboundBundleHandler),
+    Handler(Box<dyn InboundBundleHandler>),
 }
 
 impl DispatchTarget {
@@ -31,18 +31,21 @@ impl DispatchTarget {
                 }
             }
             Self::OverflowedBuffer(count) => *count += 1,
-            Self::Handler(handler) => handler(data),
+            Self::Handler(handler) => handler.handle(data),
         }
     }
 
     /// This *should* only be called once when the session is built and given a handler. It sends
     /// all buffered data to the handler before returning. Returns Err if called multiple times or
     /// the buffer overflowed
-    fn set_handler(&mut self, mut handler: InboundBundleHandler) -> Result<(), Box<dyn Error>> {
+    fn set_handler(
+        &mut self,
+        mut handler: Box<dyn InboundBundleHandler>,
+    ) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Buffer(bundles) => {
                 for bundle in bundles {
-                    handler(bundle);
+                    handler.handle(bundle);
                 }
                 *self = Self::Handler(handler);
                 Ok(())
@@ -54,6 +57,15 @@ impl DispatchTarget {
             .into()),
             Self::Handler(_) => Err("handler dispatch target set multiple times".into()),
         }
+    }
+}
+
+impl Drop for DispatchTarget {
+    fn drop(&mut self) {
+        if let Self::Handler(handler) = self {
+            handler.close();
+        }
+        // if we're a self::Buffer we will fail to build the connection if we try to (which is fine)
     }
 }
 
@@ -88,7 +100,7 @@ impl WebrtcDispatcher {
     pub fn set_inbound_handler(
         &self,
         addr: &SocketAddr,
-        handler: InboundBundleHandler,
+        handler: Box<dyn InboundBundleHandler>,
     ) -> Result<(), Box<dyn Error>> {
         let mut locked = self.lock()?;
         locked
@@ -98,20 +110,30 @@ impl WebrtcDispatcher {
             .set_handler(handler)
     }
 
-    pub fn dispatch_inbound(&self, addr: SocketAddr, data: &[u8]) {
+    pub fn dispatch_inbound(&self, addr: &SocketAddr, data: &[u8]) {
         match self.lock() {
-            Ok(mut locked) => match locked.session_map.get_mut(&addr) {
+            Ok(mut locked) => match locked.session_map.get_mut(addr) {
                 Some(target) => target.dispatch(data),
                 None => {
                     let mut target = DispatchTarget::new();
                     target.dispatch(data);
-                    locked.session_map.insert(addr, target);
+                    locked.session_map.insert(*addr, target);
                     let session =
-                        WebrtcSession::new(self.clone(), addr, locked.outbound_tx.clone());
+                        WebrtcSession::new(self.clone(), *addr, locked.outbound_tx.clone());
                     if let Err(e) = locked.new_session_tx.send(Box::new(session)) {
                         error!("failed to send WebRTC session builder: {}", e);
                     }
                 }
+            },
+            Err(e) => error!("failed to lock WebRTC dispatcher: {}", e),
+        }
+    }
+
+    pub fn close_session(&self, addr: &SocketAddr) {
+        match self.lock() {
+            Ok(mut locked) => match locked.session_map.remove(addr) {
+                Some(_) => (),
+                None => error!("failed to close unknown WebRTC session {}", addr),
             },
             Err(e) => error!("failed to lock WebRTC dispatcher: {}", e),
         }
@@ -131,6 +153,33 @@ mod tests {
         vec![value, value, value]
     }
 
+    #[derive(Debug, PartialEq)]
+    enum Handled {
+        Data(Vec<u8>),
+        Close,
+    }
+    #[derive(Clone)]
+    struct MockHandler(Arc<Mutex<Vec<Handled>>>);
+    impl MockHandler {
+        fn new() -> Self {
+            MockHandler(Arc::new(Mutex::new(vec![])))
+        }
+    }
+    impl InboundBundleHandler for MockHandler {
+        fn handle(&mut self, data: &[u8]) {
+            self.0
+                .lock()
+                .expect("failed to lock handler mutex")
+                .push(Handled::Data(data.to_vec()));
+        }
+        fn close(&mut self) {
+            self.0
+                .lock()
+                .expect("failed to lock handler mutex")
+                .push(Handled::Close);
+        }
+    }
+
     #[allow(clippy::type_complexity)]
     fn new_test() -> (
         Receiver<Box<dyn SessionBuilder>>,
@@ -146,20 +195,20 @@ mod tests {
     #[test]
     fn creates_session_on_new_address() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
         builder
-            .build(Box::new(|_| ()))
+            .build(Box::new(MockHandler::new()))
             .expect("failed to build session");
     }
 
     #[test]
     fn creates_multiple_sessions_for_multiple_addresses() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
-        dispatcher.dispatch_inbound(test_addr(2), &test_data(2));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(2), &test_data(2));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -167,9 +216,9 @@ mod tests {
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
         builder
-            .build(Box::new(|_| ()))
+            .build(Box::new(MockHandler::new()))
             .expect("failed to build session");
-        dispatcher.dispatch_inbound(test_addr(3), &test_data(3));
+        dispatcher.dispatch_inbound(&test_addr(3), &test_data(3));
         let _ = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
@@ -178,48 +227,36 @@ mod tests {
     #[test]
     fn dispatches_initial_packet_given_before_session_created() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
-        let inbound = Arc::new(Mutex::new(vec![]));
-        let _ = builder.build(Box::new({
-            let inbound = inbound.clone();
-            move |data: &[u8]| {
-                inbound
-                    .lock()
-                    .expect("failed to lock mutx")
-                    .push(data.to_vec())
-            }
-        }));
+        let inbound = MockHandler::new();
+        let _ = builder.build(Box::new(inbound.clone()));
         assert_eq!(
-            *inbound.lock().expect("failed to lock mutex"),
-            vec![test_data(1)]
+            *inbound.0.lock().expect("failed to lock mutex"),
+            vec![Handled::Data(test_data(1))]
         );
     }
 
     #[test]
     fn dispatches_multiple_packets_before_session_created() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(2));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(3));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(2));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(3));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
-        let inbound = Arc::new(Mutex::new(vec![]));
-        let _ = builder.build(Box::new({
-            let inbound = inbound.clone();
-            move |data: &[u8]| {
-                inbound
-                    .lock()
-                    .expect("failed to lock mutx")
-                    .push(data.to_vec())
-            }
-        }));
+        let inbound = MockHandler::new();
+        let _ = builder.build(Box::new(inbound.clone()));
         assert_eq!(
-            *inbound.lock().expect("failed to lock mutex"),
-            vec![test_data(1), test_data(2), test_data(3)]
+            *inbound.0.lock().expect("failed to lock mutex"),
+            vec![
+                Handled::Data(test_data(1)),
+                Handled::Data(test_data(2)),
+                Handled::Data(test_data(3))
+            ]
         );
     }
 
@@ -228,12 +265,12 @@ mod tests {
         let (new_session, _, dispatcher) = new_test();
         let count = 105;
         for i in 0..count {
-            dispatcher.dispatch_inbound(test_addr(1), &test_data(i));
+            dispatcher.dispatch_inbound(&test_addr(1), &test_data(i));
         }
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
-        match builder.build(Box::new(|_| ())) {
+        match builder.build(Box::new(MockHandler::new())) {
             Ok(_) => panic!("was able to build session despite too many bundles being sent before"),
             Err(e) => {
                 // doesn't really matter, but error should contain the number of packets
@@ -247,37 +284,33 @@ mod tests {
     #[test]
     fn dispatches_data_after_session_created() {
         let (new_session, _, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
-        let inbound = Arc::new(Mutex::new(vec![]));
-        let _ = builder.build(Box::new({
-            let inbound = inbound.clone();
-            move |data: &[u8]| {
-                inbound
-                    .lock()
-                    .expect("failed to lock mutx")
-                    .push(data.to_vec())
-            }
-        }));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(2));
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(3));
+        let inbound = MockHandler::new();
+        let _ = builder.build(Box::new(inbound.clone()));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(2));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(3));
         assert_eq!(
-            *inbound.lock().expect("failed to lock mutex"),
-            vec![test_data(1), test_data(2), test_data(3)]
+            *inbound.0.lock().expect("failed to lock mutex"),
+            vec![
+                Handled::Data(test_data(1)),
+                Handled::Data(test_data(2)),
+                Handled::Data(test_data(3))
+            ]
         );
     }
 
     #[test]
     fn created_session_can_send_bundle() {
         let (new_session, mut outbound_rx, dispatcher) = new_test();
-        dispatcher.dispatch_inbound(test_addr(1), &test_data(1));
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
         let builder = new_session
             .recv_timeout(Duration::from_secs(1))
             .expect("no session builder");
         let mut session = builder
-            .build(Box::new(|_| ()))
+            .build(Box::new(MockHandler::new()))
             .expect("failed to build session");
         session
             .yeet_bundle(&test_data(2))
@@ -286,5 +319,21 @@ mod tests {
             .expect("failed to receive bundle");
         assert_eq!(addr, test_addr(1));
         assert_eq!(bundle, test_data(2));
+    }
+
+    #[test]
+    fn can_be_closed() {
+        let (new_session, _, dispatcher) = new_test();
+        dispatcher.dispatch_inbound(&test_addr(1), &test_data(1));
+        let builder = new_session
+            .recv_timeout(Duration::from_secs(1))
+            .expect("no session builder");
+        let inbound = MockHandler::new();
+        let _ = builder.build(Box::new(inbound.clone()));
+        dispatcher.close_session(&test_addr(1));
+        assert_eq!(
+            *inbound.0.lock().expect("failed to lock mutex"),
+            vec![Handled::Data(test_data(1)), Handled::Close]
+        );
     }
 }

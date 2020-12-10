@@ -1,5 +1,8 @@
 use super::*;
 
+/// The threshold for how massive a body has to be to get a gravity body
+const GRAVITY_BODY_THRESH: f64 = 100_000.0;
+
 /// Collision shape
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Shape {
@@ -19,7 +22,7 @@ impl Shape {
 /// Empty type that indicates this entity is a source of gravity
 /// Ideally all objects would have a gravitational effect on all other objects, but that is
 /// unnecessary and computationally expensive
-pub struct GravityBody();
+pub struct GravityBody;
 
 /// Any physics object in space
 pub struct Body {
@@ -78,6 +81,51 @@ impl Body {
     pub fn with_collision_handler(mut self, controller: Box<dyn CollisionHandler>) -> Self {
         self.collision_handler = controller;
         self
+    }
+
+    /// Attaches the body to the given entty, and adds a gravity body if the mass is at least
+    /// GRAVITY_BODY_THRESH
+    pub fn install(self, state: &mut State, entity: EntityKey) {
+        if *self.mass >= GRAVITY_BODY_THRESH {
+            state.install_component(entity, GravityBody);
+        }
+        state.install_component(entity, self);
+        state.install_property(
+            entity,
+            "position",
+            Box::new(ElementConduit::new(
+                move |state: &State| Ok(&state.component::<Body>(entity)?.position),
+                move |state: &mut State, value: &Decoded| {
+                    let (notifs, body) = state.component_mut::<Body>(entity)?;
+                    body.position.set(notifs, value.try_get()?);
+                    Ok(())
+                },
+            )),
+        );
+        state.install_property(
+            entity,
+            "velocity",
+            Box::new(ElementConduit::new(
+                move |state: &State| Ok(&state.component::<Body>(entity)?.velocity),
+                move |state: &mut State, value: &Decoded| {
+                    let (notifs, body) = state.component_mut::<Body>(entity)?;
+                    body.velocity.set(notifs, value.try_get()?);
+                    Ok(())
+                },
+            )),
+        );
+        state.install_property(
+            entity,
+            "mass",
+            Box::new(ElementConduit::new(
+                move |state: &State| Ok(&state.component::<Body>(entity)?.mass),
+                move |state: &mut State, value: &Decoded| {
+                    let (notifs, body) = state.component_mut::<Body>(entity)?;
+                    body.mass.set(notifs, value.try_get()?);
+                    Ok(())
+                },
+            )),
+        );
     }
 }
 

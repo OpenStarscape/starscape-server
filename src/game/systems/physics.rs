@@ -97,6 +97,7 @@ pub fn apply_motion(state: &mut State, dt: f64) {
     for (_, body) in iter {
         body.position
             .set(notifs, *body.position + dt * *body.velocity);
+        //info!("position: {:?}", *body.position);
     }
 }
 
@@ -111,7 +112,7 @@ mod gravity_tests {
         let entity = state.create_entity();
         state.install_component(entity, body);
         if gravity {
-            state.install_component(entity, GravityBody());
+            state.install_component(entity, GravityBody);
         }
         entity
     }
