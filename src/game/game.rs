@@ -25,16 +25,29 @@ impl Game {
             connections,
             _server: server,
         };
-        let _ship_a = create_ship(&mut game.state, Point3::new(0.0, 100_000.0, 0.0));
-        create_ship(&mut game.state, Point3::new(1.0, 0.0, 0.0));
-        let planet = game.state.create_entity();
-        game.state.install_component(
-            planet,
-            Body::new()
-                .with_position(Point3::origin())
-                .with_mass(1.0e+18),
+        let _ship_a = create_ship(
+            &mut game.state,
+            Point3::new(100_000.0, 0.0, 0.0),
+            Vector3::new(0.0, 0.0, 5_000.0),
         );
-        game.state.install_component(planet, GravityBody());
+        let _ship_b = create_ship(
+            &mut game.state,
+            Point3::new(0.0, 0.0, 60_000.0),
+            Vector3::new(10_000.0, 1_000.0, 4_000.0),
+        );
+        let planet = game.state.create_entity();
+        Body::new()
+            .with_position(Point3::origin())
+            .with_sphere_shape(6_000.0)
+            .with_mass(1.0e+15)
+            .install(&mut game.state, planet);
+        let moon = game.state.create_entity();
+        Body::new()
+            .with_position(Point3::new(60_000.0, 0.0, 0.0))
+            .with_velocity(Vector3::new(0.0, 0.0, 10_000.0))
+            .with_sphere_shape(2_000.0)
+            .with_mass(1.0e+14)
+            .install(&mut game.state, moon);
         Ok(game)
     }
 
@@ -62,5 +75,11 @@ impl Game {
 
         self.state.time += self.step_dt;
         !self.should_quit
+    }
+}
+
+impl Drop for Game {
+    fn drop(&mut self) {
+        self.connections.finalize(&mut self.state);
     }
 }

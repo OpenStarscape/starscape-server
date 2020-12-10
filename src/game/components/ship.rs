@@ -74,28 +74,15 @@ impl CollisionHandler for ShipBodyController {
     }
 }
 
-pub fn create_ship(state: &mut State, position: Point3<f64>) -> EntityKey {
+pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> EntityKey {
     let entity = state.create_entity();
     state.install_component(entity, Ship::new(10.0));
-    state.install_component(
-        entity,
-        Body::new()
-            .with_position(position)
-            .with_sphere_shape(1.0)
-            .with_collision_handler(Box::new(ShipBodyController { ship: entity })),
-    );
-    state.install_property(
-        entity,
-        "position",
-        Box::new(ElementConduit::new(
-            move |state: &State| Ok(&state.component::<Body>(entity)?.position),
-            move |state: &mut State, value: &Decoded| {
-                let (notifs, body) = state.component_mut::<Body>(entity)?;
-                body.position.set(notifs, value.try_get()?);
-                Ok(())
-            },
-        )),
-    );
+    Body::new()
+        .with_position(position)
+        .with_velocity(velocity)
+        .with_sphere_shape(1.0)
+        .with_collision_handler(Box::new(ShipBodyController { ship: entity }))
+        .install(state, entity);
     entity
 }
 
@@ -107,14 +94,14 @@ mod tests {
     fn body_has_correct_position() {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
-        let ship = create_ship(&mut state, pos);
+        let ship = create_ship(&mut state, pos, Vector3::zero());
         assert_eq!(*state.component::<Body>(ship).unwrap().position, pos);
     }
 
     #[test]
     fn body_has_sphere_shape() {
         let mut state = State::new();
-        let ship = create_ship(&mut state, Point3::new(1.0, 2.0, 3.0));
+        let ship = create_ship(&mut state, Point3::new(1.0, 2.0, 3.0), Vector3::zero());
         assert_eq!(
             *state.component::<Body>(ship).unwrap().shape,
             body::Shape::Sphere { radius: 1.0 }
