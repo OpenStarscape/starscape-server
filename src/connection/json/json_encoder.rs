@@ -99,6 +99,36 @@ impl Encoder for JsonEncoder {
         message.end()?;
         Ok(serializer.into_inner())
     }
+
+    fn encode_bundle(
+	&self,
+	is_reliable: bool,
+	seq: i64,
+	time: f64,
+	message_data: Vec<&Encodable>,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
+	let buffer = Vec::with_capacity(512); // Capacity WAG.
+	let mut serializer = serde_json::Serializer::new(buffer);
+
+	let messages = {
+	    use serde::ser::SerializeSeq;
+
+	    let mut messages = serializer.serialize_seq(Some(message_data.len()))?;
+	    for message in message_data {
+		messages.serialize_element(message)?;
+	    }
+
+	    SerializeSeq::end(messages)?
+	};
+	
+	let mut bundle = serializer.serialize_struct("Bundle", 4)?;
+	bundle.serialize_field("rely", &is_reliable)?;
+	bundle.serialize_field("seq", &seq)?;
+	bundle.serialize_field("time", &time)?;
+	bundle.serialize_field("messages", &messages)?;
+	bundle.end();
+	Ok(serializer.into_inner())
+    }
 }
 
 #[cfg(test)]
