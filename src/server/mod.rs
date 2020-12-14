@@ -3,6 +3,7 @@
 use super::*;
 
 mod http;
+mod ip_addrs;
 #[allow(clippy::module_inception)]
 mod server;
 mod session;
@@ -13,6 +14,7 @@ pub use server::Server;
 pub use session::{InboundBundleHandler, Session, SessionBuilder};
 
 use http::*;
+use ip_addrs::*;
 use server::ServerComponent;
 use tcp::*;
 use webrtc::*;
