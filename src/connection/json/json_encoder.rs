@@ -62,6 +62,54 @@ impl JsonEncoder {
     pub fn new() -> Self {
         Self {}
     }
+
+    fn encode_property_update_into(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+	serializer: &mut dyn serde::ser::Serializer;
+	seq: &mut serde::ser::SerializeSeq,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut message = serializer.serialize_struct("Message", 4)?;
+        message.serialize_field("mtype", "update")?;
+        message.serialize_field("object", &object)?;
+        message.serialize_field("property", property)?;
+        message.serialize_field("value", &Contextualized::new(value, ctx))?;
+	seq.serialize_element(message)?;
+    }
+
+    
+    fn encode_get_response_into(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+	serializer: &mut dyn serde::ser::Serializer;
+	seq: &mut serde::ser::SerializeSeq,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut message = serializer.serialize_struct("Message", 4)?;
+        message.serialize_field("mtype", "value")?;
+        message.serialize_field("object", &object)?;
+        message.serialize_field("property", property)?;
+        message.serialize_field("value", &Contextualized::new(value, ctx))?;
+        seq.serialize_element(message)?;
+    }
+
+    fn encode_message_into(
+	&self,
+	message: Message,
+	ser: &mut dyn serde::ser::Serializer;
+	seq: &mut serde::ser::SerializeSeq,
+    ) -> Result<(), Box<dyn Error>> {
+	match message {
+	    Message::PropertyUpdate(data) => self.encode_property_update_into(data.object, data.property, data.ctx, data.value, ser, seq),
+	    Message::GetResponse(data) => self.encode_get_response_into(data.object, data.property, data.ctx, data.value, ser, seq),
+	}
+    }
+
 }
 
 impl Encoder for JsonEncoder {
@@ -100,53 +148,6 @@ impl Encoder for JsonEncoder {
         message.end()?;
         Ok(serializer.into_inner())
     }
-
-    fn encode_property_update_into(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-	serializer: &mut serde_json::Serializer;
-	seq: &mut serde::ser::SerializeSeq,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
-        let mut message = serializer.serialize_struct("Message", 4)?;
-        message.serialize_field("mtype", "update")?;
-        message.serialize_field("object", &object)?;
-        message.serialize_field("property", property)?;
-        message.serialize_field("value", &Contextualized::new(value, ctx))?;
-	seq.serialize_element(message)?;
-    }
-
-    
-    fn encode_get_response_into(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-	serializer: &mut serde_json::Serializer;
-	seq: &mut serde::ser::SerializeSeq,
-    ) -> Result<(), Box<dyn Error>> {
-        let mut message = serializer.serialize_struct("Message", 4)?;
-        message.serialize_field("mtype", "value")?;
-        message.serialize_field("object", &object)?;
-        message.serialize_field("property", property)?;
-        message.serialize_field("value", &Contextualized::new(value, ctx))?;
-        seq.serialize_element(message)?;
-    }
-
-    fn encode_message_into(
-	&self,
-	message: Message,
-	ser: &mut serde_json::Serializer;
-	seq: &mut serde::ser::SerializeSeq,
-    ) -> Result<(), Box<dyn Error>> {
-	match message {
-	    Message::PropertyUpdate(data) => encode_property_update_into(data.object, data.property, data.ctx, data.value, ser, seq),
-	    Message::GetResponse(data) => encode_get_response_into(data.object, data.property, data.ctx, data.value, ser, seq),
-	}
-    }
     
     fn encode_bundle(
 	&self,
@@ -167,7 +168,7 @@ impl Encoder for JsonEncoder {
 
 	    let mut messages = serializer.serialize_seq(Some(message_data.len()))?;
 	    for message in message_data {
-		encode_message_into(message, serializer, messages);
+		self.encode_message_into(message, serializer, messages);
 	    }
 
 	    SerializeSeq::end(messages)?

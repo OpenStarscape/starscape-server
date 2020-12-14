@@ -26,6 +26,13 @@ pub trait Encoder {
         ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>>;
+    fn encode_bundle(
+	&self,
+	is_reliable: bool,
+	sequence_num: i64,
+	time: f64,
+	message_data: Vec<crate::connection::connection::Message>,
+    ) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
 /// The context required for decoding a Decoded. The normal implementation is ObjectMapImpl.
