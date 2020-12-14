@@ -70,7 +70,7 @@ impl ConnectionCollection {
         }
         // Then process pending requests
         while let Ok(request) = self.request_rx.try_recv() {
-            info!("got request: {:?}", request);
+            trace!("got request: {:?}", request);
             self.request(handler, request);
         }
     }
