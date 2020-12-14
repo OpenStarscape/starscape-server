@@ -29,16 +29,22 @@ impl Server {
         }
 
         if enable_webrtc {
-            let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
-            let listen_addr = SocketAddr::new(ip, 42424);
-            let (rtc_warp_filter, webrtc) = WebrtcServer::new(listen_addr, new_session_tx)
+            // Firefox doesn't work when WebRTC is running on a loopback interface. This address is
+            // shared automatically by webrtc_unreliable.
+            let addr = SocketAddr::new(get_ip(None, Some(IpVersion::V4), Some(false))?, 42424);
+            let (rtc_warp_filter, webrtc) = WebrtcServer::new(addr, new_session_tx)
                 .map_err(|e| format!("failed to create WebrtcServer: {}", e))?;
             components.push(Box::new(webrtc));
             warp_filter = warp_filter.or(rtc_warp_filter).unify().boxed();
         }
 
-        let http_server = HttpServer::new(warp_filter, None, None)?;
-        components.push(Box::new(http_server));
+        {
+            // This should resolve to localhost for testing. We need to point the web app to this
+            // address (at time of writing that's done with a proxy rule in vue.config.js).
+            let addr = SocketAddr::new(get_ip(None, Some(IpVersion::V4), Some(true))?, 56_000);
+            let http_server = HttpServer::new(warp_filter, addr)?;
+            components.push(Box::new(http_server));
+        }
 
         for component in &components {
             info!("{:?}", component);
