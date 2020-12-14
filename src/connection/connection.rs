@@ -5,6 +5,27 @@ new_key_type! {
     pub struct ConnectionKey;
 }
 
+// These probably don't go here.
+
+pub struct PropertyUpdateMessage {
+    object: ObjectId,
+    property: &str,
+    ctx: &dyn EncodeCtx,
+    value: &Encodable,
+}
+
+pub struct GetResponseMessage {
+    object: ObjectId,
+    property: &str,
+    ctx: &dyn EncodeCtx,
+    value: &Encodable,
+}
+
+pub enum Message {
+    PropertyUpdate(PropertyUpdateMessage),
+    GetResponse(GetResponseMessage),
+}
+
 /// Manages a single client connection. Both the session type (TCP, WebRTC, etc) and the format
 /// (JSON, etc) are abstracted.
 pub trait Connection {

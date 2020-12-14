@@ -1,5 +1,6 @@
 use super::*;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
+use crate::connection::connection::Message; // connection::connection???
 
 /// The thing we want to serialize attached to a context. This wrapper is serializable with serde.
 struct Contextualized<'a, T> {
@@ -100,32 +101,80 @@ impl Encoder for JsonEncoder {
         Ok(serializer.into_inner())
     }
 
+    fn encode_property_update_into(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+	serializer: &mut serde_json::Serializer;
+	seq: &mut serde::ser::SerializeSeq,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
+        let mut message = serializer.serialize_struct("Message", 4)?;
+        message.serialize_field("mtype", "update")?;
+        message.serialize_field("object", &object)?;
+        message.serialize_field("property", property)?;
+        message.serialize_field("value", &Contextualized::new(value, ctx))?;
+	seq.serialize_element(message)?;
+    }
+
+    
+    fn encode_get_response_into(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+	serializer: &mut serde_json::Serializer;
+	seq: &mut serde::ser::SerializeSeq,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut message = serializer.serialize_struct("Message", 4)?;
+        message.serialize_field("mtype", "value")?;
+        message.serialize_field("object", &object)?;
+        message.serialize_field("property", property)?;
+        message.serialize_field("value", &Contextualized::new(value, ctx))?;
+        seq.serialize_element(message)?;
+    }
+
+    fn encode_message_into(
+	&self,
+	message: Message,
+	ser: &mut serde_json::Serializer;
+	seq: &mut serde::ser::SerializeSeq,
+    ) -> Result<(), Box<dyn Error>> {
+	match message {
+	    Message::PropertyUpdate(data) => encode_property_update_into(data.object, data.property, data.ctx, data.value, ser, seq),
+	    Message::GetResponse(data) => encode_get_response_into(data.object, data.property, data.ctx, data.value, ser, seq),
+	}
+    }
+    
     fn encode_bundle(
 	&self,
 	is_reliable: bool,
-	seq: i64,
+	sequence_num: i64,
 	time: f64,
-	message_data: Vec<&Encodable>,
+	message_data: Vec<Message>,
     ) -> Result<Vec<u8>, Box<dyn Error>> {
 	let buffer = Vec::with_capacity(512); // Capacity WAG.
 	let mut serializer = serde_json::Serializer::new(buffer);
+	let mut bundle = serializer.serialize_struct("Bundle", 4)?;
+	bundle.serialize_field("rely", &is_reliable)?;
+	bundle.serialize_field("seq", &sequence_num)?;
+	bundle.serialize_field("time", &time)?;
 
 	let messages = {
 	    use serde::ser::SerializeSeq;
 
 	    let mut messages = serializer.serialize_seq(Some(message_data.len()))?;
 	    for message in message_data {
-		messages.serialize_element(message)?;
+		encode_message_into(message, serializer, messages);
 	    }
 
 	    SerializeSeq::end(messages)?
 	};
+
+	// Do something here to put messages in correctly.
 	
-	let mut bundle = serializer.serialize_struct("Bundle", 4)?;
-	bundle.serialize_field("rely", &is_reliable)?;
-	bundle.serialize_field("seq", &seq)?;
-	bundle.serialize_field("time", &time)?;
-	bundle.serialize_field("messages", &messages)?;
 	bundle.end();
 	Ok(serializer.into_inner())
     }
