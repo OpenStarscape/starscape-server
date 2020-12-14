@@ -10,14 +10,7 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    pub fn new(
-        filter: GenericFilter,
-        address: Option<IpAddr>,
-        port: Option<u16>,
-    ) -> Result<Self, Box<dyn Error>> {
-        let address = address.unwrap_or_else(|| Ipv4Addr::LOCALHOST.into());
-        let port = port.unwrap_or(56_000);
-        let socket_addr = SocketAddr::new(address, port);
+    pub fn new(filter: GenericFilter, socket_addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
         trace!("starting HTTP server on {:?}", socket_addr);
         let (_addr, server) = warp::serve(filter)
