@@ -1,5 +1,10 @@
 use super::*;
 
+const START_PORT: u16 = 56_560;
+const HTTP_PORT: u16 = START_PORT;
+const WEB_RTC_PORT: u16 = START_PORT + 1;
+const TCP_PORT: u16 = START_PORT + 2;
+
 /// Represents an object that lives for the lifetime of the server, such as a listener for a
 /// particular network protocol
 pub trait ServerComponent: Debug {}
@@ -23,7 +28,8 @@ impl Server {
             .boxed();
 
         if enable_tcp {
-            let addr = SocketAddr::new(get_ip(None, Some(IpVersion::V4), Some(true))?, 55_000);
+            let ip = get_ip(None, Some(IpVersion::V4), Some(true))?;
+            let addr = SocketAddr::new(ip, TCP_PORT);
             let tcp = TcpListener::new(new_session_tx.clone(), addr)
                 .map_err(|e| format!("failed to create TcpListener: {}", e))?;
             components.push(Box::new(tcp));
@@ -32,7 +38,8 @@ impl Server {
         if enable_webrtc {
             // Firefox doesn't work when WebRTC is running on a loopback interface. This address is
             // shared automatically by webrtc_unreliable.
-            let addr = SocketAddr::new(get_ip(None, Some(IpVersion::V4), Some(false))?, 42424);
+            let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
+            let addr = SocketAddr::new(ip, WEB_RTC_PORT);
             let (rtc_warp_filter, webrtc) = WebrtcServer::new(addr, new_session_tx)
                 .map_err(|e| format!("failed to create WebrtcServer: {}", e))?;
             components.push(Box::new(webrtc));
@@ -42,7 +49,8 @@ impl Server {
         {
             // This should resolve to localhost for testing. We need to point the web app to this
             // address (at time of writing that's done with a proxy rule in vue.config.js).
-            let addr = SocketAddr::new(get_ip(None, Some(IpVersion::V4), Some(true))?, 56_000);
+            let ip = get_ip(None, Some(IpVersion::V4), Some(true))?;
+            let addr = SocketAddr::new(ip, HTTP_PORT);
             let http_server = HttpServer::new(warp_filter, addr)?;
             components.push(Box::new(http_server));
         }
