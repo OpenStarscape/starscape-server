@@ -13,58 +13,85 @@ fn format_interface(interface: &get_if_addrs::Interface) -> String {
     format!("{} ({:?})", interface.name, interface.ip())
 }
 
-fn format_interface_list(interfaces: &[get_if_addrs::Interface]) -> String {
-    interfaces
-        .iter()
-        .map(|interface| format_interface(interface))
-        .collect::<Vec<String>>()
-        .join(", ")
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
+enum IpVersion {
+    V4,
+    V6,
 }
 
-/// Returns the IP address for the given interface name.
-/// Run `$ ip addr` to see available interfaces from the command line
-#[allow(dead_code)]
-fn get_ip_with_interface_name(interface_name: &str) -> Result<IpAddr, Box<dyn Error>> {
-    let interfaces = get_if_addrs::get_if_addrs()?;
-    for interface in &interfaces {
-        if interface.name == interface_name {
-            return Ok(interface.ip());
+fn check_interface_against(
+    interface: &get_if_addrs::Interface,
+    interface_name: Option<&str>,
+    version: Option<IpVersion>,
+    loopback: Option<bool>,
+) -> Result<(), String> {
+    if let Some(interface_name) = interface_name {
+        if interface_name != interface.name {
+            return Err(format!(
+                "{}: interface name is not {}",
+                format_interface(interface),
+                interface_name
+            ));
         }
     }
-    Err(format!(
-        "No network interface named {:?}, available interfaces: {}",
-        interface_name,
-        format_interface_list(&interfaces),
-    )
-    .into())
+    if match version {
+        Some(IpVersion::V4) => !matches!(interface.addr, get_if_addrs::IfAddr::V4(_)),
+        Some(IpVersion::V6) => !matches!(interface.addr, get_if_addrs::IfAddr::V6(_)),
+        None => false,
+    } {
+        return Err(format!(
+            "{}: IP version is not {:?}",
+            format_interface(interface),
+            version.unwrap()
+        ));
+    }
+    if let Some(loopback) = loopback {
+        if loopback != interface.is_loopback() {
+            return Err(format!(
+                "{}: {} a loopback address",
+                format_interface(interface),
+                if interface.is_loopback() {
+                    "is"
+                } else {
+                    "is not"
+                }
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// Returns an IP that is either a loopback (local) address or not.
-fn get_ip_with_loopback(loopback: bool) -> Result<IpAddr, Box<dyn Error>> {
+fn get_ip(
+    interface_name: Option<&str>,
+    version: Option<IpVersion>,
+    loopback: Option<bool>,
+) -> Result<IpAddr, Box<dyn Error>> {
     let interfaces = get_if_addrs::get_if_addrs()?;
-    let candidates: Vec<get_if_addrs::Interface> = interfaces
-        .iter()
-        .filter_map(|interface| {
-            if interface.is_loopback() == loopback {
-                Some(interface.clone())
-            } else {
-                None
-            }
-        })
-        .collect();
+    let mut candidates: Vec<&get_if_addrs::Interface> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
+    for interface in &interfaces {
+        match check_interface_against(interface, interface_name, version, loopback) {
+            Ok(()) => candidates.push(interface),
+            Err(e) => errors.push(e),
+        }
+    }
     if candidates.is_empty() {
         Err(format!(
-            "There are no network interfaces with loopback={}, available interfaces: {}",
-            loopback,
-            format_interface_list(&interfaces),
+            "There are no matching network interfaces: {:?}",
+            errors.join(", "),
         )
         .into())
     } else {
         if candidates.len() > 1 {
             warn!(
-                "There are multiple network interfaces with loopback={}: {}, choosing {}",
-                loopback,
-                format_interface_list(&candidates),
+                "There are multiple matching network interfaces: {}, choosing {}",
+                candidates
+                    .iter()
+                    .map(|interface| format_interface(interface))
+                    .collect::<Vec<String>>()
+                    .join(", "),
                 format_interface(&candidates[0]),
             );
         }
@@ -92,7 +119,7 @@ impl Server {
         }
 
         if enable_webrtc {
-            let ip = get_ip_with_loopback(false)?;
+            let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
             let listen_addr = SocketAddr::new(ip, 42424);
             let (rtc_warp_filter, webrtc) = WebrtcServer::new(listen_addr, new_session_tx)
                 .map_err(|e| format!("failed to create WebrtcServer: {}", e))?;
