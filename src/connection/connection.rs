@@ -29,6 +29,7 @@ pub enum Message {
 /// Manages a single client connection. Both the session type (TCP, WebRTC, etc) and the format
 /// (JSON, etc) are abstracted.
 pub trait Connection {
+    // TODO: Add reliable/unreliable flag.
     /// Send a property's value to a client. If is_update is true this is a response to a change in
     /// a subscribed property. If false, this is a response to a get request.
     fn property_value(
@@ -105,6 +106,10 @@ pub struct ConnectionImpl {
     session: Mutex<Box<dyn Session>>,
     pending_get_requests: HashSet<(EntityKey, String)>,
     subscriptions: HashSet<(EntityKey, String)>,
+//  reliable_queue: Vec<Message>,
+//  unreliable_queue: Vec<Message>,
+//  unacked_seqs: /* TODO: find a good representation for this */
+//  
 }
 
 impl ConnectionImpl {
@@ -172,6 +177,7 @@ impl ConnectionImpl {
 }
 
 impl Connection for ConnectionImpl {
+    // TODO: Make a Message and queue it in the appropriate queue.
     fn property_value(
         &self,
         entity: EntityKey,
