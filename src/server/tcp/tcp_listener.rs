@@ -1,5 +1,5 @@
 use super::*;
-use std::io::ErrorKind::{AddrInUse, WouldBlock};
+use std::io::ErrorKind::WouldBlock;
 
 fn try_to_accept_connections(
     listener: &::mio::net::TcpListener,
@@ -28,33 +28,16 @@ pub struct TcpListener {
 impl TcpListener {
     pub fn new(
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
-        requested_addr: Option<IpAddr>,
-        requested_port: Option<u16>,
+        addr: SocketAddr,
     ) -> Result<Self, Box<dyn Error>> {
-        let addr = requested_addr.unwrap_or("::1".parse()?);
-        for i in 0..20 {
-            let port = requested_port.unwrap_or(55_000 + i * 10);
-            let socket_addr = SocketAddr::new(addr, port);
-            match ::mio::net::TcpListener::bind(&socket_addr) {
-                Ok(listener) => {
-                    let thread = new_mio_poll_thread(listener, move |listener| {
-                        try_to_accept_connections(listener, &new_session_tx)
-                    })?;
-                    return Ok(Self {
-                        address: socket_addr,
-                        _mio_poll_thread: thread,
-                    });
-                }
-                Err(e) if e.kind() == AddrInUse => {
-                    warn!("can not use {} for TCP, in use", socket_addr);
-                }
-                Err(e) => return Err(e.into()),
-            }
-        }
-        match requested_port {
-            Some(port) => Err(format!("address/port {}:{} not available", addr, port).into()),
-            None => Err("could not find available port".into()),
-        }
+        let listener = ::mio::net::TcpListener::bind(&addr)?;
+        let thread = new_mio_poll_thread(listener, move |listener| {
+            try_to_accept_connections(listener, &new_session_tx)
+        })?;
+        Ok(Self {
+            address: addr,
+            _mio_poll_thread: thread,
+        })
     }
 }
 
@@ -70,13 +53,21 @@ impl ServerComponent for TcpListener {}
 mod tests {
     use super::*;
     use ::mio::net::TcpStream;
-    use std::{net::Ipv6Addr, thread, time::Duration};
+    use std::{thread, time::Duration};
 
     const SHORT_TIME: Duration = Duration::from_millis(20);
-    const LOOPBACK: Option<IpAddr> = Some(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
 
     fn build(tx: Sender<Box<dyn SessionBuilder>>) -> TcpListener {
-        TcpListener::new(tx, LOOPBACK, None).expect("failed to create TCP listener")
+        let ip = "::1".parse().unwrap();
+        let mut err = "[no error]".to_string();
+        for i in 0..20 {
+            let addr = SocketAddr::new(ip, 55_000 + i * 11);
+            match TcpListener::new(tx.clone(), addr) {
+                Ok(listener) => return listener,
+                Err(e) => err = format!("{}", e),
+            }
+        }
+        panic!("failed to create TcpListener: {}", err);
     }
 
     #[test]

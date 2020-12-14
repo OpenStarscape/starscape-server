@@ -23,7 +23,8 @@ impl Server {
             .boxed();
 
         if enable_tcp {
-            let tcp = TcpListener::new(new_session_tx.clone(), None, None)
+            let addr = SocketAddr::new(get_ip(None, Some(IpVersion::V4), Some(true))?, 55_000);
+            let tcp = TcpListener::new(new_session_tx.clone(), addr)
                 .map_err(|e| format!("failed to create TcpListener: {}", e))?;
             components.push(Box::new(tcp));
         }

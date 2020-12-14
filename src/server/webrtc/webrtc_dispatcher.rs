@@ -146,7 +146,7 @@ mod tests {
     use std::time::Duration;
 
     fn test_addr(port: u16) -> SocketAddr {
-        SocketAddr::V4(std::net::SocketAddrV4::new(Ipv4Addr::LOCALHOST, port))
+        SocketAddr::new("::1".parse().unwrap(), port)
     }
 
     fn test_data(value: u8) -> Vec<u8> {

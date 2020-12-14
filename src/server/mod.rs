@@ -20,5 +20,5 @@ use tcp::*;
 use webrtc::*;
 
 type GenericFilter = warp::filters::BoxedFilter<(Box<dyn warp::Reply>,)>;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, SocketAddr};
 use warp::Filter;
