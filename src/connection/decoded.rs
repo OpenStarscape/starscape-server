@@ -36,6 +36,13 @@ impl Decoded {
         }
     }
 
+    pub fn text(&self) -> DecodedResult<&str> {
+        match self {
+            Decoded::Text(value) => Ok(value),
+            _ => Err(format!("{:?} is not a string", self)),
+        }
+    }
+
     pub fn entity(&self) -> DecodedResult<&EntityKey> {
         match self {
             Decoded::Entity(value) => Ok(value),
@@ -86,6 +93,12 @@ impl GetDecoded<'_, u64> for Decoded {
             Ok(Ok(i)) => Ok(i),
             _ => Err(format!("{:?} is not an unsigned integer", self)),
         }
+    }
+}
+
+impl<'a> GetDecoded<'a, &'a str> for Decoded {
+    fn try_get(&'a self) -> DecodedResult<&'a str> {
+        self.text()
     }
 }
 
@@ -194,6 +207,11 @@ mod json_tests {
         let vector = point.to_vec();
         let decodable = Vector(vector);
         assert_decodes_to(&decodable, point);
+    }
+
+    #[test]
+    fn can_get_text() {
+        assert_decodes_to(&Text("hello".to_string()), "hello");
     }
 
     #[test]
