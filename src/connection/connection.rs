@@ -162,6 +162,7 @@ impl Connection for ConnectionImpl {
             .obj_map
             .get_object(entity)
             .ok_or_else(|| format!("{:?} not in object map", entity))?;
+        trace!("{:?}::{}.{} = {:?}", self.self_key, object, property, value);
         let buffer = if is_update {
             self.encoder.encode_property_update(
                 object,
