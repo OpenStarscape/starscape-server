@@ -37,13 +37,9 @@ impl Subscriber for CachingConduit {
 }
 
 impl Conduit for Arc<CachingConduit> {
-    fn get_value(&self, _state: &State) -> Result<Encodable, String> {
-        // TODO: don't assume cached_value is up to date
-        Ok(self
-            .cached_value
-            .lock()
-            .expect("failed to lock mutex")
-            .clone())
+    fn get_value(&self, state: &State) -> Result<Encodable, String> {
+        // TODO: use cache if it is up to date
+        self.conduit.get_value(state)
     }
 
     fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {

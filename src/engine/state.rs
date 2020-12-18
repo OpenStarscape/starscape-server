@@ -198,7 +198,7 @@ impl State {
         conduit: Box<dyn Conduit>,
     ) {
         if let Some(entity) = self.entities.get_mut(entity_key) {
-            let property = Property::new(entity_key, name, conduit);
+            let property = Property::new(entity_key, name, Box::new(CachingConduit::new(conduit)));
             entity.register_property(name, property);
         } else {
             panic!("failed to register proprty on entity {:?}", entity_key);
