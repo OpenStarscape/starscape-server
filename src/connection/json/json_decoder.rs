@@ -75,7 +75,7 @@ impl JsonDecoder {
                     Err(format!("{} is an invalid number", value))
                 }
             }
-            Value::String(_) => Err("decoding string not implemented".to_string()),
+            Value::String(text) => Ok(Decoded::Text(text.to_string())),
             Value::Array(array) => self.decode_wrapper_array(ctx, array),
             Value::Object(_) => Err("decoding map not implemented".to_string()),
         }
@@ -253,6 +253,11 @@ mod decode_tests {
     #[test]
     fn scalar_even_when_decimal_is_zero() {
         assert_decodes_to("784.0", Scalar(784.0));
+    }
+
+    #[test]
+    fn text() {
+        assert_decodes_to("\"hello\\n\"", Text("hello\n".to_string()));
     }
 
     #[test]
