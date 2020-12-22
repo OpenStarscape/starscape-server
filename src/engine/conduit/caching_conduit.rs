@@ -1,23 +1,39 @@
 use super::*;
 
 /// The default property implementation
-pub struct CachingConduit {
-    cached_value: Mutex<Encodable>,
-    conduit: Box<dyn Conduit>,
+pub struct CachingConduit<C, T>
+where
+    C: Conduit<T, T>,
+    T: PartialEq + 'static,
+{
+    weak_self: WeakSelf<CachingConduit<C, T>>,
+    cached_value: Mutex<Option<T>>,
+    conduit: C,
     subscribers: SubscriptionTracker,
 }
 
-impl CachingConduit {
-    pub fn new(conduit: Box<dyn Conduit>) -> Arc<Self> {
-        Arc::new(Self {
-            cached_value: Mutex::new(Encodable::Null),
+impl<C, T> CachingConduit<C, T>
+where
+    C: Conduit<T, T> + 'static,
+    T: PartialEq + Clone + 'static,
+{
+    pub fn new(conduit: C) -> Arc<Self> {
+        let result = Arc::new(Self {
+            weak_self: WeakSelf::new(),
+            cached_value: Mutex::new(None),
             conduit,
             subscribers: SubscriptionTracker::new(),
-        })
+        });
+        result.weak_self.init(&result);
+        result
     }
 }
 
-impl Subscriber for CachingConduit {
+impl<C, T> Subscriber for CachingConduit<C, T>
+where
+    C: Conduit<T, T>,
+    T: PartialEq,
+{
     fn notify(
         &self,
         state: &State,
@@ -28,31 +44,37 @@ impl Subscriber for CachingConduit {
             .cached_value
             .lock()
             .expect("failed to lock cached Encodable mutex");
-        if *cached != value {
-            *cached = value;
+        if cached.as_ref() != Some(&value) {
+            *cached = Some(value);
             self.subscribers.send_notifications(state, sink);
         }
         Ok(())
     }
 }
 
-impl Conduit for Arc<CachingConduit> {
-    fn get_value(&self, state: &State) -> Result<Encodable, String> {
+impl<C, T> Conduit<T, T> for CachingConduit<C, T>
+where
+    C: Conduit<T, T> + 'static,
+    T: PartialEq,
+{
+    fn get_value(&self, state: &State) -> Result<T, String> {
         // TODO: use cache if it is up to date
         self.conduit.get_value(state)
     }
 
-    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: T) -> Result<(), String> {
         // TODO: don't set if same as cache
         self.conduit.set_value(state, value)
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
         if self.subscribers.subscribe(subscriber)?.was_empty {
-            if let Err(e) = self
-                .conduit
-                .subscribe(state, &(self.clone() as Arc<dyn Subscriber>))
-            {
+            if let Err(e) = self.conduit.subscribe(
+                state,
+                &self.weak_self.get().upgrade().ok_or_else(|| {
+                    "self.self_subscriber is null (this should never happen)".to_string()
+                })?,
+            ) {
                 error!("subscribing caching conduit: {}", e);
             }
             Ok(())
@@ -63,10 +85,10 @@ impl Conduit for Arc<CachingConduit> {
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
         if self.subscribers.unsubscribe(subscriber)?.is_now_empty {
-            if let Err(e) = self.conduit.unsubscribe(
-                state,
-                &Arc::downgrade(&(self.clone() as Arc<dyn Subscriber>)),
-            ) {
+            if let Err(e) = self
+                .conduit
+                .unsubscribe(state, &(self.weak_self.get() as Weak<dyn Subscriber>))
+            {
                 error!("unsubscribing caching conduit: {}", e);
             }
             Ok(())
@@ -96,7 +118,7 @@ mod tests {
     }
 
     struct MockConduit {
-        value_to_get: Result<Encodable, String>,
+        value_to_get: Result<i32, String>,
         subscribed: Option<Weak<dyn Subscriber>>,
     }
 
@@ -109,12 +131,12 @@ mod tests {
         }
     }
 
-    impl Conduit for Rc<RefCell<MockConduit>> {
-        fn get_value(&self, _sate: &State) -> Result<Encodable, String> {
+    impl Conduit<i32, i32> for Rc<RefCell<MockConduit>> {
+        fn get_value(&self, _sate: &State) -> Result<i32, String> {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: &Decoded) -> Result<(), String> {
+        fn set_value(&self, _state: &mut State, _value: i32) -> Result<(), String> {
             panic!("unexpected call");
         }
 
@@ -145,7 +167,7 @@ mod tests {
 
     fn setup() -> (
         State,
-        Arc<CachingConduit>,
+        Arc<CachingConduit<Rc<RefCell<MockConduit>>, i32>>,
         Rc<RefCell<MockConduit>>,
         Vec<Arc<dyn Subscriber>>,
         Vec<Arc<MockSubscriber>>,
@@ -154,7 +176,7 @@ mod tests {
             .map(|_| Arc::new(MockSubscriber(RefCell::new(0))))
             .collect();
         let inner = MockConduit::new();
-        let caching = CachingConduit::new(Box::new(inner.clone()));
+        let caching = CachingConduit::new(inner.clone());
         (
             State::new(),
             caching,
@@ -275,7 +297,7 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        inner.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
+        inner.borrow_mut().value_to_get = Ok(42);
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");
@@ -289,11 +311,11 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        inner.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
+        inner.borrow_mut().value_to_get = Ok(42);
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");
-        inner.borrow_mut().value_to_get = Ok(Encodable::Integer(69));
+        inner.borrow_mut().value_to_get = Ok(69);
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");
@@ -307,7 +329,7 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        inner.borrow_mut().value_to_get = Ok(Encodable::Integer(42));
+        inner.borrow_mut().value_to_get = Ok(42);
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");

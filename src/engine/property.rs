@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 
 pub trait Property {
     fn get_value(&self, state: &State) -> Result<Encodable, String>;
-    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String>;
+    fn set_value(&self, state: &mut State, value: Decoded) -> Result<(), String>;
     fn subscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String>;
     fn unsubscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String>;
     fn finalize(&self, state: &State);
@@ -13,20 +13,20 @@ impl dyn Property {
     pub fn new(
         entity: EntityKey,
         name: &'static str,
-        conduit: Box<dyn Conduit>,
+        conduit: Arc<dyn Conduit<Encodable, Decoded>>,
     ) -> Arc<dyn Property> {
         Arc::new(PropertyImpl::new(entity, name, conduit))
     }
 }
 
-struct ConnectionData {
+struct ConnectionProperty {
     connection: ConnectionKey,
     entity: EntityKey,
     property_name: &'static str,
-    conduit: Box<dyn Conduit>,
+    conduit: Arc<dyn Conduit<Encodable, Decoded>>,
 }
 
-impl Subscriber for ConnectionData {
+impl Subscriber for ConnectionProperty {
     fn notify(
         &self,
         state: &State,
@@ -48,12 +48,16 @@ impl Subscriber for ConnectionData {
 struct PropertyImpl {
     entity: EntityKey,
     name: &'static str,
-    conduit: Box<dyn Conduit>,
-    subscriptions: Mutex<HashMap<ConnectionKey, Arc<ConnectionData>>>,
+    conduit: Arc<dyn Conduit<Encodable, Decoded>>,
+    subscriptions: Mutex<HashMap<ConnectionKey, Arc<ConnectionProperty>>>,
 }
 
 impl PropertyImpl {
-    pub fn new(entity: EntityKey, name: &'static str, conduit: Box<dyn Conduit>) -> Self {
+    pub fn new(
+        entity: EntityKey,
+        name: &'static str,
+        conduit: Arc<dyn Conduit<Encodable, Decoded>>,
+    ) -> Self {
         PropertyImpl {
             entity,
             name,
@@ -68,7 +72,7 @@ impl Property for PropertyImpl {
         self.conduit.get_value(state)
     }
 
-    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: Decoded) -> Result<(), String> {
         self.conduit.set_value(state, value)
     }
 
@@ -83,7 +87,7 @@ impl Property for PropertyImpl {
                 subscriber, self.entity, self.name
             )),
             Entry::Vacant(entry) => {
-                let conn_prop = Arc::new(ConnectionData {
+                let conn_prop = Arc::new(ConnectionProperty {
                     connection: subscriber,
                     entity: self.entity,
                     property_name: self.name,
@@ -151,7 +155,7 @@ impl Drop for PropertyImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{cell::RefCell, rc::Rc, sync::Weak};
+    use std::{cell::RefCell, sync::Weak};
 
     struct MockConduit {
         value_to_get: Result<Encodable, String>,
@@ -159,20 +163,20 @@ mod tests {
     }
 
     impl MockConduit {
-        fn new() -> Rc<RefCell<Self>> {
-            Rc::new(RefCell::new(Self {
+        fn new() -> Arc<RefCell<Self>> {
+            Arc::new(RefCell::new(Self {
                 value_to_get: Err("no Encodable yet".to_owned()),
                 subscribed: HashMap::new(),
             }))
         }
     }
 
-    impl Conduit for Rc<RefCell<MockConduit>> {
+    impl Conduit<Encodable, Decoded> for RefCell<MockConduit> {
         fn get_value(&self, _sate: &State) -> Result<Encodable, String> {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: &Decoded) -> Result<(), String> {
+        fn set_value(&self, _state: &mut State, _value: Decoded) -> Result<(), String> {
             panic!("unexpected call");
         }
 
@@ -211,14 +215,14 @@ mod tests {
     fn setup() -> (
         State,
         PropertyImpl,
-        Rc<RefCell<MockConduit>>,
+        Arc<RefCell<MockConduit>>,
         Vec<ConnectionKey>,
     ) {
         let entity_keys = mock_keys(1);
         let mock_conduit = MockConduit::new();
         (
             State::new(),
-            PropertyImpl::new(entity_keys[0], "foo", Box::new(mock_conduit.clone())),
+            PropertyImpl::new(entity_keys[0], "foo", mock_conduit.clone()),
             mock_conduit,
             mock_keys(3),
         )
@@ -285,7 +289,7 @@ mod tests {
         let conduit = MockConduit::new();
         let state = State::new();
         let prop = "foo";
-        let property = PropertyImpl::new(entities[0], prop, Box::new(conduit.clone()));
+        let property = PropertyImpl::new(entities[0], prop, conduit.clone());
         let conns = mock_keys(1);
         let prop_sink = MockOutboundMessageHandler::new();
         let value = Encodable::Integer(42);

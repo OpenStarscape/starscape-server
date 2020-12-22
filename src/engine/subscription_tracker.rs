@@ -131,6 +131,7 @@ mod tests {
         )
     }
 
+    #[allow(clippy::ptr_arg)]
     fn pending_contains(pending: &NotifQueue, subscriber: &Arc<dyn Subscriber>) -> bool {
         let subscriber = Arc::downgrade(&subscriber).thin_ptr();
         pending.iter().any(|i| i.thin_ptr() == subscriber)

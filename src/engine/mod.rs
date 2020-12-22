@@ -12,7 +12,7 @@ mod state;
 mod subscriber;
 mod subscription_tracker;
 
-pub use conduit::{CachingConduit, ComponentListConduit, Conduit, ElementConduit};
+pub use conduit::{ComponentListConduit, Conduit, ROConduit, RWConduit};
 pub use element::Element;
 pub use state::{EntityKey, NotifQueue, State};
 

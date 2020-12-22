@@ -78,7 +78,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
     let entity = state.create_entity();
     state.install_component(entity, Ship::new(10.0));
     Body::new()
-        .with_class("ship")
+        .with_class(BodyClass::Ship)
         .with_position(position)
         .with_velocity(velocity)
         .with_sphere_shape(1.0)

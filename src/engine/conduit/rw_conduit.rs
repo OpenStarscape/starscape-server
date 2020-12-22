@@ -1,38 +1,37 @@
 use super::*;
 
-/// Connects a store to a server property
-#[derive(Clone)]
-pub struct ElementConduit<GetFn, SetFn> {
+/// Connects an element to the conduit system
+pub struct RWConduit<GetFn, SetFn> {
     getter: GetFn,
     setter: SetFn,
 }
 
-impl<T, GetFn, SetFn> ElementConduit<GetFn, SetFn>
+impl<T, GetFn, SetFn> RWConduit<GetFn, SetFn>
 where
-    T: Into<Encodable> + PartialEq + Clone,
     for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    SetFn: Fn(&mut State, &Decoded) -> Result<(), String>,
-    GetFn: Clone + 'static,
-    SetFn: Clone + 'static,
+    SetFn: Fn(&mut State, T) -> Result<(), String>,
+    GetFn: 'static,
+    SetFn: 'static,
 {
+    #[must_use]
     pub fn new(getter: GetFn, setter: SetFn) -> Self {
         Self { getter, setter }
     }
 }
 
-impl<T, GetFn, SetFn> Conduit for ElementConduit<GetFn, SetFn>
+impl<T, GetFn, SetFn> Conduit<T, T> for RWConduit<GetFn, SetFn>
 where
-    T: Into<Encodable> + PartialEq + Clone,
+    T: Clone,
     for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    SetFn: Fn(&mut State, &Decoded) -> Result<(), String>,
-    GetFn: Clone + 'static,
-    SetFn: Clone + 'static,
+    SetFn: Fn(&mut State, T) -> Result<(), String>,
+    GetFn: 'static,
+    SetFn: 'static,
 {
-    fn get_value(&self, state: &State) -> Result<Encodable, String> {
-        Ok((*(self.getter)(state)?).clone().into())
+    fn get_value(&self, state: &State) -> Result<T, String> {
+        Ok((*(self.getter)(state)?).clone())
     }
 
-    fn set_value(&self, state: &mut State, value: &Decoded) -> Result<(), String> {
+    fn set_value(&self, state: &mut State, value: T) -> Result<(), String> {
         (self.setter)(state, value)
     }
 
