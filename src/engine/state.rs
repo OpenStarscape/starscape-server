@@ -46,6 +46,7 @@ impl State {
     }
 
     /// Removes the given entity and all its components from the state
+	#[allow(dead_code)]
     pub fn destroy_entity(&mut self, entity: EntityKey) -> Result<(), Box<dyn Error>> {
         let mut entity = self
             .entities
@@ -191,14 +192,12 @@ impl State {
 
     /// Create a property for an entity
     /// Panics if entity doesn't exist or already has a property with this name
-    pub fn install_property(
-        &mut self,
-        entity_key: EntityKey,
-        name: &'static str,
-        conduit: Box<dyn Conduit>,
-    ) {
+    pub fn install_property<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
+    where
+        C: Conduit<Encodable, Decoded> + 'static,
+    {
         if let Some(entity) = self.entities.get_mut(entity_key) {
-            let property = Property::new(entity_key, name, Box::new(CachingConduit::new(conduit)));
+            let property = Property::new(entity_key, name, conduit::CachingConduit::new(conduit));
             entity.register_property(name, property);
         } else {
             panic!("failed to register proprty on entity {:?}", entity_key);
@@ -266,7 +265,8 @@ impl State {
 impl InboundMessageHandler for State {
     fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String> {
         let property = self.property(entity, property)?.clone();
-        property.set_value(self, value)
+        // TODO: eliminate value.clone() if possible
+        property.set_value(self, value.clone())
     }
 
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {

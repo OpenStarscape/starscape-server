@@ -6,133 +6,103 @@ use super::*;
 /// Easiest way to use is to simply call .decode() in a context in which the type is implied.
 pub type Decoded = Encodable;
 
-pub type DecodedResult<T> = Result<T, String>;
-
-pub trait GetDecoded<'a, T> {
-    fn try_get(&'a self) -> DecodedResult<T>;
-}
+pub type DecodedError = String;
+pub type DecodedResult<T> = Result<T, DecodedError>;
 
 impl Decoded {
-    pub fn vector(&self) -> DecodedResult<Vector3<f64>> {
-        match self {
-            Decoded::Vector(v) => Ok(*v),
-            _ => Err(format!("{:?} is not a 3D vector", self)),
-        }
-    }
-
-    pub fn scalar(&self) -> DecodedResult<f64> {
-        match self {
-            Decoded::Scalar(value) => Ok(*value),
-            Decoded::Integer(value) => Ok(*value as f64),
-            _ => Err(format!("{:?} is not a number", self)),
-        }
-    }
-
-    pub fn integer(&self) -> DecodedResult<i64> {
-        match self {
-            Decoded::Integer(value) => Ok(*value),
-            Decoded::Scalar(value) => Err(format!("{} is a scalar, not an integer", value)),
-            _ => Err(format!("{:?} is not a number", self)),
-        }
-    }
-
-    pub fn text(&self) -> DecodedResult<&str> {
-        match self {
-            Decoded::Text(value) => Ok(value),
-            _ => Err(format!("{:?} is not a string", self)),
-        }
-    }
-
-    pub fn entity(&self) -> DecodedResult<&EntityKey> {
-        match self {
-            Decoded::Entity(value) => Ok(value),
-            _ => Err(format!("{:?} is not an object", self)),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn array(&self) -> DecodedResult<&[Decoded]> {
-        match self {
-            Decoded::Array(list) => Ok(list),
-            _ => Err(format!("{:?} is not an array", self)),
-        }
-    }
-
     pub fn is_null(&self) -> bool {
         matches!(self, Decoded::Null)
     }
 }
 
-impl GetDecoded<'_, Vector3<f64>> for Decoded {
-    fn try_get(&self) -> DecodedResult<Vector3<f64>> {
-        self.vector()
-    }
-}
-
-impl GetDecoded<'_, Point3<f64>> for Decoded {
-    fn try_get(&self) -> DecodedResult<Point3<f64>> {
-        self.vector().map(Point3::from_vec)
-    }
-}
-
-impl GetDecoded<'_, f64> for Decoded {
-    fn try_get(&self) -> DecodedResult<f64> {
-        self.scalar()
-    }
-}
-
-impl GetDecoded<'_, i64> for Decoded {
-    fn try_get(&self) -> DecodedResult<i64> {
-        self.integer()
-    }
-}
-
-impl GetDecoded<'_, u64> for Decoded {
-    fn try_get(&self) -> DecodedResult<u64> {
-        match self.integer().map(std::convert::TryFrom::try_from) {
-            Ok(Ok(i)) => Ok(i),
-            _ => Err(format!("{:?} is not an unsigned integer", self)),
+impl From<Decoded> for DecodedResult<Vector3<f64>> {
+    fn from(value: Decoded) -> Self {
+        match value {
+            Decoded::Vector(v) => Ok(v),
+            _ => Err(format!("{:?} is not a 3D vector", value)),
         }
     }
 }
 
-impl<'a> GetDecoded<'a, &'a str> for Decoded {
-    fn try_get(&'a self) -> DecodedResult<&'a str> {
-        self.text()
+impl From<Decoded> for DecodedResult<Point3<f64>> {
+    fn from(value: Decoded) -> Self {
+        DecodedResult::<Vector3<f64>>::from(value).map(Point3::from_vec)
     }
 }
 
-impl<'a> GetDecoded<'a, &'a EntityKey> for Decoded {
-    fn try_get(&'a self) -> DecodedResult<&'a EntityKey> {
-        self.entity()
+impl From<Decoded> for DecodedResult<f64> {
+    fn from(value: Decoded) -> Self {
+        match value {
+            Decoded::Scalar(value) => Ok(value),
+            Decoded::Integer(value) => Ok(value as f64),
+            _ => Err(format!("{:?} is not a number", value)),
+        }
     }
 }
 
-impl<'a> GetDecoded<'a, &'a [Decoded]> for Decoded {
-    fn try_get(&'a self) -> DecodedResult<&'a [Decoded]> {
-        self.array()
+impl From<Decoded> for DecodedResult<i64> {
+    fn from(value: Decoded) -> Self {
+        match value {
+            Decoded::Integer(value) => Ok(value),
+            Decoded::Scalar(value) => Err(format!("{} is a scalar, not an integer", value)),
+            _ => Err(format!("{:?} is not a number", value)),
+        }
     }
 }
 
-impl GetDecoded<'_, ()> for Decoded {
-    fn try_get(&self) -> Result<(), String> {
-        if self.is_null() {
+impl From<Decoded> for DecodedResult<u64> {
+    fn from(value: Decoded) -> Self {
+        use std::convert::TryInto;
+        match DecodedResult::<i64>::from(value)?.try_into() {
+            Ok(i) => Ok(i),
+            Err(e) => Err(format!("{}", e)),
+        }
+    }
+}
+
+impl From<Decoded> for DecodedResult<String> {
+    fn from(value: Decoded) -> Self {
+        match value {
+            Decoded::Text(value) => Ok(value),
+            _ => Err(format!("{:?} is not a string", value)),
+        }
+    }
+}
+
+impl From<Decoded> for DecodedResult<EntityKey> {
+    fn from(value: Decoded) -> Self {
+        match value {
+            Decoded::Entity(value) => Ok(value),
+            _ => Err(format!("{:?} is not an object", value)),
+        }
+    }
+}
+
+impl From<Decoded> for DecodedResult<Vec<Decoded>> {
+    fn from(value: Decoded) -> Self {
+        match value {
+            Decoded::Array(value) => Ok(value),
+            _ => Err(format!("{:?} is not an array", value)),
+        }
+    }
+}
+
+impl From<Decoded> for DecodedResult<()> {
+    fn from(value: Decoded) -> Self {
+        if value.is_null() {
             Ok(())
         } else {
-            Err(format!("{:?} is not null", self))
+            Err(format!("{:?} is not null", value))
         }
     }
 }
 
-impl<'a, T> GetDecoded<'a, Option<T>> for Decoded
-where
-    Decoded: GetDecoded<'a, T>,
-{
-    fn try_get(&'a self) -> DecodedResult<Option<T>> {
-        if self.is_null() {
+impl From<Decoded> for DecodedResult<Option<Decoded>> {
+    fn from(value: Decoded) -> Self {
+        if value.is_null() {
             Ok(None)
         } else {
-            Ok(Some(self.try_get()?))
+            Ok(Some(value))
         }
     }
 }
@@ -142,63 +112,62 @@ mod json_tests {
     use super::*;
     use Encodable::*;
 
-    fn assert_decodes_to<'a, T>(decodable: &'a Decoded, expected: T)
+    fn assert_decodes_to<T>(decodable: Decoded, expected: T)
     where
         T: PartialEq + Debug,
-        Decoded: GetDecoded<'a, T>,
+        DecodedResult<T>: From<Decoded>,
     {
-        let actual: T = decodable.try_get().expect("failed to decode");
+        let actual: T = DecodedResult::<T>::from(decodable).expect("failed to decode");
         assert_eq!(actual, expected);
     }
 
-    fn assert_doesnt_decode_to<'a, T>(decodable: &'a Decoded)
+    fn assert_doesnt_decode_to<T>(decodable: Decoded)
     where
         T: PartialEq + Debug,
-        Decoded: GetDecoded<'a, T>,
+        DecodedResult<T>: From<Decoded>,
     {
-        let actual: DecodedResult<T> = decodable.try_get();
-        assert!(matches!(actual, Err(_)));
+        assert!(matches!(DecodedResult::<T>::from(decodable), Err(_)));
     }
 
     #[test]
     fn can_get_integer() {
         let i: i64 = -5;
-        assert_decodes_to(&Integer(i), i);
+        assert_decodes_to(Integer(i), i);
     }
 
     #[test]
     fn can_get_unsigned_from_int() {
         let u: u64 = 7;
-        assert_decodes_to(&Integer(7), u);
+        assert_decodes_to(Integer(7), u);
     }
 
     #[test]
     fn can_get_float_from_int() {
         let f: f64 = 7.0;
-        assert_decodes_to(&Integer(7), f);
+        assert_decodes_to(Integer(7), f);
     }
 
     #[test]
     fn can_get_scalar() {
         let f: f64 = 7.0;
-        assert_decodes_to(&Scalar(f), f);
+        assert_decodes_to(Scalar(f), f);
     }
 
     #[test]
     fn can_not_get_int_from_scalar() {
-        assert_doesnt_decode_to::<i64>(&Scalar(7.0));
+        assert_doesnt_decode_to::<i64>(Scalar(7.0));
     }
 
     #[test]
     fn can_not_get_unsigned_from_negative_int() {
-        assert_doesnt_decode_to::<u64>(&Integer(-5))
+        assert_doesnt_decode_to::<u64>(Integer(-5))
     }
 
     #[test]
     fn can_get_vector() {
         let vector = Vector3::new(1.0, 2.5, -3.0);
         let decodable = Vector(vector);
-        assert_decodes_to(&decodable, vector);
+        assert_decodes_to(decodable, vector);
     }
 
     #[test]
@@ -206,53 +175,51 @@ mod json_tests {
         let point = Point3::new(1.0, 2.5, -3.0);
         let vector = point.to_vec();
         let decodable = Vector(vector);
-        assert_decodes_to(&decodable, point);
+        assert_decodes_to(decodable, point);
     }
 
     #[test]
     fn can_get_text() {
-        assert_decodes_to(&Text("hello".to_string()), "hello");
+        assert_decodes_to(Text("hello".to_string()), "hello".to_string());
     }
 
     #[test]
     fn can_get_null() {
-        assert_decodes_to(&Null, ());
+        assert_decodes_to(Null, ());
     }
 
     #[test]
     fn zero_is_not_null() {
-        assert_doesnt_decode_to::<()>(&Integer(0));
+        assert_doesnt_decode_to::<()>(Integer(0));
     }
 
     #[test]
     fn can_get_some_option() {
         let i: i64 = 7;
-        assert_decodes_to(&Integer(7), Some(i));
+        assert_decodes_to(Integer(7), Some(Integer(i)));
     }
 
     #[test]
     fn can_get_none_option() {
-        let option: Option<i64> = None;
-        assert_decodes_to(&Null, option);
+        let option: Option<Encodable> = None;
+        assert_decodes_to(Null, option);
     }
 
     #[test]
     fn can_get_entity() {
         let e: Vec<EntityKey> = mock_keys(1);
-        assert_decodes_to(&Entity(e[0]), &e[0]);
+        assert_decodes_to(Entity(e[0]), e[0]);
     }
 
     #[test]
     fn can_get_array_of_ints() {
         let values = vec![7, 8, 9];
         let decodable = Array(values.iter().map(|i| Integer(*i)).collect());
-        let result: Vec<i64> = decodable
-            .array()
+        let result: Vec<i64> = DecodedResult::<Vec<Decoded>>::from(decodable)
             .expect("failed to decode as array")
-            .iter()
+            .into_iter()
             .map(|d| {
-                d.integer()
-                    .expect("failed to decode array element as integer")
+                DecodedResult::<i64>::from(d).expect("failed to decode array element as integer")
             })
             .collect();
         assert_eq!(result, values);
