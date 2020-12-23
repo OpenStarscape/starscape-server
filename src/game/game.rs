@@ -8,6 +8,7 @@ pub struct Game {
     /// In-game delta-time for each physics step
     step_dt: f64,
     state: State,
+    back_notif_buffer: Vec<Notification>,
     connections: ConnectionCollection,
     _server: Server,
 }
@@ -22,6 +23,7 @@ impl Game {
             should_quit: false,
             step_dt: 1.0 / STEPS_PER_SEC as f64,
             state,
+            back_notif_buffer: Vec::new(),
             connections,
             _server: server,
         };
@@ -64,14 +66,18 @@ impl Game {
         apply_collisions(&self.state, self.step_dt);
         apply_motion(&mut self.state, self.step_dt);
 
-        let notifications = std::mem::take(&mut self.state.pending_updates);
-        for notification in notifications {
+        self.state
+            .notif_queue
+            .swap_buffer(&mut self.back_notif_buffer);
+        for notification in &self.back_notif_buffer {
             if let Some(sink) = notification.upgrade() {
                 if let Err(e) = sink.notify(&self.state, &self.connections) {
                     error!("failed to process notification: {}", e);
                 }
             }
         }
+        // this does not deallocate, so we don't need to reallocate every cycle
+        self.back_notif_buffer.clear();
 
         self.connections.flush_outbound_messages(&mut self.state);
 

@@ -32,10 +32,12 @@ where
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
-        (self.output_fn)(state)?.subscribe(subscriber).map_err(|e| {
-            error!("subscribing to Element<{}>: {}", type_name::<T>(), e);
-            "server_error".into()
-        })
+        (self.output_fn)(state)?
+            .subscribe(subscriber, &state.notif_queue)
+            .map_err(|e| {
+                error!("subscribing to Element<{}>: {}", type_name::<T>(), e);
+                "server_error".into()
+            })
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
