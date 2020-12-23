@@ -10,6 +10,7 @@ extern crate slotmap;
 
 mod connection;
 mod engine;
+#[allow(clippy::unit_arg)]
 mod game;
 mod helpers;
 mod server;
