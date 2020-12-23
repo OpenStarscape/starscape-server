@@ -15,7 +15,7 @@ pub trait OutboundMessageHandler {
 /// Processes requests from a client. Implemented by State in the engine and used by
 /// ConnectionCollection.
 pub trait InboundMessageHandler {
-    fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String>;
+    fn set(&mut self, entity: EntityKey, property: &str, value: Decoded) -> Result<(), String>;
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String>;
     fn subscribe(
         &mut self,
@@ -106,9 +106,9 @@ impl ConnectionCollection {
             fn handle_request(
                 &mut self,
                 _: &mut dyn InboundMessageHandler,
-                _: &EntityKey,
+                _: EntityKey,
                 _: &str,
-                _: &PropertyRequest,
+                _: PropertyRequest,
             ) {
                 error!("handle_request() called on StubConnection");
             }
@@ -142,7 +142,7 @@ impl ConnectionCollection {
         match request.request {
             RequestType::Property((entity, prop), action) => {
                 match self.connections.get_mut(request.connection) {
-                    Some(connection) => connection.handle_request(handler, &entity, &prop, &action),
+                    Some(connection) => connection.handle_request(handler, entity, &prop, action),
                     None => warn!(
                         "request {:?} {:?}.{} on dead connection {:?}",
                         action, entity, prop, request.connection
@@ -233,9 +233,9 @@ mod tests {
         fn handle_request(
             &mut self,
             _: &mut dyn InboundMessageHandler,
-            _: &EntityKey,
+            _: EntityKey,
             _: &str,
-            _: &PropertyRequest,
+            _: PropertyRequest,
         ) {
         }
         fn flush(&mut self, _: &mut dyn InboundMessageHandler) {}
@@ -255,7 +255,7 @@ mod tests {
             &mut self,
             entity: EntityKey,
             property: &str,
-            _value: &Decoded,
+            _value: Decoded,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()

@@ -23,9 +23,9 @@ pub trait Connection {
     fn handle_request(
         &mut self,
         handler: &mut dyn InboundMessageHandler,
-        entity: &EntityKey,
+        entity: EntityKey,
         property: &str,
-        action: &PropertyRequest,
+        action: PropertyRequest,
     );
     /// Called at the end of each network tick to send any pending bundles
     fn flush(&mut self, handler: &mut dyn InboundMessageHandler);
@@ -190,35 +190,35 @@ impl Connection for ConnectionImpl {
     fn handle_request(
         &mut self,
         handler: &mut dyn InboundMessageHandler,
-        entity: &EntityKey,
+        entity: EntityKey,
         property: &str,
-        action: &PropertyRequest,
+        action: PropertyRequest,
     ) {
         if let Err(e) = match action {
-            PropertyRequest::Set(value) => handler.set(*entity, property, &value),
+            PropertyRequest::Set(value) => handler.set(entity, property, value),
             PropertyRequest::Get => {
                 // it doesn't matter if it's already there or not, it's not an error to make two
                 // get requests but it will only result in one response.
-                self.pending_get_requests.insert((*entity, property.into()));
+                self.pending_get_requests.insert((entity, property.into()));
                 Ok(())
             }
             PropertyRequest::Subscribe => {
-                let key = (*entity, property.to_string());
+                let key = (entity, property.to_string());
                 if self.subscriptions.contains(&key) {
                     Err("tried to subscribe multiple times".into())
                 } else {
                     handler
-                        .subscribe(*entity, property, self.self_key)
+                        .subscribe(entity, property, self.self_key)
                         .map(|()| {
                             self.subscriptions.insert(key);
                         })
                 }
             }
             PropertyRequest::Unsubscribe => {
-                let key = (*entity, property.to_string());
+                let key = (entity, property.to_string());
                 if self.subscriptions.contains(&key) {
                     handler
-                        .unsubscribe(*entity, property, self.self_key)
+                        .unsubscribe(entity, property, self.self_key)
                         .map(|()| {
                             self.subscriptions.remove(&key);
                         })
@@ -228,8 +228,8 @@ impl Connection for ConnectionImpl {
             }
         } {
             warn!(
-                "failed to process {:?} on {:?}.{}: {}",
-                action, entity, property, e
+                "failed to process message to {:?}::{:?}.{}: {}",
+                self.self_key, entity, property, e
             );
         }
     }
