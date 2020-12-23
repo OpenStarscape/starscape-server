@@ -17,8 +17,8 @@ impl<T> Element<T> {
     }
 
     /// Prefer set() where possible. That can save work when value is unchanged.
-    pub fn get_mut(&mut self, pending: &mut NotifQueue) -> &mut T {
-        self.subscribers.queue_notifications(pending);
+    pub fn get_mut(&mut self) -> &mut T {
+        self.subscribers.queue_notifications();
         &mut self.inner
     }
 
@@ -30,26 +30,27 @@ impl<T> Element<T> {
     }
 
     /// Send notifications to the given subscriber when the inner value changes
-    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
-        match self.subscribers.subscribe(subscriber) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into()),
-        }
+    pub fn subscribe(
+        &self,
+        subscriber: &Arc<dyn Subscriber>,
+        notif_queue: &NotifQueue,
+    ) -> Result<(), Box<dyn Error>> {
+        self.subscribers
+            .subscribe_with_notif_queue(subscriber, notif_queue)?;
+        Ok(())
     }
 
     pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
-        match self.subscribers.unsubscribe(subscriber) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(e.into()),
-        }
+        self.subscribers.unsubscribe(subscriber)?;
+        Ok(())
     }
 }
 
 impl<T: PartialEq> Element<T> {
-    pub fn set(&mut self, pending: &mut NotifQueue, value: T) {
+    pub fn set(&mut self, value: T) {
         if self.inner != value {
             self.inner = value;
-            self.subscribers.queue_notifications(pending);
+            self.subscribers.queue_notifications();
         }
     }
 }
@@ -81,21 +82,24 @@ mod tests {
     fn setup() -> (Element<i64>, NotifQueue, Arc<dyn Subscriber>) {
         let store = Element::new(7);
         let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
-        store.subscribe(&subscriber).expect("failed to subscribe");
-        (store, Vec::new(), subscriber)
+        let notif_queue = NotifQueue::new();
+        store
+            .subscribe(&subscriber, &notif_queue)
+            .expect("failed to subscribe");
+        (store, notif_queue, subscriber)
     }
 
     #[test]
     fn queues_notifications_when_set() {
-        let (mut store, mut notifs, _) = setup();
-        store.set(&mut notifs, 5);
+        let (mut store, notifs, _) = setup();
+        store.set(5);
         assert_eq!(notifs.len(), 1);
     }
 
     #[test]
     fn queues_notifications_when_value_mut_accessed() {
-        let (mut store, mut notifs, _) = setup();
-        store.get_mut(&mut notifs);
+        let (mut store, notifs, _) = setup();
+        store.get_mut();
         assert_eq!(notifs.len(), 1);
     }
 
@@ -108,18 +112,18 @@ mod tests {
 
     #[test]
     fn does_not_send_notification_when_set_to_same_value() {
-        let (mut store, mut notifs, _) = setup();
-        store.set(&mut notifs, 7);
+        let (mut store, notifs, _) = setup();
+        store.set(7);
         assert_eq!(notifs.len(), 0);
     }
 
     #[test]
     fn unsubscribing_stops_notifications() {
-        let (mut store, mut notifs, subscriber) = setup();
+        let (mut store, notifs, subscriber) = setup();
         store
             .unsubscribe(&Arc::downgrade(&subscriber))
             .expect("unsubbing failed");
-        store.set(&mut notifs, 5);
+        store.set(5);
         assert_eq!(notifs.len(), 0);
     }
 }

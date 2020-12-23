@@ -120,8 +120,8 @@ impl Body {
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.position),
             move |state, value| {
-                let (notifs, body) = state.component_mut::<Body>(entity)?;
-                body.position.set(notifs, value);
+                let body = state.component_mut::<Body>(entity)?;
+                body.position.set(value);
                 Ok(())
             },
         )
@@ -130,8 +130,8 @@ impl Body {
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.velocity),
             move |state, value| {
-                let (notifs, body) = state.component_mut::<Body>(entity)?;
-                body.velocity.set(notifs, value);
+                let body = state.component_mut::<Body>(entity)?;
+                body.velocity.set(value);
                 Ok(())
             },
         )
@@ -140,8 +140,8 @@ impl Body {
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.mass),
             move |state, value| {
-                let (notifs, body) = state.component_mut::<Body>(entity)?;
-                body.mass.set(notifs, value);
+                let body = state.component_mut::<Body>(entity)?;
+                body.mass.set(value);
                 Ok(())
             },
         )
@@ -150,8 +150,8 @@ impl Body {
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
             move |state, value| {
-                let (notifs, body) = state.component_mut::<Body>(entity)?;
-                body.shape.set(notifs, value);
+                let body = state.component_mut::<Body>(entity)?;
+                body.shape.set(value);
                 Ok(())
             },
         )
