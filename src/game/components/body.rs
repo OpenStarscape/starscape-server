@@ -108,7 +108,7 @@ impl Body {
         }
         state.install_component(entity, self);
 
-        ROConduit::new(move |state: &State| Ok(&state.component::<Body>(entity)?.class))
+        ROConduit::new(move |state| Ok(&state.component::<Body>(entity)?.class))
             .map_output(|class| {
                 Ok(match class {
                     BodyClass::Celestial => "celestial".to_string(),
@@ -118,8 +118,8 @@ impl Body {
             .install(state, entity, "class");
 
         RWConduit::new(
-            move |state: &State| Ok(&state.component::<Body>(entity)?.position),
-            move |state: &mut State, value: Point3<f64>| {
+            move |state| Ok(&state.component::<Body>(entity)?.position),
+            move |state, value| {
                 let (notifs, body) = state.component_mut::<Body>(entity)?;
                 body.position.set(notifs, value);
                 Ok(())
@@ -128,8 +128,8 @@ impl Body {
         .install(state, entity, "position");
 
         RWConduit::new(
-            move |state: &State| Ok(&state.component::<Body>(entity)?.velocity),
-            move |state: &mut State, value: Vector3<f64>| {
+            move |state| Ok(&state.component::<Body>(entity)?.velocity),
+            move |state, value| {
                 let (notifs, body) = state.component_mut::<Body>(entity)?;
                 body.velocity.set(notifs, value);
                 Ok(())
@@ -138,8 +138,8 @@ impl Body {
         .install(state, entity, "velocity");
 
         RWConduit::new(
-            move |state: &State| Ok(&state.component::<Body>(entity)?.mass),
-            move |state: &mut State, value: f64| {
+            move |state| Ok(&state.component::<Body>(entity)?.mass),
+            move |state, value| {
                 let (notifs, body) = state.component_mut::<Body>(entity)?;
                 body.mass.set(notifs, value);
                 Ok(())
@@ -148,15 +148,15 @@ impl Body {
         .install(state, entity, "mass");
 
         RWConduit::new(
-            move |state: &State| Ok(&state.component::<Body>(entity)?.shape),
-            move |state: &mut State, value: Shape| {
+            move |state| Ok(&state.component::<Body>(entity)?.shape),
+            move |state, value| {
                 let (notifs, body) = state.component_mut::<Body>(entity)?;
                 body.shape.set(notifs, value);
                 Ok(())
             },
         )
         .map_output(|shape| Ok(shape.radius()))
-        .map_input(|radius: f64| {
+        .map_input(|radius| {
             if radius == 0.0 {
                 Ok(Shape::Point)
             } else if radius > 0.0 {
