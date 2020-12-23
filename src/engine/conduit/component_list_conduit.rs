@@ -10,7 +10,7 @@ impl<T: 'static> ComponentListConduit<T> {
 }
 
 impl<T: 'static> Conduit<Encodable, ReadOnlyPropSetType> for ComponentListConduit<T> {
-    fn get_value(&self, state: &State) -> Result<Encodable, String> {
+    fn output(&self, state: &State) -> Result<Encodable, String> {
         let entities: Vec<Encodable> = state
             .components_iter::<T>()
             .map(|(entity, _)| entity.into())
@@ -18,7 +18,7 @@ impl<T: 'static> Conduit<Encodable, ReadOnlyPropSetType> for ComponentListCondui
         Ok(entities.into())
     }
 
-    fn set_value(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
+    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
         // ReadOnlyPropSetType can't be instantiated, so this can't be called
         std::unreachable!()
     }

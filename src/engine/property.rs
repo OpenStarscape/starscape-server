@@ -32,7 +32,7 @@ impl Subscriber for ConnectionProperty {
         state: &State,
         handler: &dyn OutboundMessageHandler,
     ) -> Result<(), Box<dyn Error>> {
-        let value = self.conduit.get_value(state)?;
+        let value = self.conduit.output(state)?;
         handler
             .property_update(self.connection, self.entity, self.property_name, &value)
             .map_err(|e| {
@@ -69,11 +69,11 @@ impl PropertyImpl {
 
 impl Property for PropertyImpl {
     fn get_value(&self, state: &State) -> Result<Encodable, String> {
-        self.conduit.get_value(state)
+        self.conduit.output(state)
     }
 
     fn set_value(&self, state: &mut State, value: Decoded) -> Result<(), String> {
-        self.conduit.set_value(state, value)
+        self.conduit.input(state, value)
     }
 
     fn subscribe(&self, state: &State, subscriber: ConnectionKey) -> Result<(), String> {
@@ -172,11 +172,11 @@ mod tests {
     }
 
     impl Conduit<Encodable, Decoded> for RefCell<MockConduit> {
-        fn get_value(&self, _sate: &State) -> Result<Encodable, String> {
+        fn output(&self, _sate: &State) -> Result<Encodable, String> {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: Decoded) -> Result<(), String> {
+        fn input(&self, _state: &mut State, _value: Decoded) -> Result<(), String> {
             panic!("unexpected call");
         }
 

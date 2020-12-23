@@ -109,7 +109,7 @@ impl Body {
         state.install_component(entity, self);
 
         ROConduit::new(move |state: &State| Ok(&state.component::<Body>(entity)?.class))
-            .map_get(|class| {
+            .map_output(|class| {
                 Ok(match class {
                     BodyClass::Celestial => "celestial".to_string(),
                     BodyClass::Ship => "ship".to_string(),
@@ -155,8 +155,8 @@ impl Body {
                 Ok(())
             },
         )
-        .map_get(|shape| Ok(shape.radius()))
-        .map_set(|radius: f64| {
+        .map_output(|shape| Ok(shape.radius()))
+        .map_input(|radius: f64| {
             if radius == 0.0 {
                 Ok(Shape::Point)
             } else if radius > 0.0 {

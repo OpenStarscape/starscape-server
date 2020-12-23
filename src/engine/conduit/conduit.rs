@@ -1,33 +1,33 @@
 use super::*;
 
-/// The interface between a property and the state
-/// G is the type returned by get_value() and S is the type send to set_value()
-pub trait Conduit<Get, Set> {
-    fn get_value(&self, state: &State) -> Result<Get, String>;
-    fn set_value(&self, state: &mut State, value: Set) -> Result<(), String>;
+/// A chain of conduits composes the interface between properties, actions and events and the state.
+/// `O` is the output/get type and `I` is the input/set type
+pub trait Conduit<O, I> {
+    fn output(&self, state: &State) -> Result<O, String>;
+    fn input(&self, state: &mut State, value: I) -> Result<(), String>;
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String>;
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String>;
 
     #[must_use]
-    fn map_get<F, GetOuter>(self, f: F) -> MapGetConduit<Self, Get, Set, F>
+    fn map_output<F, OuterO>(self, f: F) -> MapOutputConduit<Self, O, I, F>
     where
         Self: Sized,
-        F: Fn(Get) -> Result<GetOuter, String>,
+        F: Fn(O) -> Result<OuterO, String>,
     {
-        MapGetConduit::new(self, f)
+        MapOutputConduit::new(self, f)
     }
 
     #[must_use]
-    fn map_set<F, SetOuter>(self, f: F) -> MapSetConduit<Self, Get, Set, SetOuter, F>
+    fn map_input<F, OuterI>(self, f: F) -> MapInputConduit<Self, O, I, OuterI, F>
     where
         Self: Sized,
-        F: Fn(SetOuter) -> Result<Set, String>,
+        F: Fn(OuterI) -> Result<I, String>,
     {
-        MapSetConduit::new(self, f)
+        MapInputConduit::new(self, f)
     }
 
     #[must_use]
-    fn map_into<ResultGet, ResultSet>(self) -> TryIntoConduit<Self, Get, Set>
+    fn map_into<ResultGet, ResultSet>(self) -> TryIntoConduit<Self, O, I>
     where
         Self: Sized,
     {
@@ -37,9 +37,9 @@ pub trait Conduit<Get, Set> {
     fn install(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
-        Get: Into<Encodable> + 'static,
-        Set: 'static,
-        Decoded: Into<Result<Set, String>>,
+        O: Into<Encodable> + 'static,
+        I: 'static,
+        Decoded: Into<Result<I, String>>,
     {
         state.install_property(entity, name, self.map_into::<Encodable, Decoded>());
     }
