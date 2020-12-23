@@ -8,25 +8,25 @@ impl<C, GetInner, SetInner> TryIntoConduit<C, GetInner, SetInner> {
     }
 }
 
-impl<C, GetInner, SetInner, GetOuter, SetOuter> Conduit<GetOuter, SetOuter>
-    for TryIntoConduit<C, GetInner, SetInner>
+impl<C, InnerO, InnerI, OuterO, OuterI> Conduit<OuterO, OuterI>
+    for TryIntoConduit<C, InnerO, InnerI>
 where
-    C: Conduit<GetInner, SetInner> + 'static,
-    GetInner: Into<GetOuter> + 'static,
-    SetInner: 'static,
-    SetOuter: Into<Result<SetInner, String>>,
+    C: Conduit<InnerO, InnerI> + 'static,
+    InnerO: Into<OuterO> + 'static,
+    InnerI: 'static,
+    OuterI: Into<Result<InnerI, String>>,
 {
-    fn get_value(&self, state: &State) -> Result<GetOuter, String> {
-        self.0.get_value(state).map(Into::into)
+    fn output(&self, state: &State) -> Result<OuterO, String> {
+        self.0.output(state).map(Into::into)
     }
 
-    fn set_value(&self, state: &mut State, value: SetOuter) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: OuterI) -> Result<(), String> {
         match value.into() {
-            Ok(value) => self.0.set_value(state, value),
+            Ok(value) => self.0.input(state, value),
             Err(e) => Err(format!(
                 "failed to convert {} -> {}: {}",
-                type_name::<SetOuter>(),
-                type_name::<SetInner>(),
+                type_name::<OuterI>(),
+                type_name::<InnerI>(),
                 e
             )),
         }

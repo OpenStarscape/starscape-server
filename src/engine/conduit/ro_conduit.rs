@@ -1,47 +1,49 @@
 use super::*;
 
 /// Connects a read-only element to the conduit system
-pub struct ROConduit<GetFn> {
-    getter: GetFn,
+pub struct ROConduit<OFn> {
+    output_fn: OFn,
 }
 
-impl<T, GetFn> ROConduit<GetFn>
+impl<T, OFn> ROConduit<OFn>
 where
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    GetFn: 'static,
+    for<'a> OFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
+    OFn: 'static,
 {
     #[must_use]
-    pub fn new(getter: GetFn) -> Self {
-        Self { getter }
+    pub fn new(output_fn: OFn) -> Self {
+        Self { output_fn }
     }
 }
 
-impl<T, GetFn> Conduit<T, ReadOnlyPropSetType> for ROConduit<GetFn>
+impl<T, OFn> Conduit<T, ReadOnlyPropSetType> for ROConduit<OFn>
 where
     T: Clone,
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    GetFn: 'static,
+    for<'a> OFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
+    OFn: 'static,
 {
-    fn get_value(&self, state: &State) -> Result<T, String> {
-        Ok((*(self.getter)(state)?).clone())
+    fn output(&self, state: &State) -> Result<T, String> {
+        Ok((*(self.output_fn)(state)?).clone())
     }
 
-    fn set_value(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
+    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
         // ReadOnlyPropSetType can't be instantiated, so this can't be called
         std::unreachable!()
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
-        (self.getter)(state)?.subscribe(subscriber).map_err(|e| {
+        (self.output_fn)(state)?.subscribe(subscriber).map_err(|e| {
             error!("subscribing to Element<{}>: {}", type_name::<T>(), e);
             "server_error".into()
         })
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
-        (self.getter)(state)?.unsubscribe(subscriber).map_err(|e| {
-            error!("unsubscribing from Element<{}>: {}", type_name::<T>(), e);
-            "server_error".into()
-        })
+        (self.output_fn)(state)?
+            .unsubscribe(subscriber)
+            .map_err(|e| {
+                error!("unsubscribing from Element<{}>: {}", type_name::<T>(), e);
+                "server_error".into()
+            })
     }
 }

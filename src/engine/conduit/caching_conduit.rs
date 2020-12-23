@@ -39,7 +39,7 @@ where
         state: &State,
         sink: &dyn OutboundMessageHandler,
     ) -> Result<(), Box<dyn Error>> {
-        let value = self.conduit.get_value(state)?;
+        let value = self.conduit.output(state)?;
         let mut cached = self
             .cached_value
             .lock()
@@ -57,14 +57,14 @@ where
     C: Conduit<T, T> + 'static,
     T: PartialEq,
 {
-    fn get_value(&self, state: &State) -> Result<T, String> {
+    fn output(&self, state: &State) -> Result<T, String> {
         // TODO: use cache if it is up to date
-        self.conduit.get_value(state)
+        self.conduit.output(state)
     }
 
-    fn set_value(&self, state: &mut State, value: T) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: T) -> Result<(), String> {
         // TODO: don't set if same as cache
-        self.conduit.set_value(state, value)
+        self.conduit.input(state, value)
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
@@ -132,11 +132,11 @@ mod tests {
     }
 
     impl Conduit<i32, i32> for Rc<RefCell<MockConduit>> {
-        fn get_value(&self, _sate: &State) -> Result<i32, String> {
+        fn output(&self, _sate: &State) -> Result<i32, String> {
             self.borrow().value_to_get.clone()
         }
 
-        fn set_value(&self, _state: &mut State, _value: i32) -> Result<(), String> {
+        fn input(&self, _state: &mut State, _value: i32) -> Result<(), String> {
             panic!("unexpected call");
         }
 

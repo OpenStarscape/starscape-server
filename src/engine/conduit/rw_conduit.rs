@@ -1,51 +1,56 @@
 use super::*;
 
 /// Connects an element to the conduit system
-pub struct RWConduit<GetFn, SetFn> {
-    getter: GetFn,
-    setter: SetFn,
+pub struct RWConduit<OFn, IFn> {
+    output_fn: OFn,
+    input_fn: IFn,
 }
 
-impl<T, GetFn, SetFn> RWConduit<GetFn, SetFn>
+impl<T, OFn, IFn> RWConduit<OFn, IFn>
 where
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    SetFn: Fn(&mut State, T) -> Result<(), String>,
-    GetFn: 'static,
-    SetFn: 'static,
+    for<'a> OFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
+    IFn: Fn(&mut State, T) -> Result<(), String>,
+    OFn: 'static,
+    IFn: 'static,
 {
     #[must_use]
-    pub fn new(getter: GetFn, setter: SetFn) -> Self {
-        Self { getter, setter }
+    pub fn new(output_fn: OFn, input_fn: IFn) -> Self {
+        Self {
+            output_fn,
+            input_fn,
+        }
     }
 }
 
-impl<T, GetFn, SetFn> Conduit<T, T> for RWConduit<GetFn, SetFn>
+impl<T, OFn, IFn> Conduit<T, T> for RWConduit<OFn, IFn>
 where
     T: Clone,
-    for<'a> GetFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
-    SetFn: Fn(&mut State, T) -> Result<(), String>,
-    GetFn: 'static,
-    SetFn: 'static,
+    for<'a> OFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
+    IFn: Fn(&mut State, T) -> Result<(), String>,
+    OFn: 'static,
+    IFn: 'static,
 {
-    fn get_value(&self, state: &State) -> Result<T, String> {
-        Ok((*(self.getter)(state)?).clone())
+    fn output(&self, state: &State) -> Result<T, String> {
+        Ok((*(self.output_fn)(state)?).clone())
     }
 
-    fn set_value(&self, state: &mut State, value: T) -> Result<(), String> {
-        (self.setter)(state, value)
+    fn input(&self, state: &mut State, value: T) -> Result<(), String> {
+        (self.input_fn)(state, value)
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
-        (self.getter)(state)?.subscribe(subscriber).map_err(|e| {
+        (self.output_fn)(state)?.subscribe(subscriber).map_err(|e| {
             error!("subscribing to Element<{}>: {}", type_name::<T>(), e);
             "server_error".into()
         })
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
-        (self.getter)(state)?.unsubscribe(subscriber).map_err(|e| {
-            error!("unsubscribing from Element<{}>: {}", type_name::<T>(), e);
-            "server_error".into()
-        })
+        (self.output_fn)(state)?
+            .unsubscribe(subscriber)
+            .map_err(|e| {
+                error!("unsubscribing from Element<{}>: {}", type_name::<T>(), e);
+                "server_error".into()
+            })
     }
 }

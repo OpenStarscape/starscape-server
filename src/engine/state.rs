@@ -46,7 +46,7 @@ impl State {
     }
 
     /// Removes the given entity and all its components from the state
-	#[allow(dead_code)]
+    #[allow(dead_code)]
     pub fn destroy_entity(&mut self, entity: EntityKey) -> Result<(), Box<dyn Error>> {
         let mut entity = self
             .entities
