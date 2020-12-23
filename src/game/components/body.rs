@@ -119,41 +119,25 @@ impl Body {
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.position),
-            move |state, value| {
-                let body = state.component_mut::<Body>(entity)?;
-                body.position.set(value);
-                Ok(())
-            },
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.position.set(value)),
         )
         .install(state, entity, "position");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.velocity),
-            move |state, value| {
-                let body = state.component_mut::<Body>(entity)?;
-                body.velocity.set(value);
-                Ok(())
-            },
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.velocity.set(value)),
         )
         .install(state, entity, "velocity");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.mass),
-            move |state, value| {
-                let body = state.component_mut::<Body>(entity)?;
-                body.mass.set(value);
-                Ok(())
-            },
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.mass.set(value)),
         )
         .install(state, entity, "mass");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
-            move |state, value| {
-                let body = state.component_mut::<Body>(entity)?;
-                body.shape.set(value);
-                Ok(())
-            },
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.shape.set(value)),
         )
         .map_output(|shape| Ok(shape.radius()))
         .map_input(|radius| {
