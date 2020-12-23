@@ -263,10 +263,10 @@ impl State {
 }
 
 impl InboundMessageHandler for State {
-    fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String> {
+    fn set(&mut self, entity: EntityKey, property: &str, value: Decoded) -> Result<(), String> {
         let property = self.property(entity, property)?.clone();
         // TODO: eliminate value.clone() if possible
-        property.set_value(self, value.clone())
+        property.set_value(self, value)
     }
 
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
