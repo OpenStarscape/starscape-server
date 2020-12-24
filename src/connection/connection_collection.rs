@@ -36,29 +36,21 @@ pub trait InboundMessageHandler {
 pub struct ConnectionCollection {
     root_entity: EntityKey,
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
-    new_session_tx: Sender<Box<dyn SessionBuilder>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<Request>,
     request_rx: Receiver<Request>,
 }
 
 impl ConnectionCollection {
-    pub fn new(root_entity: EntityKey) -> Self {
-        let (new_session_tx, new_session_rx) = channel();
+    pub fn new(new_session_rx: Receiver<Box<dyn SessionBuilder>>, root_entity: EntityKey) -> Self {
         let (request_tx, request_rx) = channel();
         Self {
             root_entity,
             connections: DenseSlotMap::with_key(),
-            new_session_tx,
             new_session_rx,
             request_tx,
             request_rx,
         }
-    }
-
-    /// When a SessionBuilder is sent over this channel, it will be used to create a new connection
-    pub fn session_sender(&self) -> Sender<Box<dyn SessionBuilder>> {
-        self.new_session_tx.clone()
     }
 
     /// Handle incoming connection requests and messages from clients on the current thread. Should
@@ -295,9 +287,10 @@ mod tests {
     #[test]
     fn can_create_connection_from_session_builder() {
         let e = mock_keys(1);
-        let mut cc = ConnectionCollection::new(e[0]);
+        let (session_tx, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0]);
         let builder = Box::new(MockSessionBuilder(true));
-        cc.session_sender()
+        session_tx
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockInboundHandler::new();
@@ -309,10 +302,11 @@ mod tests {
     #[test]
     fn does_not_create_connection_when_building_session_fails() {
         let e = mock_keys(1);
-        let mut cc = ConnectionCollection::new(e[0]);
+        let (session_tx, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0]);
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
-        cc.session_sender()
+        session_tx
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockInboundHandler::new();
