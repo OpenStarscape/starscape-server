@@ -5,5 +5,5 @@ mod god;
 mod ship;
 
 pub use body::{Body, BodyClass, Collision, CollisionHandler, GravityBody};
-pub use god::create_god;
+pub use god::install_god;
 pub use ship::{create_ship, Ship};

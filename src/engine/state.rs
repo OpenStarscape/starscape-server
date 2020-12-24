@@ -15,6 +15,7 @@ type ComponentElement<T> = (PhantomData<T>, Element<()>);
 pub struct State {
     /// Current time in seconds since the start of the game
     pub time: f64,
+    root: EntityKey,
     entities: DenseSlotMap<EntityKey, Entity>,
     components: AnyMap,
     component_list_elements: Mutex<AnyMap>, // TODO: change to subscription trackers
@@ -23,13 +24,17 @@ pub struct State {
 
 impl Default for State {
     fn default() -> Self {
-        Self {
+        use slotmap::Key;
+        let mut state = Self {
             time: 0.0,
+            root: EntityKey::null(),
             entities: DenseSlotMap::with_key(),
             components: AnyMap::new(),
             component_list_elements: Mutex::new(AnyMap::new()),
             notif_queue: NotifQueue::new(),
-        }
+        };
+        state.root = state.create_entity();
+        state
     }
 }
 
@@ -41,6 +46,12 @@ impl State {
     /// Returns the key for the newly created entity
     pub fn create_entity(&mut self) -> EntityKey {
         self.entities.insert_with_key(Entity::new)
+    }
+
+    /// Returns the root entity, which is automatically created on construction. This will be the
+    /// initial entity clients bind to.
+    pub fn root_entity(&self) -> EntityKey {
+        self.root
     }
 
     /// Removes the given entity and all its components from the state
@@ -196,7 +207,9 @@ impl State {
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         // pending_updates intentionally not checked
-        self.components.is_empty() && self.entities.is_empty()
+        self.components.is_empty()
+            && self.entities.len() == 1
+            && self.entities.get(self.root).is_some()
     }
 
     /// Returns the property with the given name on the entity
