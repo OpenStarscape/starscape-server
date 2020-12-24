@@ -9,13 +9,19 @@ pub enum Encodable {
     Vector(Vector3<f64>),
     Scalar(f64),
     Integer(i64),
+    Text(String),
     Entity(EntityKey),
     Array(Vec<Encodable>),
     Null,
     // TODO: add boolean
-    // TODO: add string
     // TODO: add map
     // (for each JSON encoding, JSON decoding and Decoded getting needs to be tested)
+}
+
+impl From<String> for Encodable {
+    fn from(text: String) -> Self {
+        Encodable::Text(text)
+    }
 }
 
 impl From<Point3<f64>> for Encodable {

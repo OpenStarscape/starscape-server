@@ -3,6 +3,15 @@ use super::*;
 /// The threshold for how massive a body has to be to get a gravity body
 const GRAVITY_BODY_THRESH: f64 = 100_000.0;
 
+/// The type of object
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum BodyClass {
+    /// Stars, planets, moons and asteroids
+    Celestial,
+    /// Ships that may have thrust and be controlled
+    Ship,
+}
+
 /// Collision shape
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Shape {
@@ -26,6 +35,8 @@ pub struct GravityBody;
 
 /// Any physics object in space
 pub struct Body {
+    /// Type of body
+    pub class: Element<BodyClass>,
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
@@ -43,6 +54,7 @@ pub struct Body {
 impl Default for Body {
     fn default() -> Self {
         Self {
+            class: Element::new(BodyClass::Celestial),
             position: Element::new(Point3::origin()),
             velocity: Element::new(Vector3::zero()),
             shape: Element::new(Shape::Point),
@@ -55,6 +67,11 @@ impl Default for Body {
 impl Body {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn with_class(mut self, class: BodyClass) -> Self {
+        self.class = Element::new(class);
+        self
     }
 
     pub fn with_position(mut self, position: Point3<f64>) -> Self {
@@ -90,42 +107,49 @@ impl Body {
             state.install_component(entity, GravityBody);
         }
         state.install_component(entity, self);
-        state.install_property(
-            entity,
-            "position",
-            Box::new(ElementConduit::new(
-                move |state: &State| Ok(&state.component::<Body>(entity)?.position),
-                move |state: &mut State, value: &Decoded| {
-                    let (notifs, body) = state.component_mut::<Body>(entity)?;
-                    body.position.set(notifs, value.try_get()?);
-                    Ok(())
-                },
-            )),
-        );
-        state.install_property(
-            entity,
-            "velocity",
-            Box::new(ElementConduit::new(
-                move |state: &State| Ok(&state.component::<Body>(entity)?.velocity),
-                move |state: &mut State, value: &Decoded| {
-                    let (notifs, body) = state.component_mut::<Body>(entity)?;
-                    body.velocity.set(notifs, value.try_get()?);
-                    Ok(())
-                },
-            )),
-        );
-        state.install_property(
-            entity,
-            "mass",
-            Box::new(ElementConduit::new(
-                move |state: &State| Ok(&state.component::<Body>(entity)?.mass),
-                move |state: &mut State, value: &Decoded| {
-                    let (notifs, body) = state.component_mut::<Body>(entity)?;
-                    body.mass.set(notifs, value.try_get()?);
-                    Ok(())
-                },
-            )),
-        );
+
+        ROConduit::new(move |state| Ok(&state.component::<Body>(entity)?.class))
+            .map_output(|class| {
+                Ok(match class {
+                    BodyClass::Celestial => "celestial".to_string(),
+                    BodyClass::Ship => "ship".to_string(),
+                })
+            })
+            .install(state, entity, "class");
+
+        RWConduit::new(
+            move |state| Ok(&state.component::<Body>(entity)?.position),
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.position.set(value)),
+        )
+        .install(state, entity, "position");
+
+        RWConduit::new(
+            move |state| Ok(&state.component::<Body>(entity)?.velocity),
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.velocity.set(value)),
+        )
+        .install(state, entity, "velocity");
+
+        RWConduit::new(
+            move |state| Ok(&state.component::<Body>(entity)?.mass),
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.mass.set(value)),
+        )
+        .install(state, entity, "mass");
+
+        RWConduit::new(
+            move |state| Ok(&state.component::<Body>(entity)?.shape),
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.shape.set(value)),
+        )
+        .map_output(|shape| Ok(shape.radius()))
+        .map_input(|radius| {
+            if radius == 0.0 {
+                Ok(Shape::Point)
+            } else if radius > 0.0 {
+                Ok(Shape::Sphere { radius })
+            } else {
+                Err("size must be >= 0".to_string())
+            }
+        })
+        .install(state, entity, "size");
     }
 }
 

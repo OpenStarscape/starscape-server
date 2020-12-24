@@ -6,8 +6,6 @@ new_key_type! {
     pub struct EntityKey;
 }
 
-pub type NotifQueue = Vec<Weak<dyn Subscriber>>;
-
 type ComponentMap<T> = DenseSlotMap<ComponentKey<T>, (EntityKey, T)>;
 type ComponentElement<T> = (PhantomData<T>, Element<()>);
 
@@ -17,21 +15,26 @@ type ComponentElement<T> = (PhantomData<T>, Element<()>);
 pub struct State {
     /// Current time in seconds since the start of the game
     pub time: f64,
+    root: EntityKey,
     entities: DenseSlotMap<EntityKey, Entity>,
     components: AnyMap,
     component_list_elements: Mutex<AnyMap>, // TODO: change to subscription trackers
-    pub pending_updates: NotifQueue,
+    pub notif_queue: NotifQueue,
 }
 
 impl Default for State {
     fn default() -> Self {
-        Self {
+        use slotmap::Key;
+        let mut state = Self {
             time: 0.0,
+            root: EntityKey::null(),
             entities: DenseSlotMap::with_key(),
             components: AnyMap::new(),
             component_list_elements: Mutex::new(AnyMap::new()),
-            pending_updates: Vec::new(),
-        }
+            notif_queue: NotifQueue::new(),
+        };
+        state.root = state.create_entity();
+        state
     }
 }
 
@@ -45,7 +48,14 @@ impl State {
         self.entities.insert_with_key(Entity::new)
     }
 
+    /// Returns the root entity, which is automatically created on construction. This will be the
+    /// initial entity clients bind to.
+    pub fn root_entity(&self) -> EntityKey {
+        self.root
+    }
+
     /// Removes the given entity and all its components from the state
+    #[allow(dead_code)]
     pub fn destroy_entity(&mut self, entity: EntityKey) -> Result<(), Box<dyn Error>> {
         let mut entity = self
             .entities
@@ -102,10 +112,7 @@ impl State {
 
     /// Returns a mutable reference to the given component
     /// or None if no such component is found
-    pub fn component_mut<T: 'static>(
-        &mut self,
-        entity: EntityKey,
-    ) -> Result<(&mut NotifQueue, &mut T), String> {
+    pub fn component_mut<T: 'static>(&mut self, entity: EntityKey) -> Result<&mut T, String> {
         let e = self
             .entities
             .get(entity)
@@ -122,7 +129,7 @@ impl State {
             .get_mut()
             .ok_or_else(|| format!("no components of type {}", type_name::<T>()))?;
         match map.get_mut(component) {
-            Some(v) => Ok((&mut self.pending_updates, &mut v.1)),
+            Some(v) => Ok(&mut v.1),
             None => Err(format!(
                 "invalid component {} ID {:?}",
                 type_name::<T>(),
@@ -145,17 +152,11 @@ impl State {
     /// Returns a mutable iterator over all components of a particular type
     pub fn components_iter_mut<'a, T: 'static>(
         &'a mut self,
-    ) -> (
-        &mut NotifQueue,
-        Box<dyn std::iter::Iterator<Item = (EntityKey, &mut T)> + 'a>,
-    ) {
-        (
-            &mut self.pending_updates,
-            match self.components.get_mut::<ComponentMap<T>>() {
-                Some(map) => Box::new(map.values_mut().map(|(entity, value)| (*entity, value))),
-                None => Box::new(std::iter::empty()),
-            },
-        )
+    ) -> Box<dyn std::iter::Iterator<Item = (EntityKey, &mut T)> + 'a> {
+        match self.components.get_mut::<ComponentMap<T>>() {
+            Some(map) => Box::new(map.values_mut().map(|(entity, value)| (*entity, value))),
+            None => Box::new(std::iter::empty()),
+        }
     }
 
     /// Subscribe to be notified when a component of type T is created or destroyed
@@ -171,7 +172,7 @@ impl State {
             .entry::<ComponentElement<T>>()
             .or_insert_with(|| (PhantomData, Element::new(())))
             .1;
-        element.subscribe(subscriber)
+        element.subscribe(subscriber, &self.notif_queue)
     }
 
     pub fn unsubscribe_from_component_list<T: 'static>(
@@ -191,14 +192,12 @@ impl State {
 
     /// Create a property for an entity
     /// Panics if entity doesn't exist or already has a property with this name
-    pub fn install_property(
-        &mut self,
-        entity_key: EntityKey,
-        name: &'static str,
-        conduit: Box<dyn Conduit>,
-    ) {
+    pub fn install_property<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
+    where
+        C: Conduit<Encodable, Decoded> + 'static,
+    {
         if let Some(entity) = self.entities.get_mut(entity_key) {
-            let property = Property::new(entity_key, name, conduit);
+            let property = Property::new(entity_key, name, conduit::CachingConduit::new(conduit));
             entity.register_property(name, property);
         } else {
             panic!("failed to register proprty on entity {:?}", entity_key);
@@ -208,7 +207,9 @@ impl State {
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         // pending_updates intentionally not checked
-        self.components.is_empty() && self.entities.is_empty()
+        self.components.is_empty()
+            && self.entities.len() == 1
+            && self.entities.get(self.root).is_some()
     }
 
     /// Returns the property with the given name on the entity
@@ -259,13 +260,14 @@ impl State {
             .entry::<ComponentElement<T>>()
             .or_insert_with(|| (PhantomData, Element::new(())))
             .1;
-        element.get_mut(&mut self.pending_updates);
+        element.get_mut();
     }
 }
 
 impl InboundMessageHandler for State {
-    fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String> {
+    fn set(&mut self, entity: EntityKey, property: &str, value: Decoded) -> Result<(), String> {
         let property = self.property(entity, property)?.clone();
+        // TODO: eliminate value.clone() if possible
         property.set_value(self, value)
     }
 
@@ -411,7 +413,7 @@ mod tests {
         let mut state = State::new();
         let e = state.create_entity();
         state.install_component(e, MockComponent(3));
-        let (_, mut c) = state
+        let mut c = state
             .component_mut::<MockComponent>(e)
             .expect("could not get component");
         c.0 = 5;
