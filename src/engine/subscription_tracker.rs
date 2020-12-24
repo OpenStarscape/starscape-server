@@ -1,5 +1,7 @@
 use super::*;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 /// Returned by SubscriptionTracker::subscribe(), used instead of a raw bool for code readablity
 pub struct SubscribeReport {
     pub was_empty: bool,
@@ -18,10 +20,52 @@ struct Inner {
 }
 
 impl Inner {
-    pub fn subscribe(
-        &mut self,
-        subscriber: &Arc<dyn Subscriber>,
-    ) -> Result<SubscribeReport, String> {
+    fn queue_notifications(&self) {
+        if !self.subscribers.is_empty() {
+            if let Some(notif_queue) = &self.notif_queue {
+                notif_queue.extend(
+                    self.subscribers
+                        .iter()
+                        .map(|(_ptr, subscriber)| subscriber.clone()),
+                );
+            } else {
+                error!("could not queue notifications because notification queue is unset");
+            }
+        }
+    }
+
+    fn send_notifications(
+        &self,
+        state: &State,
+        prop_update_subscriber: &dyn OutboundMessageHandler,
+    ) {
+        for (_ptr, subscriber) in &self.subscribers {
+            if let Some(subscriber) = subscriber.upgrade() {
+                if let Err(e) = subscriber.notify(state, prop_update_subscriber) {
+                    error!("failed to process notification: {}", e);
+                }
+            } else {
+                error!("failed to lock Weak; should have been unsubscribed before being dropped");
+            }
+        }
+    }
+
+    fn set_notif_queue(&mut self, notif_queue: &NotifQueue) -> Result<(), String> {
+        if let Some(prev) = &self.notif_queue {
+            if prev != notif_queue {
+                let msg = "tried to subscribe with different notification queue";
+                error!("{}", msg);
+                Err(msg.to_string())
+            } else {
+                Ok(())
+            }
+        } else {
+            self.notif_queue = Some(notif_queue.clone());
+            Ok(())
+        }
+    }
+
+    fn subscribe(&mut self, subscriber: &Arc<dyn Subscriber>) -> Result<SubscribeReport, String> {
         let subscriber_ptr = subscriber.thin_ptr();
         let subscriber = Arc::downgrade(subscriber);
         if self
@@ -37,7 +81,7 @@ impl Inner {
         }
     }
 
-    pub fn unsubscribe(
+    fn unsubscribe(
         &mut self,
         subscriber: &Weak<dyn Subscriber>,
     ) -> Result<UnsubscribeReport, String> {
@@ -60,29 +104,28 @@ impl Inner {
 /// Object that keeps track of a list of subscribers. Conceptually this is a set of Weaks, but you
 /// can't hash or compare a weak so we use thin_ptr() for that. Since most lists will contain 0 or
 /// 1 elements and iteration speed is most important, we use a Vec instead of a map.
-pub struct SubscriptionTracker(RwLock<Inner>);
+pub struct SubscriptionTracker {
+    has_subscribers: AtomicBool,
+    lock: RwLock<Inner>,
+}
 
 impl SubscriptionTracker {
     pub fn new() -> Self {
-        Self(RwLock::new(Inner {
-            subscribers: Vec::new(),
-            notif_queue: None,
-        }))
+        Self {
+            has_subscribers: AtomicBool::new(false),
+            lock: RwLock::new(Inner {
+                subscribers: Vec::new(),
+                notif_queue: None,
+            }),
+        }
     }
 
     pub fn queue_notifications(&self) {
-        let inner = self.0.read().expect("failed to lock subscribers");
-        if !inner.subscribers.is_empty() {
-            if let Some(notif_queue) = &inner.notif_queue {
-                notif_queue.extend(
-                    inner
-                        .subscribers
-                        .iter()
-                        .map(|(_ptr, subscriber)| subscriber.clone()),
-                );
-            } else {
-                error!("could not queue notifications because notification queue is unset");
-            }
+        if self.has_subscribers.load(Ordering::SeqCst) {
+            self.lock
+                .read()
+                .expect("failed to lock subscribers")
+                .queue_notifications();
         }
     }
 
@@ -91,15 +134,11 @@ impl SubscriptionTracker {
         state: &State,
         prop_update_subscriber: &dyn OutboundMessageHandler,
     ) {
-        let inner = self.0.read().expect("failed to lock subscribers");
-        for (_ptr, subscriber) in &inner.subscribers {
-            if let Some(subscriber) = subscriber.upgrade() {
-                if let Err(e) = subscriber.notify(state, prop_update_subscriber) {
-                    error!("failed to process notification: {}", e);
-                }
-            } else {
-                error!("failed to lock Weak; should have been unsubscribed before being dropped");
-            }
+        if self.has_subscribers.load(Ordering::SeqCst) {
+            self.lock
+                .read()
+                .expect("failed to lock subscribers")
+                .send_notifications(state, prop_update_subscriber);
         }
     }
 
@@ -108,21 +147,15 @@ impl SubscriptionTracker {
         subscriber: &Arc<dyn Subscriber>,
         notif_queue: &NotifQueue,
     ) -> Result<SubscribeReport, String> {
-        let mut inner = self.0.write().expect("failed to lock subscribers");
-        if let Some(prev) = &inner.notif_queue {
-            if prev != notif_queue {
-                let msg = "tried to subscribe with different notification queue";
-                error!("{}", msg);
-                return Err(msg.to_string());
-            }
-        } else {
-            inner.notif_queue = Some(notif_queue.clone());
-        }
+        self.has_subscribers.store(true, Ordering::SeqCst);
+        let mut inner = self.lock.write().expect("failed to lock subscribers");
+        inner.set_notif_queue(notif_queue)?;
         inner.subscribe(subscriber)
     }
 
     pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<SubscribeReport, String> {
-        let mut inner = self.0.write().expect("failed to lock subscribers");
+        self.has_subscribers.store(true, Ordering::SeqCst);
+        let mut inner = self.lock.write().expect("failed to lock subscribers");
         inner.subscribe(subscriber)
     }
 
@@ -130,8 +163,14 @@ impl SubscriptionTracker {
         &self,
         subscriber: &Weak<dyn Subscriber>,
     ) -> Result<UnsubscribeReport, String> {
-        let mut inner = self.0.write().expect("failed to lock subscribers");
-        inner.unsubscribe(subscriber)
+        let mut inner = self.lock.write().expect("failed to lock subscribers");
+        let result = inner.unsubscribe(subscriber);
+        if let Ok(report) = &result {
+            if report.is_now_empty {
+                self.has_subscribers.store(false, Ordering::SeqCst);
+            }
+        };
+        result
     }
 }
 
