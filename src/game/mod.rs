@@ -5,12 +5,12 @@ use super::*;
 mod components;
 #[allow(clippy::module_inception)]
 mod game;
-mod systems;
+mod physics;
 
-pub use game::Game;
+pub use game::{init, physics_tick};
 
 use components::*;
-use systems::*;
+use physics::*;
 
 /// A very small value; used for floating-point comparisons
 const EPSILON: f64 = 0.000_001;

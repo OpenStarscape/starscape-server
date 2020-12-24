@@ -6,12 +6,15 @@ const OUTBOUND_BUNDLE_BUFFER_SIZE: usize = 1000; // max number of in-flight outb
 async fn listen_for_inbound(
     dispatcher: &WebrtcDispatcher,
     webrtc_server: &tokio::sync::Mutex<webrtc_unreliable::Server>,
+    closed_sessions: &mut HashSet<SocketAddr>,
 ) {
     let mut webrtc_server = webrtc_server.lock().await;
     let mut message_buf = Vec::new();
     loop {
         match webrtc_server.recv().await {
             Ok(received) => {
+                // If we receive a packet from a closed address, assume it has re-connected
+                closed_sessions.remove(&received.remote_addr);
                 // clearing and filling doesn't require any allocations except when the buffer gets
                 // bigger; more efficient than creating a new vector each iteration.
                 message_buf.clear();
@@ -32,11 +35,12 @@ async fn run_server(
     webrtc_server: webrtc_unreliable::Server,
 ) {
     let webrtc_server = tokio::sync::Mutex::new(webrtc_server);
+    let mut closed_sessions = HashSet::new();
     // Run until we're extenally aborted
     loop {
         // listen for inbound messages (which will run forever) until we have a pending outbound one
         tokio::select! {
-            _ = listen_for_inbound(&dispatcher, &webrtc_server) => (),
+            _ = listen_for_inbound(&dispatcher, &webrtc_server, &mut closed_sessions) => (),
             outbound = outbound_rx.recv() => {
                 if let Some(outbound) = outbound {
                     // Lock the server. This should be uncontested because the listen_for_inbound()
@@ -46,13 +50,16 @@ async fn run_server(
                     // loop over any additional messages when we're done with the initial one
                     let mut outbound = Ok(outbound);
                     while let Ok((addr, bundle)) = outbound {
-                        // This actually sends the bundle
-                        if let Err(err) = webrtc_server
-                            .send(&bundle, webrtc_unreliable::MessageType::Text, &addr)
-                            .await
-                        {
-                            warn!("could not send message to {}, closing session: {}", addr, err);
-                            dispatcher.close_session(&addr);
+                        if !closed_sessions.contains(&addr) {
+                            // This actually sends the bundle
+                            if let Err(err) = webrtc_server
+                                .send(&bundle, webrtc_unreliable::MessageType::Text, &addr)
+                                .await
+                            {
+                                warn!("could not send message to {}, closing session: {}", addr, err);
+                                dispatcher.close_session(&addr);
+                                closed_sessions.insert(addr);
+                            }
                         }
                         // If there are multiple outbound messages queued up, processing them now
                         // without letting go of the server lock is more efficient than starting

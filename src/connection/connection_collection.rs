@@ -15,7 +15,7 @@ pub trait OutboundMessageHandler {
 /// Processes requests from a client. Implemented by State in the engine and used by
 /// ConnectionCollection.
 pub trait InboundMessageHandler {
-    fn set(&mut self, entity: EntityKey, property: &str, value: &Decoded) -> Result<(), String>;
+    fn set(&mut self, entity: EntityKey, property: &str, value: Decoded) -> Result<(), String>;
     fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String>;
     fn subscribe(
         &mut self,
@@ -36,29 +36,21 @@ pub trait InboundMessageHandler {
 pub struct ConnectionCollection {
     root_entity: EntityKey,
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
-    new_session_tx: Sender<Box<dyn SessionBuilder>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<Request>,
     request_rx: Receiver<Request>,
 }
 
 impl ConnectionCollection {
-    pub fn new(root_entity: EntityKey) -> Self {
-        let (new_session_tx, new_session_rx) = channel();
+    pub fn new(new_session_rx: Receiver<Box<dyn SessionBuilder>>, root_entity: EntityKey) -> Self {
         let (request_tx, request_rx) = channel();
         Self {
             root_entity,
             connections: DenseSlotMap::with_key(),
-            new_session_tx,
             new_session_rx,
             request_tx,
             request_rx,
         }
-    }
-
-    /// When a SessionBuilder is sent over this channel, it will be used to create a new connection
-    pub fn session_sender(&self) -> Sender<Box<dyn SessionBuilder>> {
-        self.new_session_tx.clone()
     }
 
     /// Handle incoming connection requests and messages from clients on the current thread. Should
@@ -70,7 +62,7 @@ impl ConnectionCollection {
         }
         // Then process pending requests
         while let Ok(request) = self.request_rx.try_recv() {
-            info!("got request: {:?}", request);
+            trace!("got request: {:?}", request);
             self.request(handler, request);
         }
     }
@@ -106,9 +98,9 @@ impl ConnectionCollection {
             fn handle_request(
                 &mut self,
                 _: &mut dyn InboundMessageHandler,
-                _: &EntityKey,
+                _: EntityKey,
                 _: &str,
-                _: &PropertyRequest,
+                _: PropertyRequest,
             ) {
                 error!("handle_request() called on StubConnection");
             }
@@ -142,7 +134,7 @@ impl ConnectionCollection {
         match request.request {
             RequestType::Property((entity, prop), action) => {
                 match self.connections.get_mut(request.connection) {
-                    Some(connection) => connection.handle_request(handler, &entity, &prop, &action),
+                    Some(connection) => connection.handle_request(handler, entity, &prop, action),
                     None => warn!(
                         "request {:?} {:?}.{} on dead connection {:?}",
                         action, entity, prop, request.connection
@@ -233,9 +225,9 @@ mod tests {
         fn handle_request(
             &mut self,
             _: &mut dyn InboundMessageHandler,
-            _: &EntityKey,
+            _: EntityKey,
             _: &str,
-            _: &PropertyRequest,
+            _: PropertyRequest,
         ) {
         }
         fn flush(&mut self, _: &mut dyn InboundMessageHandler) {}
@@ -255,7 +247,7 @@ mod tests {
             &mut self,
             entity: EntityKey,
             property: &str,
-            _value: &Decoded,
+            _value: Decoded,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()
@@ -295,9 +287,10 @@ mod tests {
     #[test]
     fn can_create_connection_from_session_builder() {
         let e = mock_keys(1);
-        let mut cc = ConnectionCollection::new(e[0]);
+        let (session_tx, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0]);
         let builder = Box::new(MockSessionBuilder(true));
-        cc.session_sender()
+        session_tx
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockInboundHandler::new();
@@ -309,10 +302,11 @@ mod tests {
     #[test]
     fn does_not_create_connection_when_building_session_fails() {
         let e = mock_keys(1);
-        let mut cc = ConnectionCollection::new(e[0]);
+        let (session_tx, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0]);
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
-        cc.session_sender()
+        session_tx
             .send(builder)
             .expect("failed to send connection builder");
         let mut handler = MockInboundHandler::new();

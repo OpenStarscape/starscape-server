@@ -26,6 +26,7 @@ impl<'a> Serialize for Contextualized<'a, Encodable> {
             }
             Encodable::Scalar(value) => serializer.serialize_f64(*value),
             Encodable::Integer(value) => serializer.serialize_i64(*value),
+            Encodable::Text(value) => serializer.serialize_str(value),
             Encodable::Entity(entity) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;
@@ -144,6 +145,11 @@ mod encodable_tests {
     #[test]
     fn int() {
         assert_json_eq((-243 as i64).into(), "-243");
+    }
+
+    #[test]
+    fn string() {
+        assert_json_eq(("hello\n".to_string()).into(), "\"hello\\n\"");
     }
 
     #[test]

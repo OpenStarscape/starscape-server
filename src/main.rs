@@ -10,13 +10,13 @@ extern crate slotmap;
 
 mod connection;
 mod engine;
+#[allow(clippy::unit_arg)]
 mod game;
 mod helpers;
 mod server;
 
 use connection::*;
 use engine::*;
-use game::*;
 use helpers::*;
 use server::*;
 
@@ -24,6 +24,7 @@ use anymap::AnyMap;
 use cgmath::*;
 use futures::{executor::block_on, future, StreamExt};
 use slotmap::DenseSlotMap;
+use weak_self::WeakSelf;
 
 use std::error::Error;
 use std::{
@@ -36,31 +37,63 @@ use std::{
     sync::{Arc, Mutex, RwLock, Weak},
 };
 
-#[tokio::main]
-async fn main() {
-    // By default show error, warn and info
+/// The number of game ticks/second
+const TICKS_PER_SEC: u32 = 30;
+/// Used for both physics and the real timing of the game
+const TICK_TIME: f64 = 1.0 / TICKS_PER_SEC as f64;
+/// The amount of time the engine is given to do it's thing each tick. If it can't complete a tick
+/// on time, the game will slow down.
+const TIME_BUDGET: f64 = 0.005;
+/// Clients that can complete a roundtrip faster than this will be able to respond before any
+/// additional updates are made and will all be on a level playing field. The engine must
+/// be able to complete a full tick in the gap between this and TICK_TIME. If it can't, the game
+/// will be slowed down.
+const MIN_SLEEP_TIME: f64 = TICK_TIME - TIME_BUDGET;
+
+/// By default show error, warn and info messages
+fn init_logger() {
     env_logger::builder()
         .format_timestamp_millis()
         .filter_level(log::LevelFilter::Info)
         .parse_default_env()
         .init();
-    info!("initializing game…");
+}
 
-    let (quit_sender, quit_receiver) = channel();
+/// This gives us graceful shutdown when the user quits with Ctrl+C on the terminal
+fn init_ctrlc_handler() -> Receiver<()> {
+    let (tx, rx) = channel();
     ctrlc::set_handler(move || {
         warn!("processing Ctrl+C from user…");
-        quit_sender.send(()).expect("failed to send quit signal");
+        tx.send(()).expect("failed to send quit signal");
     })
-    .expect("error setting Ctrl-C handler");
+    .expect("error setting Ctrl+C handler");
+    rx
+}
 
-    let mut game = Game::new().unwrap_or_else(|e| {
+#[tokio::main]
+async fn main() {
+    init_logger();
+    let ctrlc_rx = init_ctrlc_handler();
+
+    info!("initializing game…");
+
+    // Create a server, which will spin up everything required to talk to clients. The server object
+    // is not used directly but needs to be kept in scope for as long as the game runs.
+    let (new_session_tx, new_session_rx) = channel();
+    let _server = Server::new(true, true, new_session_tx).unwrap_or_else(|e| {
         error!("{}", e);
         panic!("failed to create game");
     });
+    // Create the game engine. The `init` and `physics_tick` callbacks are the entiry points into
+    // the `game` module
+    let mut engine = Engine::new(new_session_rx, TICK_TIME, game::init, game::physics_tick);
 
     info!("running game…");
-    while game.step() {
-        if quit_receiver.try_recv().is_ok() {
+
+    let mut metronome = Metronome::new(TICK_TIME, MIN_SLEEP_TIME);
+    while engine.tick() {
+        metronome.sleep();
+        if ctrlc_rx.try_recv().is_ok() {
             trace!("exiting game loop due to quit signal");
             break;
         }

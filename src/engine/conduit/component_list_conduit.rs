@@ -3,30 +3,24 @@ use super::*;
 /// Useful for creating properties that are a list of all entities with a given component
 pub struct ComponentListConduit<T: 'static>(PhantomData<T>);
 
-// Required because of https://github.com/rust-lang/rust/issues/26925
-impl<T> Clone for ComponentListConduit<T> {
-    fn clone(&self) -> Self {
-        Self(PhantomData)
-    }
-}
-
 impl<T: 'static> ComponentListConduit<T> {
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<T: 'static> Conduit for ComponentListConduit<T> {
-    fn get_value(&self, state: &State) -> Result<Encodable, String> {
-        let entities: Vec<EntityKey> = state
+impl<T: 'static> Conduit<Encodable, ReadOnlyPropSetType> for ComponentListConduit<T> {
+    fn output(&self, state: &State) -> Result<Encodable, String> {
+        let entities: Vec<Encodable> = state
             .components_iter::<T>()
-            .map(|(entity, _)| entity)
+            .map(|(entity, _)| entity.into())
             .collect();
         Ok(entities.into())
     }
 
-    fn set_value(&self, _state: &mut State, _value: &Decoded) -> Result<(), String> {
-        Err("read_only_property".into())
+    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
+        // ReadOnlyPropSetType can't be instantiated, so this can't be called
+        std::unreachable!()
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {

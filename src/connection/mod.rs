@@ -17,7 +17,7 @@ pub use connection::{Connection, ConnectionImpl, ConnectionKey};
 pub use connection_collection::{
     ConnectionCollection, InboundMessageHandler, OutboundMessageHandler,
 };
-pub use decoded::{Decoded, GetDecoded};
+pub use decoded::Decoded;
 pub use encodable::Encodable;
 pub use object_map::{ObjectId, ObjectMap};
 

@@ -1,11 +1,5 @@
 use super::*;
 
-pub fn create_god(state: &mut State) -> EntityKey {
-    let entity = state.create_entity();
-    state.install_property(
-        entity,
-        "bodies",
-        Box::new(ComponentListConduit::<Body>::new()),
-    );
-    entity
+pub fn install_god(state: &mut State) {
+    ComponentListConduit::<Body>::new().install(state, state.root_entity(), "bodies");
 }

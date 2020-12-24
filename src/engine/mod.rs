@@ -6,15 +6,20 @@ use super::*;
 mod component_key;
 mod conduit;
 mod element;
+#[allow(clippy::module_inception)]
+mod engine;
 mod entity;
+mod notif_queue;
 mod property;
 mod state;
 mod subscriber;
 mod subscription_tracker;
 
-pub use conduit::{CachingConduit, ComponentListConduit, Conduit, ElementConduit};
+pub use conduit::{ComponentListConduit, Conduit, ROConduit, RWConduit};
 pub use element::Element;
-pub use state::{EntityKey, NotifQueue, State};
+pub use engine::Engine;
+pub use notif_queue::{NotifQueue, Notification};
+pub use state::{EntityKey, State};
 
 use component_key::ComponentKey;
 use entity::Entity;
