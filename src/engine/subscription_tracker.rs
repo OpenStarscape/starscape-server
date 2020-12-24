@@ -106,14 +106,14 @@ impl Inner {
 /// 1 elements and iteration speed is most important, we use a Vec instead of a map.
 pub struct SubscriptionTracker {
     has_subscribers: AtomicBool,
-    lock: RwLock<Inner>,
+    lock: Mutex<Inner>,
 }
 
 impl SubscriptionTracker {
     pub fn new() -> Self {
         Self {
             has_subscribers: AtomicBool::new(false),
-            lock: RwLock::new(Inner {
+            lock: Mutex::new(Inner {
                 subscribers: Vec::new(),
                 notif_queue: None,
             }),
@@ -123,7 +123,7 @@ impl SubscriptionTracker {
     pub fn queue_notifications(&self) {
         if self.has_subscribers.load(Ordering::SeqCst) {
             self.lock
-                .read()
+                .lock()
                 .expect("failed to lock subscribers")
                 .queue_notifications();
         }
@@ -136,7 +136,7 @@ impl SubscriptionTracker {
     ) {
         if self.has_subscribers.load(Ordering::SeqCst) {
             self.lock
-                .read()
+                .lock()
                 .expect("failed to lock subscribers")
                 .send_notifications(state, prop_update_subscriber);
         }
@@ -148,14 +148,14 @@ impl SubscriptionTracker {
         notif_queue: &NotifQueue,
     ) -> Result<SubscribeReport, String> {
         self.has_subscribers.store(true, Ordering::SeqCst);
-        let mut inner = self.lock.write().expect("failed to lock subscribers");
+        let mut inner = self.lock.lock().expect("failed to lock subscribers");
         inner.set_notif_queue(notif_queue)?;
         inner.subscribe(subscriber)
     }
 
     pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<SubscribeReport, String> {
         self.has_subscribers.store(true, Ordering::SeqCst);
-        let mut inner = self.lock.write().expect("failed to lock subscribers");
+        let mut inner = self.lock.lock().expect("failed to lock subscribers");
         inner.subscribe(subscriber)
     }
 
@@ -163,7 +163,7 @@ impl SubscriptionTracker {
         &self,
         subscriber: &Weak<dyn Subscriber>,
     ) -> Result<UnsubscribeReport, String> {
-        let mut inner = self.lock.write().expect("failed to lock subscribers");
+        let mut inner = self.lock.lock().expect("failed to lock subscribers");
         let result = inner.unsubscribe(subscriber);
         if let Ok(report) = &result {
             if report.is_now_empty {
