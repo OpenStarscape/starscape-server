@@ -67,13 +67,12 @@ async fn main() {
     // Create the game engine. The `init` and `physics_tick` callbacks are the entiry points into
     // the `game` module
     let delta = 1.0 / PHYSICS_TICKS_PER_SEC as f64;
+    let mut metronome = Metronome::new(delta, delta * 0.8);
     let mut engine = Engine::new(new_session_rx, delta, game::init, game::physics_tick);
 
     info!("running game…");
     while engine.tick() {
-        std::thread::sleep(std::time::Duration::from_micros(
-            (1_000_000.0 * delta) as u64,
-        ));
+        metronome.sleep();
         if quit_receiver.try_recv().is_ok() {
             trace!("exiting game loop due to quit signal");
             break;
