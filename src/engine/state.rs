@@ -240,6 +240,32 @@ impl State {
         }
     }
 
+    /// Create an action for an entity. Panics if entity doesn't exist or already has something
+    /// with this name.
+    /// TODO: perhaps this shouldn't panic
+    pub fn install_action<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
+    where
+        C: Conduit<ActionsDontProduceOutputSilly, Decoded> + 'static,
+    {
+        if let Some(entity) = self.entities.get_mut(entity_key) {
+            let conduit = Arc::new(conduit.map_output(|_| unreachable!()))
+                as Arc<dyn Conduit<Encodable, Decoded>>;
+            entity.register_conduit(name, move |connection| {
+                Ok(PropertyConduit::new(
+                    connection,
+                    entity_key,
+                    name,
+                    conduit.clone(),
+                ))
+            });
+        } else {
+            panic!(
+                "failed to register property on invalid entity {:?}",
+                entity_key
+            );
+        }
+    }
+
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         // pending_updates intentionally not checked
