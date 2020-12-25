@@ -57,6 +57,20 @@ pub trait Conduit<O, I> {
             .map_input(Into::into);
         state.install_event(entity, name, conduit);
     }
+
+    fn install_action(self, state: &mut State, entity: EntityKey, name: &'static str)
+    where
+        Self: Sized + 'static,
+        O: Into<ActionsDontProduceOutputSilly> + 'static,
+        I: 'static,
+        Decoded: Into<Result<I, String>>,
+    {
+        state.install_action(
+            entity,
+            name,
+            self.map_into::<ActionsDontProduceOutputSilly, Decoded>(),
+        );
+    }
 }
 
 pub enum ReadOnlyPropSetType {}

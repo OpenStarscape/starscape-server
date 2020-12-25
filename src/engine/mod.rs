@@ -17,7 +17,7 @@ mod subscriber;
 mod subscriber_list;
 mod subscription;
 
-pub use conduit::{ComponentListConduit, Conduit, ROConduit, RWConduit};
+pub use conduit::{ActionConduit, ComponentListConduit, Conduit, ROConduit, RWConduit};
 pub use element::Element;
 pub use engine::Engine;
 pub use event_element::EventElement;
