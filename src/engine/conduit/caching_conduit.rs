@@ -9,7 +9,7 @@ where
     weak_self: WeakSelf<CachingConduit<C, T>>,
     cached_value: Mutex<Option<T>>,
     conduit: C,
-    subscribers: SubscriptionTracker,
+    subscribers: ConduitSubscriberList,
 }
 
 impl<C, T> CachingConduit<C, T>
@@ -22,7 +22,7 @@ where
             weak_self: WeakSelf::new(),
             cached_value: Mutex::new(None),
             conduit,
-            subscribers: SubscriptionTracker::new(),
+            subscribers: ConduitSubscriberList::new(),
         });
         result.weak_self.init(&result);
         result
@@ -104,19 +104,6 @@ mod tests {
     use super::*;
     use std::{cell::RefCell, rc::Rc};
 
-    struct MockSubscriber(RefCell<u32>);
-
-    impl Subscriber for MockSubscriber {
-        fn notify(
-            &self,
-            _state: &State,
-            _server: &dyn OutboundMessageHandler,
-        ) -> Result<(), Box<dyn Error>> {
-            *self.0.borrow_mut() += 1;
-            Ok(())
-        }
-    }
-
     struct MockConduit {
         value_to_get: Result<i32, String>,
         subscribed: Option<Weak<dyn Subscriber>>,
@@ -170,22 +157,17 @@ mod tests {
         Arc<CachingConduit<Rc<RefCell<MockConduit>>, i32>>,
         Rc<RefCell<MockConduit>>,
         Vec<Arc<dyn Subscriber>>,
-        Vec<Arc<MockSubscriber>>,
+        Vec<MockSubscriber>,
     ) {
-        let mock_sinks: Vec<Arc<MockSubscriber>> = (0..3)
-            .map(|_| Arc::new(MockSubscriber(RefCell::new(0))))
-            .collect();
+        let mock_subscribers: Vec<MockSubscriber> = (0..3).map(|_| MockSubscriber::new()).collect();
         let inner = MockConduit::new();
         let caching = CachingConduit::new(inner.clone());
         (
             State::new(),
             caching,
             inner,
-            mock_sinks
-                .iter()
-                .map(|sink| sink.clone() as Arc<dyn Subscriber>)
-                .collect(),
-            mock_sinks,
+            mock_subscribers.iter().map(|s| s.get()).collect(),
+            mock_subscribers,
         )
     }
 
@@ -301,7 +283,7 @@ mod tests {
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");
-        assert_eq!(*mock_sinks[0].0.borrow(), 1);
+        assert_eq!(mock_sinks[0].notify_count(), 1);
     }
 
     #[test]
@@ -319,7 +301,7 @@ mod tests {
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");
-        assert_eq!(*mock_sinks[0].0.borrow(), 2);
+        assert_eq!(mock_sinks[0].notify_count(), 2);
     }
 
     #[test]
@@ -336,6 +318,6 @@ mod tests {
         caching
             .notify(&state, &prop_update_sink)
             .expect("failed to send updates");
-        assert_eq!(*mock_sinks[0].0.borrow(), 1);
+        assert_eq!(mock_sinks[0].notify_count(), 1);
     }
 }

@@ -34,7 +34,10 @@ use std::{
     marker::PhantomData,
     ops::Deref,
     sync::mpsc::{channel, Receiver, Sender},
-    sync::{Arc, Mutex, RwLock, Weak},
+    sync::{
+        atomic::{AtomicBool, Ordering::SeqCst},
+        Arc, Mutex, RwLock, Weak,
+    },
 };
 
 /// The number of game ticks/second
