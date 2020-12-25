@@ -34,7 +34,7 @@ pub trait Conduit<O, I> {
         TryIntoConduit::new(self)
     }
 
-    fn install(self, state: &mut State, entity: EntityKey, name: &'static str)
+    fn install_property(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
         O: Into<Encodable> + 'static,
@@ -42,6 +42,20 @@ pub trait Conduit<O, I> {
         Decoded: Into<Result<I, String>>,
     {
         state.install_property(entity, name, self.map_into::<Encodable, Decoded>());
+    }
+
+    fn install_event(self, state: &mut State, entity: EntityKey, name: &'static str)
+    where
+        Self: Sized + 'static,
+        O: Into<Encodable> + 'static,
+        I: 'static,
+        EventsDontTakeInputSilly: Into<Result<I, String>>,
+    {
+        state.install_event(
+            entity,
+            name,
+            self.map_into::<Encodable, EventsDontTakeInputSilly>(),
+        );
     }
 }
 

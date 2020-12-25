@@ -115,25 +115,25 @@ impl Body {
                     BodyClass::Ship => "ship".to_string(),
                 })
             })
-            .install(state, entity, "class");
+            .install_property(state, entity, "class");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.position),
             move |state, value| Ok(state.component_mut::<Body>(entity)?.position.set(value)),
         )
-        .install(state, entity, "position");
+        .install_property(state, entity, "position");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.velocity),
             move |state, value| Ok(state.component_mut::<Body>(entity)?.velocity.set(value)),
         )
-        .install(state, entity, "velocity");
+        .install_property(state, entity, "velocity");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.mass),
             move |state, value| Ok(state.component_mut::<Body>(entity)?.mass.set(value)),
         )
-        .install(state, entity, "mass");
+        .install_property(state, entity, "mass");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
@@ -149,7 +149,7 @@ impl Body {
                 Err("size must be >= 0".to_string())
             }
         })
-        .install(state, entity, "size");
+        .install_property(state, entity, "size");
     }
 }
 

@@ -190,8 +190,8 @@ impl State {
         element.unsubscribe(subscriber)
     }
 
-    /// Create a property for an entity
-    /// Panics if entity doesn't exist or already has a property with this name
+    /// Create a property for an entity. Panics if entity doesn't exist or already has something
+    /// with this name
     pub fn install_property<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
         C: Conduit<Encodable, Decoded> + 'static,
@@ -202,6 +202,15 @@ impl State {
         } else {
             panic!("failed to register proprty on entity {:?}", entity_key);
         }
+    }
+
+    /// Create an event for an entity. Panics if entity doesn't exist or already has something with
+    /// this name
+    pub fn install_event<C>(&mut self, _entity_key: EntityKey, _name: &'static str, _conduit: C)
+    where
+        C: Conduit<Encodable, EventsDontTakeInputSilly> + 'static,
+    {
+        warn!("State::install_event() not implemented");
     }
 
     #[cfg(test)]
