@@ -17,6 +17,13 @@ pub trait Connection {
         value: &Encodable,
         is_update: bool,
     ) -> Result<(), Box<dyn Error>>;
+    /// Inform the client an event has fired.
+    fn event(
+        &self,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>>;
     /// Inform a client that an entity no longer exists on the server.
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
     /// Process a request from the client
@@ -182,6 +189,30 @@ impl Connection for ConnectionImpl {
         Ok(())
     }
 
+    fn event(
+        &self,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>> {
+        let object = self
+            .obj_map
+            .get_object(entity)
+            .ok_or_else(|| format!("{:?} not in object map", entity))?;
+        trace!(
+            "{:?}::{}.{} -> ({:?})",
+            self.self_key,
+            object,
+            property,
+            value
+        );
+        let buffer =
+            self.encoder
+                .encode_event(object, property, self.obj_map.as_encode_ctx(), value)?;
+        self.queue_message(buffer)?;
+        Ok(())
+    }
+
     fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
         self.obj_map.remove_entity(entity);
         // TODO: tell client object was destroyed
@@ -288,6 +319,18 @@ mod tests {
             Ok(vec![])
         }
         fn encode_get_response(
+            &self,
+            object: ObjectId,
+            property: &str,
+            _ctx: &dyn EncodeCtx,
+            value: &Encodable,
+        ) -> Result<Vec<u8>, Box<dyn Error>> {
+            self.borrow_mut()
+                .log
+                .push((object, property.to_owned(), (*value).clone()));
+            Ok(vec![])
+        }
+        fn encode_event(
             &self,
             object: ObjectId,
             property: &str,

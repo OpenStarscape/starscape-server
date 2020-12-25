@@ -191,7 +191,8 @@ impl State {
     }
 
     /// Create a property for an entity. Panics if entity doesn't exist or already has something
-    /// with this name
+    /// with this name.
+    /// TODO: perhaps this shouldn't panic
     pub fn install_property<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
         C: Conduit<Encodable, Decoded> + 'static,
@@ -215,12 +216,28 @@ impl State {
     }
 
     /// Create an event for an entity. Panics if entity doesn't exist or already has something with
-    /// this name
-    pub fn install_event<C>(&mut self, _entity_key: EntityKey, _name: &'static str, _conduit: C)
+    /// this name.
+    pub fn install_event<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
-        C: Conduit<Encodable, EventsDontTakeInputSilly> + 'static,
+        C: Conduit<Vec<Encodable>, EventsDontTakeInputSilly> + 'static,
     {
-        warn!("State::install_event() not implemented");
+        if let Some(entity) = self.entities.get_mut(entity_key) {
+            let conduit =
+                Arc::new(conduit) as Arc<dyn Conduit<Vec<Encodable>, EventsDontTakeInputSilly>>;
+            entity.register_conduit(name, move |connection| {
+                Ok(EventConduit::new(
+                    connection,
+                    entity_key,
+                    name,
+                    conduit.clone(),
+                ))
+            });
+        } else {
+            panic!(
+                "failed to register event on invalid entity {:?}",
+                entity_key
+            );
+        }
     }
 
     #[cfg(test)]

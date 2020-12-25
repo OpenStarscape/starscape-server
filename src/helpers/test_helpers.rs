@@ -98,6 +98,18 @@ impl OutboundMessageHandler for MockOutboundMessageHandler {
             .push((connection, entity, property.to_owned(), value.clone()));
         Ok(())
     }
+    fn event(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>> {
+        self.0
+            .borrow_mut()
+            .push((connection, entity, property.to_owned(), value.clone()));
+        Ok(())
+    }
 }
 
 struct MockSubscriberInner {
