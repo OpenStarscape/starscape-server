@@ -12,10 +12,10 @@ mod engine;
 mod entity;
 mod event_element;
 mod notif_queue;
-mod property;
 mod state;
 mod subscriber;
 mod subscriber_list;
+mod subscription;
 
 pub use conduit::{ComponentListConduit, Conduit, ROConduit, RWConduit};
 pub use element::Element;
@@ -26,8 +26,9 @@ pub use state::{EntityKey, State};
 pub use subscriber::Subscriber;
 
 use component_key::ComponentKey;
+use conduit::*;
 use conduit_subscriber_list::ConduitSubscriberList;
 use entity::Entity;
 use event_element::EventsDontTakeInputSilly;
-use property::Property;
 use subscriber_list::SubscriberList;
+use subscription::Subscription;

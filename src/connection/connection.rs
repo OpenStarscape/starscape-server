@@ -83,7 +83,7 @@ pub struct ConnectionImpl {
     obj_map: Arc<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
     pending_get_requests: HashSet<(EntityKey, String)>,
-    subscriptions: HashSet<(EntityKey, String)>,
+    subscriptions: HashMap<(EntityKey, String), Box<dyn Any>>,
 }
 
 impl ConnectionImpl {
@@ -117,7 +117,7 @@ impl ConnectionImpl {
             obj_map,
             session: Mutex::new(session),
             pending_get_requests: HashSet::new(),
-            subscriptions: HashSet::new(),
+            subscriptions: HashMap::new(),
         })
     }
 
@@ -194,39 +194,36 @@ impl Connection for ConnectionImpl {
         property: &str,
         action: PropertyRequest,
     ) {
-        if let Err(e) = match action {
-            PropertyRequest::Set(value) => handler.set(entity, property, value),
-            PropertyRequest::Get => {
-                // it doesn't matter if it's already there or not, it's not an error to make two
-                // get requests but it will only result in one response.
-                self.pending_get_requests.insert((entity, property.into()));
-                Ok(())
-            }
-            PropertyRequest::Subscribe => {
-                let key = (entity, property.to_string());
-                if self.subscriptions.contains(&key) {
-                    Err("tried to subscribe multiple times".into())
-                } else {
-                    handler
-                        .subscribe(entity, property, self.self_key)
-                        .map(|()| {
-                            self.subscriptions.insert(key);
-                        })
+        use std::collections::hash_map::Entry;
+        let result =
+            match action {
+                PropertyRequest::Set(value) => handler.set(self.self_key, entity, property, value),
+                PropertyRequest::Get => {
+                    // it doesn't matter if it's already there or not, it's not an error to make two
+                    // get requests but it will only result in one response.
+                    self.pending_get_requests.insert((entity, property.into()));
+                    Ok(())
                 }
-            }
-            PropertyRequest::Unsubscribe => {
-                let key = (entity, property.to_string());
-                if self.subscriptions.contains(&key) {
-                    handler
-                        .unsubscribe(entity, property, self.self_key)
-                        .map(|()| {
-                            self.subscriptions.remove(&key);
-                        })
-                } else {
-                    Err("tried to unsubscribe when not subscribed".into())
+                PropertyRequest::Subscribe => {
+                    let key = (entity, property.to_string());
+                    match self.subscriptions.entry(key) {
+                        Entry::Occupied(_) => Err("tried to subscribe multiple times".into()),
+                        Entry::Vacant(entry) => handler
+                            .subscribe(self.self_key, entity, property)
+                            .map(|subscription| {
+                                entry.insert(subscription);
+                            }),
+                    }
                 }
-            }
-        } {
+                PropertyRequest::Unsubscribe => {
+                    let key = (entity, property.to_string());
+                    match self.subscriptions.remove(&key) {
+                        Some(entry) => handler.unsubscribe(entry),
+                        None => Err("tried to unsubscribe when not subscribed".into()),
+                    }
+                }
+            };
+        if let Err(e) = result {
             warn!(
                 "failed to process message to {:?}::{:?}.{}: {}",
                 self.self_key, entity, property, e
@@ -238,7 +235,7 @@ impl Connection for ConnectionImpl {
         let pending_get_requests =
             std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in pending_get_requests.iter() {
-            match handler.get(*entity, property) {
+            match handler.get(self.self_key, *entity, property) {
                 Ok(value) => {
                     if let Err(e) = self.property_value(*entity, property, &value, false) {
                         warn!("failed to get {:?}.{}: {}", entity, property, e);
@@ -250,8 +247,8 @@ impl Connection for ConnectionImpl {
     }
 
     fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
-        for (entity, prop) in self.subscriptions.drain() {
-            if let Err(e) = handler.unsubscribe(entity, &prop, self.self_key) {
+        for ((entity, prop), subscription) in self.subscriptions.drain() {
+            if let Err(e) = handler.unsubscribe(subscription) {
                 warn!(
                     "failed to unsubscribe from {:?}.{} during finalization of {:?}: {}",
                     entity, prop, self.self_key, e
@@ -373,7 +370,7 @@ mod tests {
                 obj_map: Arc::new(MockObjectMap(entity, obj_id)),
                 session: Mutex::new(Box::new(MockSession)),
                 pending_get_requests: HashSet::new(),
-                subscriptions: HashSet::new(),
+                subscriptions: HashMap::new(),
             };
             Self {
                 encoder,

@@ -33,16 +33,6 @@ impl NotifQueue {
     pub fn len(&self) -> usize {
         self.0.lock().expect("failed to lock NotifQueue").len()
     }
-
-    #[cfg(test)]
-    pub fn contains(&self, subscriber: &Arc<dyn Subscriber>) -> bool {
-        let subscriber = Arc::downgrade(&subscriber).thin_ptr();
-        self.0
-            .lock()
-            .expect("failed to lock NotifQueue")
-            .iter()
-            .any(|i| i.thin_ptr() == subscriber)
-    }
 }
 
 impl PartialEq for NotifQueue {

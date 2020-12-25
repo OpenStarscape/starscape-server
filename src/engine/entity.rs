@@ -1,11 +1,14 @@
 use super::*;
 
+type ConduitBuilder =
+    Box<dyn Fn(ConnectionKey) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String>>;
+
 /// Conceptual owner of the various components in the state that make up a single "thing"
 pub struct Entity {
     self_key: EntityKey,
     components: AnyMap,
     component_cleanup: Vec<Box<dyn FnOnce(&mut State)>>,
-    properties: HashMap<&'static str, Arc<dyn Property>>,
+    conduit_builders: HashMap<&'static str, ConduitBuilder>,
 }
 
 impl Entity {
@@ -14,7 +17,7 @@ impl Entity {
             self_key,
             components: AnyMap::new(),
             component_cleanup: Vec::new(),
-            properties: HashMap::new(),
+            conduit_builders: HashMap::new(),
         }
     }
 
@@ -39,20 +42,36 @@ impl Entity {
         self.components.get::<ComponentKey<T>>()
     }
 
-    /// Registers the given property
-    /// panics if a property with the same name is already registered
-    pub fn register_property(&mut self, name: &'static str, property: Arc<dyn Property>) {
-        if self.properties.insert(name, property).is_some() {
-            panic!(
-                "property \"{}\" added to {:?} multiple times",
-                name, self.self_key
-            )
+    /// Registers a conduit as a property/event/action, shows error and does nothing else if there
+    /// is already a registered conduit with the same name
+    pub fn register_conduit<F>(&mut self, name: &'static str, f: F)
+    where
+        F: Fn(ConnectionKey) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String> + 'static,
+    {
+        use std::collections::hash_map::Entry;
+        match self.conduit_builders.entry(name) {
+            Entry::Vacant(entry) => {
+                entry.insert(Box::new(f));
+            }
+            Entry::Occupied(_) => {
+                error!(
+                    "conduit {} added to {:?} multiple times",
+                    name, self.self_key
+                );
+            }
         }
     }
 
     /// Get the property of the given name
-    pub fn property(&self, name: &str) -> Option<&Arc<dyn Property>> {
-        self.properties.get(name)
+    pub fn conduit(
+        &self,
+        connection: ConnectionKey,
+        name: &str,
+    ) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String> {
+        match self.conduit_builders.get(name) {
+            Some(builder) => builder(connection),
+            None => Err(format!("entity does not have member {:?}", name)),
+        }
     }
 
     /// Remove all components of this entity from the state
@@ -61,9 +80,6 @@ impl Entity {
             cleanup(state);
         }
         self.components.clear();
-        for (_name, prop) in self.properties.drain() {
-            prop.finalize(state);
-        }
         // TODO: register disconnected from connections
     }
 }

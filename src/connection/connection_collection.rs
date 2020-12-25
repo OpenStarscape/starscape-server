@@ -15,20 +15,27 @@ pub trait OutboundMessageHandler {
 /// Processes requests from a client. Implemented by State in the engine and used by
 /// ConnectionCollection.
 pub trait InboundMessageHandler {
-    fn set(&mut self, entity: EntityKey, property: &str, value: Decoded) -> Result<(), String>;
-    fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String>;
+    fn set(
+        &mut self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: Decoded,
+    ) -> Result<(), String>;
+    fn get(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+    ) -> Result<Encodable, String>;
+    /// If Ok, the returned Any should later be sent to unsubscribe()
     fn subscribe(
         &mut self,
+        connection: ConnectionKey,
         entity: EntityKey,
         property: &str,
-        connection: ConnectionKey,
-    ) -> Result<(), String>;
-    fn unsubscribe(
-        &mut self,
-        entity: EntityKey,
-        property: &str,
-        connection: ConnectionKey,
-    ) -> Result<(), String>;
+    ) -> Result<Box<dyn Any>, String>;
+    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String>;
 }
 
 /// Holds all the active connections for a game. process_requests() should be called by the game
@@ -245,6 +252,7 @@ mod tests {
     impl InboundMessageHandler for MockInboundHandler {
         fn set(
             &mut self,
+            _: ConnectionKey,
             entity: EntityKey,
             property: &str,
             _value: Decoded,
@@ -254,7 +262,12 @@ mod tests {
                 .push(("set".into(), entity, property.into()));
             Ok(())
         }
-        fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
+        fn get(
+            &self,
+            _: ConnectionKey,
+            entity: EntityKey,
+            property: &str,
+        ) -> Result<Encodable, String> {
             self.0
                 .borrow_mut()
                 .push(("get".into(), entity, property.into()));
@@ -262,24 +275,22 @@ mod tests {
         }
         fn subscribe(
             &mut self,
+            _: ConnectionKey,
             entity: EntityKey,
             property: &str,
-            _connection: ConnectionKey,
-        ) -> Result<(), String> {
+        ) -> Result<Box<dyn Any>, String> {
             self.0
                 .borrow_mut()
                 .push(("subscribe".into(), entity, property.into()));
-            Ok(())
+            let subscription: (EntityKey, String) = (entity, property.into());
+            Ok(Box::new(subscription))
         }
-        fn unsubscribe(
-            &mut self,
-            entity: EntityKey,
-            property: &str,
-            _connection: ConnectionKey,
-        ) -> Result<(), String> {
+        fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String> {
+            let subscription: Box<(EntityKey, String)> =
+                subscription.downcast().expect("subscription of wrong type");
             self.0
                 .borrow_mut()
-                .push(("unsubscribe".into(), entity, property.into()));
+                .push(("unsubscribe".into(), subscription.0, subscription.1));
             Ok(())
         }
     }
