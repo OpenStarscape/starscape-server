@@ -197,10 +197,20 @@ impl State {
         C: Conduit<Encodable, Decoded> + 'static,
     {
         if let Some(entity) = self.entities.get_mut(entity_key) {
-            let property = Property::new(entity_key, name, conduit::CachingConduit::new(conduit));
-            entity.register_property(name, property);
+            let conduit = CachingConduit::new(conduit);
+            entity.register_conduit(name, move |connection| {
+                Ok(PropertyConduit::new(
+                    connection,
+                    entity_key,
+                    name,
+                    conduit.clone(),
+                ))
+            });
         } else {
-            panic!("failed to register proprty on entity {:?}", entity_key);
+            panic!(
+                "failed to register property on invalid entity {:?}",
+                entity_key
+            );
         }
     }
 
@@ -221,17 +231,19 @@ impl State {
             && self.entities.get(self.root).is_some()
     }
 
-    /// Returns the property with the given name on the entity
-    /// (properties are for clients, generally not direct engine use)
-    fn property(&self, entity_key: EntityKey, name: &str) -> Result<&Arc<dyn Property>, String> {
+    /// Returns the conduit for the property, event or action with the given name.
+    fn conduit(
+        &self,
+        connection: ConnectionKey,
+        entity_key: EntityKey,
+        name: &str,
+    ) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String> {
         let entity = self
             .entities
             .get(entity_key)
-            .ok_or(format!("bad entity {:?}", entity_key))?;
-        let property = entity
-            .property(name)
-            .ok_or(format!("entity does not have property {:?}", name))?;
-        Ok(property)
+            .ok_or(format!("invalid entity {:?}", entity_key))?;
+        let conduit = entity.conduit(connection, name)?;
+        Ok(conduit)
     }
 
     fn remove_component<T: 'static>(&mut self, component: ComponentKey<T>) {
@@ -274,37 +286,44 @@ impl State {
 }
 
 impl InboundMessageHandler for State {
-    fn set(&mut self, entity: EntityKey, property: &str, value: Decoded) -> Result<(), String> {
-        let property = self.property(entity, property)?.clone();
+    fn set(
+        &mut self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: Decoded,
+    ) -> Result<(), String> {
+        let conduit = self.conduit(connection, entity, property)?;
         // TODO: eliminate value.clone() if possible
-        property.set_value(self, value)
+        conduit.input(self, value)
     }
 
-    fn get(&self, entity: EntityKey, property: &str) -> Result<Encodable, String> {
-        let property = self.property(entity, property)?;
-        property.get_value(self)
+    fn get(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+    ) -> Result<Encodable, String> {
+        let conduit = self.conduit(connection, entity, property)?;
+        conduit.output(self)
     }
 
     fn subscribe(
         &mut self,
+        connection: ConnectionKey,
         entity: EntityKey,
         property: &str,
-        connection: ConnectionKey,
-    ) -> Result<(), String> {
-        let property = self.property(entity, property)?;
-        property.subscribe(self, connection)?;
-        Ok(())
+    ) -> Result<Box<dyn Any>, String> {
+        let conduit = self.conduit(connection, entity, property)?;
+        let subscription = Subscription::new(self, conduit)?;
+        Ok(Box::new(subscription))
     }
 
-    fn unsubscribe(
-        &mut self,
-        entity: EntityKey,
-        property: &str,
-        connection: ConnectionKey,
-    ) -> Result<(), String> {
-        let property = self.property(entity, property)?;
-        property.unsubscribe(self, connection)?;
-        Ok(())
+    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String> {
+        let subscription: Box<Subscription> = subscription
+            .downcast()
+            .map_err(|_| "downcast to Subscription failed")?;
+        subscription.unsubscribe(self)
     }
 }
 

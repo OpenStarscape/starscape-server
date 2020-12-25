@@ -52,7 +52,7 @@ where
     }
 }
 
-impl<C, T> Conduit<T, T> for CachingConduit<C, T>
+impl<C, T> Conduit<T, T> for Arc<CachingConduit<C, T>>
 where
     C: Conduit<T, T> + 'static,
     T: PartialEq,

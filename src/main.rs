@@ -9,6 +9,7 @@ extern crate log;
 extern crate slotmap;
 
 mod connection;
+#[allow(clippy::new_ret_no_self)]
 mod engine;
 #[allow(clippy::unit_arg)]
 mod game;
@@ -28,7 +29,7 @@ use weak_self::WeakSelf;
 
 use std::error::Error;
 use std::{
-    any::type_name,
+    any::{type_name, Any},
     collections::{HashMap, HashSet},
     fmt::{Debug, Formatter},
     marker::PhantomData,
