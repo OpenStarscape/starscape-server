@@ -55,16 +55,8 @@ impl PartialEq for NotifQueue {
 mod tests {
     use super::*;
 
-    struct MockSubscriber;
-
-    impl Subscriber for MockSubscriber {
-        fn notify(&self, _: &State, _: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
-            Ok(())
-        }
-    }
-
     fn notif() -> Notification {
-        Arc::downgrade(&Arc::new(MockSubscriber)) as Notification
+        Arc::downgrade(&MockSubscriber::new().get())
     }
 
     #[test]

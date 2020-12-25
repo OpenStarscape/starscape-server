@@ -100,6 +100,49 @@ impl OutboundMessageHandler for MockOutboundMessageHandler {
     }
 }
 
+struct MockSubscriberInner {
+    count: RefCell<u32>,
+    f: Box<dyn Fn(&State)>,
+}
+
+pub struct MockSubscriber(Arc<MockSubscriberInner>);
+
+impl MockSubscriber {
+    pub fn new() -> Self {
+        Self::new_with_fn(|_| ())
+    }
+
+    pub fn new_terrified() -> Self {
+        Self::new_with_fn(|_| panic!("mock subscriber should not have been notified"))
+    }
+
+    pub fn new_with_fn<F>(f: F) -> Self
+    where
+        F: Fn(&State) + 'static,
+    {
+        Self(Arc::new(MockSubscriberInner {
+            count: RefCell::new(0),
+            f: Box::new(f),
+        }))
+    }
+
+    pub fn get(&self) -> Arc<dyn Subscriber> {
+        self.0.clone()
+    }
+
+    pub fn notify_count(&self) -> u32 {
+        *self.0.count.borrow()
+    }
+}
+
+impl Subscriber for MockSubscriberInner {
+    fn notify(&self, state: &State, _: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
+        *self.count.borrow_mut() += 1;
+        (self.f)(state);
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

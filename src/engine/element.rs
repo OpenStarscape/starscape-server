@@ -1,24 +1,51 @@
 use super::*;
 
+struct Subscribers {
+    list: SubscriberList,
+    notif_queue: Initializable<NotifQueue>,
+}
+
 /// An atomic unit of state. An element can be subscribed to, in which case it will notify the
 /// subscriber when it is changed. These notifications are __not__ dispatched immediately. Instead,
 /// they are queued and processed later in the main game loop.
 pub struct Element<T> {
     inner: T,
-    subscribers: SubscriptionTracker,
+    subscribers: Mutex<Subscribers>,
+    has_subscribers: AtomicBool,
 }
 
 impl<T> Element<T> {
     pub fn new(inner: T) -> Self {
         Self {
             inner,
-            subscribers: SubscriptionTracker::new(),
+            subscribers: Mutex::new(Subscribers {
+                list: SubscriberList::new(),
+                notif_queue: Initializable::new(),
+            }),
+            has_subscribers: AtomicBool::new(false),
+        }
+    }
+
+    fn queue_notifications(&mut self) {
+        if self.has_subscribers.load(SeqCst) {
+            let lock = self.subscribers.lock().expect("failed to lock subscribers");
+            if !lock.list.0.is_empty() {
+                match lock.notif_queue.get() {
+                    Ok(notif_queue) => notif_queue.extend(
+                        lock.list
+                            .0
+                            .iter()
+                            .map(|(_ptr, subscriber)| subscriber.clone()),
+                    ),
+                    Err(e) => error!("failed to queue notifications: {}", e),
+                }
+            }
         }
     }
 
     /// Prefer set() where possible. That can save work when value is unchanged.
     pub fn get_mut(&mut self) -> &mut T {
-        self.subscribers.queue_notifications();
+        self.queue_notifications();
         &mut self.inner
     }
 
@@ -35,13 +62,23 @@ impl<T> Element<T> {
         subscriber: &Arc<dyn Subscriber>,
         notif_queue: &NotifQueue,
     ) -> Result<(), Box<dyn Error>> {
-        self.subscribers
-            .subscribe_with_notif_queue(subscriber, notif_queue)?;
+        self.has_subscribers.store(true, SeqCst);
+        let mut lock = self.subscribers.lock().expect("failed to lock subscribers");
+        lock.notif_queue.try_init(notif_queue)?;
+        lock.list.subscribe(subscriber)?;
         Ok(())
     }
 
     pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
-        self.subscribers.unsubscribe(subscriber)?;
+        let report = self
+            .subscribers
+            .lock()
+            .expect("failed to lock subscribers")
+            .list
+            .unsubscribe(subscriber)?;
+        if report.is_now_empty {
+            self.has_subscribers.store(false, SeqCst);
+        }
         Ok(())
     }
 }
@@ -50,7 +87,7 @@ impl<T: PartialEq> Element<T> {
     pub fn set(&mut self, value: T) {
         if self.inner != value {
             self.inner = value;
-            self.subscribers.queue_notifications();
+            self.queue_notifications();
         }
     }
 }
@@ -67,21 +104,9 @@ impl<T> Deref for Element<T> {
 mod tests {
     use super::*;
 
-    struct MockSubscriber;
-
-    impl Subscriber for MockSubscriber {
-        fn notify(
-            &self,
-            _state: &State,
-            _server: &dyn OutboundMessageHandler,
-        ) -> Result<(), Box<dyn Error>> {
-            panic!("MockSubscriber.notify() should not be called");
-        }
-    }
-
     fn setup() -> (Element<i64>, NotifQueue, Arc<dyn Subscriber>) {
         let store = Element::new(7);
-        let subscriber: Arc<dyn Subscriber> = Arc::new(MockSubscriber {});
+        let subscriber = MockSubscriber::new_terrified().get();
         let notif_queue = NotifQueue::new();
         store
             .subscribe(&subscriber, &notif_queue)

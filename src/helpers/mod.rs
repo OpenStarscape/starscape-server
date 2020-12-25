@@ -1,15 +1,16 @@
 //! General useful bits and bobs
 
-#[cfg(test)]
 use super::*;
 
 mod datagram_splitter;
+mod initializable;
 mod metronome;
 #[cfg(test)]
 mod test_helpers;
 mod thin_ptr;
 
 pub use datagram_splitter::DatagramSplitter;
+pub use initializable::Initializable;
 pub use metronome::Metronome;
 #[cfg(test)]
 pub use test_helpers::*;
