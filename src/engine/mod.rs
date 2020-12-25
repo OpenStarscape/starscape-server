@@ -28,5 +28,6 @@ pub use subscriber::Subscriber;
 use component_key::ComponentKey;
 use conduit_subscriber_list::ConduitSubscriberList;
 use entity::Entity;
+use event_element::EventsDontTakeInputSilly;
 use property::Property;
 use subscriber_list::SubscriberList;

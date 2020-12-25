@@ -1,7 +1,7 @@
 use super::*;
 
 pub fn init(state: &mut State) {
-    install_god(state);
+    God::default().install(state);
 
     let _ship_a = create_ship(
         state,

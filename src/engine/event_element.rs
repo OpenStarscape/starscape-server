@@ -44,6 +44,13 @@ impl<T> Subscriber for Dispatcher<T> {
 
 pub enum EventsDontTakeInputSilly {}
 
+/// Installing events breaks without this. Why? Who fucking knows.
+impl From<EventsDontTakeInputSilly> for Result<EventsDontTakeInputSilly, String> {
+    fn from(value: EventsDontTakeInputSilly) -> Self {
+        Ok(value)
+    }
+}
+
 impl<T: Clone> Conduit<Vec<T>, EventsDontTakeInputSilly> for Weak<Dispatcher<T>> {
     fn output(&self, _: &State) -> Result<Vec<T>, String> {
         let dispatcher = self.upgrade().ok_or("event no longer exists")?;
