@@ -10,6 +10,13 @@ pub trait OutboundMessageHandler {
         property: &str,
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>>;
+    fn event(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>>;
 }
 
 /// Processes requests from a client. Implemented by State in the engine and used by
@@ -96,11 +103,15 @@ impl ConnectionCollection {
                 _: &Encodable,
                 _: bool,
             ) -> Result<(), Box<dyn Error>> {
-                error!("property_changed() called on StubConnection");
+                error!("StubConnection::property_value() called");
+                Err("StubConnection".into())
+            }
+            fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
+                error!("event() called on StubConnection");
                 Err("StubConnection".into())
             }
             fn entity_destroyed(&self, _: &State, _: EntityKey) {
-                error!("entity_destroyed() called on StubConnection");
+                error!("StubConnection::entity_destroyed() called");
             }
             fn handle_request(
                 &mut self,
@@ -109,13 +120,13 @@ impl ConnectionCollection {
                 _: &str,
                 _: PropertyRequest,
             ) {
-                error!("handle_request() called on StubConnection");
+                error!("StubConnection::handle_request() called");
             }
             fn flush(&mut self, _: &mut dyn InboundMessageHandler) {
-                error!("flush() called on StubConnection");
+                error!("StubConnection::flush() called");
             }
             fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
-                error!("finalize() called on StubConnection");
+                error!("StubConnection::finalize() called");
             }
         }
 
@@ -180,6 +191,20 @@ impl OutboundMessageHandler for ConnectionCollection {
             Err(format!("connection {:?} has died", connection).into())
         }
     }
+    fn event(
+        &self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: &str,
+        value: &Encodable,
+    ) -> Result<(), Box<dyn Error>> {
+        if let Some(connection) = self.connections.get(connection) {
+            connection.event(entity, property, &value)?;
+            Ok(())
+        } else {
+            Err(format!("connection {:?} has died", connection).into())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -221,11 +246,14 @@ mod tests {
     impl Connection for MockConnection {
         fn property_value(
             &self,
-            _entity: EntityKey,
-            _property: &str,
-            _value: &Encodable,
-            _is_update: bool,
+            _: EntityKey,
+            _: &str,
+            _: &Encodable,
+            _: bool,
         ) -> Result<(), Box<dyn Error>> {
+            Ok(())
+        }
+        fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
@@ -255,7 +283,7 @@ mod tests {
             _: ConnectionKey,
             entity: EntityKey,
             property: &str,
-            _value: Decoded,
+            _: Decoded,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()

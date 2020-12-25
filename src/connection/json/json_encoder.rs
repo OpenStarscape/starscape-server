@@ -72,6 +72,7 @@ impl Encoder for JsonEncoder {
         ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>> {
+        // TODO: why aren't we reusing buffers?
         let buffer = Vec::with_capacity(128);
         let mut serializer = serde_json::Serializer::new(buffer);
         let mut message = serializer.serialize_struct("Message", 4)?;
@@ -94,6 +95,24 @@ impl Encoder for JsonEncoder {
         let mut serializer = serde_json::Serializer::new(buffer);
         let mut message = serializer.serialize_struct("Message", 4)?;
         message.serialize_field("mtype", "value")?;
+        message.serialize_field("object", &object)?;
+        message.serialize_field("property", property)?;
+        message.serialize_field("value", &Contextualized::new(value, ctx))?;
+        message.end()?;
+        Ok(serializer.into_inner())
+    }
+
+    fn encode_event(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+    ) -> Result<Vec<u8>, Box<dyn Error>> {
+        let buffer = Vec::with_capacity(128);
+        let mut serializer = serde_json::Serializer::new(buffer);
+        let mut message = serializer.serialize_struct("Message", 4)?;
+        message.serialize_field("mtype", "event")?;
         message.serialize_field("object", &object)?;
         message.serialize_field("property", property)?;
         message.serialize_field("value", &Contextualized::new(value, ctx))?;

@@ -26,6 +26,14 @@ pub trait Encoder {
         ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>>;
+    /// An event sent from the server to clients
+    fn encode_event(
+        &self,
+        object: ObjectId,
+        property: &str,
+        ctx: &dyn EncodeCtx,
+        value: &Encodable,
+    ) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
 /// The context required for decoding a Decoded. The normal implementation is ObjectMapImpl.
