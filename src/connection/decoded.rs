@@ -132,25 +132,25 @@ mod json_tests {
     #[test]
     fn can_get_integer() {
         let i: i64 = -5;
-        assert_decodes_to(Integer(i), i);
+        assert_decodes_to::<i64>(Integer(i), i);
     }
 
     #[test]
     fn can_get_unsigned_from_int() {
         let u: u64 = 7;
-        assert_decodes_to(Integer(7), u);
+        assert_decodes_to::<u64>(Integer(7), u);
     }
 
     #[test]
     fn can_get_float_from_int() {
         let f: f64 = 7.0;
-        assert_decodes_to(Integer(7), f);
+        assert_decodes_to::<f64>(Integer(7), f);
     }
 
     #[test]
     fn can_get_scalar() {
         let f: f64 = 7.0;
-        assert_decodes_to(Scalar(f), f);
+        assert_decodes_to::<f64>(Scalar(f), f);
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod json_tests {
     fn can_get_vector() {
         let vector = Vector3::new(1.0, 2.5, -3.0);
         let decodable = Vector(vector);
-        assert_decodes_to(decodable, vector);
+        assert_decodes_to::<Vector3<f64>>(decodable, vector);
     }
 
     #[test]
@@ -175,17 +175,17 @@ mod json_tests {
         let point = Point3::new(1.0, 2.5, -3.0);
         let vector = point.to_vec();
         let decodable = Vector(vector);
-        assert_decodes_to(decodable, point);
+        assert_decodes_to::<Point3<f64>>(decodable, point);
     }
 
     #[test]
     fn can_get_text() {
-        assert_decodes_to(Text("hello".to_string()), "hello".to_string());
+        assert_decodes_to::<String>(Text("hello".to_string()), "hello".to_string());
     }
 
     #[test]
     fn can_get_null() {
-        assert_decodes_to(Null, ());
+        assert_decodes_to::<()>(Null, ());
     }
 
     #[test]
@@ -194,21 +194,21 @@ mod json_tests {
     }
 
     #[test]
-    fn can_get_some_option() {
+    fn can_get_some_option_decoded() {
         let i: i64 = 7;
-        assert_decodes_to(Integer(7), Some(Integer(i)));
+        assert_decodes_to::<Option<Decoded>>(Integer(7), Some(Integer(i)));
     }
 
     #[test]
-    fn can_get_none_option() {
-        let option: Option<Encodable> = None;
-        assert_decodes_to(Null, option);
+    fn can_get_none_option_decoded() {
+        let option: Option<Decoded> = None;
+        assert_decodes_to::<Option<Decoded>>(Null, option);
     }
 
     #[test]
     fn can_get_entity() {
         let e: Vec<EntityKey> = mock_keys(1);
-        assert_decodes_to(Entity(e[0]), e[0]);
+        assert_decodes_to::<EntityKey>(Entity(e[0]), e[0]);
     }
 
     #[test]
