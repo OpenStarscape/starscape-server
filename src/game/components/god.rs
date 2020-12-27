@@ -19,8 +19,8 @@ impl God {
         self.ship_created
             .conduit(&state.notif_queue)
             .install_event(state, entity, "ship_created");
-        ActionConduit::new(move |state, position| {
-            let ship = create_ship(state, position, Vector3::zero());
+        ActionConduit::new(move |state, (position, velocity)| {
+            let ship = create_ship(state, position, velocity);
             state.component_mut::<God>(entity)?.ship_created.fire(ship);
             Ok(())
         })
