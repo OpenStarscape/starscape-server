@@ -80,10 +80,10 @@ impl From<EntityKey> for Encodable {
 
 impl<T> From<Vec<T>> for Encodable
 where
-    Encodable: From<T>,
+    T: Into<Encodable>,
 {
     fn from(vec: Vec<T>) -> Self {
-        Encodable::Array(vec.into_iter().map(From::from).collect())
+        Encodable::Array(vec.into_iter().map(Into::into).collect())
     }
 }
 
@@ -93,11 +93,82 @@ impl From<()> for Encodable {
     }
 }
 
-impl<T: Into<Encodable>> From<Option<T>> for Encodable {
+impl<T> From<Option<T>> for Encodable
+where
+    T: Into<Encodable>,
+{
     fn from(opt: Option<T>) -> Self {
         match opt {
             Some(value) => value.into(),
             None => Encodable::Null,
         }
+    }
+}
+
+// TODO: implement tuples with a macro
+
+impl<A> From<(A,)> for Encodable
+where
+    A: Into<Encodable>,
+{
+    fn from(tuple: (A,)) -> Self {
+        Encodable::Array(vec![tuple.0.into()])
+    }
+}
+
+impl<A, B> From<(A, B)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+{
+    fn from(tuple: (A, B)) -> Self {
+        Encodable::Array(vec![tuple.0.into(), tuple.1.into()])
+    }
+}
+
+impl<A, B, C> From<(A, B, C)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+    C: Into<Encodable>,
+{
+    fn from(tuple: (A, B, C)) -> Self {
+        Encodable::Array(vec![tuple.0.into(), tuple.1.into(), tuple.2.into()])
+    }
+}
+
+impl<A, B, C, D> From<(A, B, C, D)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+    C: Into<Encodable>,
+    D: Into<Encodable>,
+{
+    fn from(tuple: (A, B, C, D)) -> Self {
+        Encodable::Array(vec![
+            tuple.0.into(),
+            tuple.1.into(),
+            tuple.2.into(),
+            tuple.3.into(),
+        ])
+    }
+}
+
+impl<A, B, C, D, E> From<(A, B, C, D, E)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+    C: Into<Encodable>,
+    D: Into<Encodable>,
+    E: Into<Encodable>,
+{
+    fn from(tuple: (A, B, C, D, E)) -> Self {
+        Encodable::Array(vec![
+            tuple.0.into(),
+            tuple.1.into(),
+            tuple.2.into(),
+            tuple.3.into(),
+            tuple.4.into(),
+        ])
     }
 }
