@@ -245,6 +245,9 @@ impl Connection for ConnectionImpl {
                                 entry.insert(subscription);
                             }),
                     }
+                    .map(|()| {
+                        self.pending_get_requests.insert((entity, property.into()));
+                    })
                 }
                 PropertyRequest::Unsubscribe => {
                     let key = (entity, property.to_string());
