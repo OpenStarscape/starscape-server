@@ -34,6 +34,7 @@ pub fn init(state: &mut State) {
 }
 
 pub fn physics_tick(state: &mut State, delta: f64) {
+    apply_thrust(state, delta);
     apply_gravity(state, delta);
     apply_collisions(&state, delta);
     apply_motion(state, delta);
