@@ -92,6 +92,15 @@ pub fn apply_collisions(state: &State, dt: f64) {
     });
 }
 
+pub fn apply_thrust(state: &mut State, dt: f64) {
+    let ships: Vec<EntityKey> = state.components_iter::<Ship>().map(|(e, _)| e).collect();
+    for e in ships {
+        let thrust = *state.component::<Ship>(e).unwrap().thrust;
+        let vel = &mut state.component_mut::<Body>(e).unwrap().velocity;
+        vel.set(**vel + thrust * dt);
+    }
+}
+
 pub fn apply_motion(state: &mut State, dt: f64) {
     let iter = state.components_iter_mut::<Body>();
     for (_, body) in iter {
