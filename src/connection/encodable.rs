@@ -78,6 +78,12 @@ impl From<EntityKey> for Encodable {
     }
 }
 
+impl From<ColorRGB> for Encodable {
+    fn from(color: ColorRGB) -> Self {
+        Encodable::Text(format!("0x{:02X}{:02X}{:02X}", color.r, color.g, color.b))
+    }
+}
+
 impl<T> From<Vec<T>> for Encodable
 where
     T: Into<Encodable>,
@@ -170,5 +176,17 @@ where
             tuple.3.into(),
             tuple.4.into(),
         ])
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use Encodable::*;
+
+    #[test]
+    fn encodes_color_correctly() {
+        let enc: Encodable = ColorRGB::from_u32(0x0F0080).into();
+        assert_eq!(enc, Text("0x0F0080".to_string()));
     }
 }
