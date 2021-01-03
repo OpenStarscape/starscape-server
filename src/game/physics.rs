@@ -1,8 +1,11 @@
 use super::*;
 
-/// TODO: calculate the gravitational constant for our units (kilometers, kilotonnes, seconds)
-const GRAVITATIONAL_CONSTANT: f64 = 6.674_301_5e-3;
+/// G = 6.67430e-11 N * m^2 / kg^2
+/// N is in kg * m * s^-2
+/// That means that converting to our units (km and mt) we get…
+const GRAVITATIONAL_CONSTANT: f64 = 6.67430e-17;
 
+/// Applies the force of gravity to bodies' velocities
 pub fn apply_gravity(state: &mut State, dt: f64) {
     // we can't access the body (and thus the position) of a gravity well while we are mutating the
     // position of bodies, so we collect all the info we need into a local vec (which should be
@@ -67,6 +70,7 @@ fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> 
     None
 }
 
+/// Handles body collisions
 pub fn apply_collisions(state: &State, dt: f64) {
     // TODO: sort bodies and don't compare bodies that can not touch
     state.components_iter::<Body>().for_each(|(key1, body1)| {
@@ -92,7 +96,10 @@ pub fn apply_collisions(state: &State, dt: f64) {
     });
 }
 
+/// Applies thrust of all ships to their velocity
 pub fn apply_thrust(state: &mut State, dt: f64) {
+    // Collecting keys into a vec is wastefull, but seems to be the only way currently
+    // TODO: improve the ECS so this can be done in one pass
     let ships: Vec<EntityKey> = state.components_iter::<Ship>().map(|(e, _)| e).collect();
     for e in ships {
         let thrust = *state.component::<Ship>(e).unwrap().thrust;
@@ -101,6 +108,7 @@ pub fn apply_thrust(state: &mut State, dt: f64) {
     }
 }
 
+/// Applies velocity of all bodies to their position
 pub fn apply_motion(state: &mut State, dt: f64) {
     let iter = state.components_iter_mut::<Body>();
     for (_, body) in iter {
@@ -114,7 +122,8 @@ pub fn apply_motion(state: &mut State, dt: f64) {
 mod gravity_tests {
     use super::*;
 
-    const PLANET_MASS: f64 = 5.972e+18; // mass of earth
+    const EARTH_MASS: f64 = 5.972e+21; // mass of earth
+    const EARTH_RADIUS: f64 = 6368.0; // radius of earth
 
     fn create_body_entity(state: &mut State, body: Body, gravity: bool) -> EntityKey {
         let entity = state.create_entity();
@@ -129,7 +138,7 @@ mod gravity_tests {
     fn lone_gravity_body_is_unaffected() {
         let velocity = Vector3::new(0.0, 0.0, 0.0);
         let mut state = State::new();
-        let body = create_body_entity(&mut state, Body::new().with_mass(PLANET_MASS), true);
+        let body = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
         assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
         apply_gravity(&mut state, 1.0);
         assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
@@ -142,7 +151,7 @@ mod gravity_tests {
         let mut state = State::new();
         let body = create_body_entity(
             &mut state,
-            Body::new().with_mass(PLANET_MASS).with_position(position),
+            Body::new().with_mass(EARTH_MASS).with_position(position),
             true,
         );
         assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
@@ -154,7 +163,7 @@ mod gravity_tests {
     fn body_falls_towards_gravity_source() {
         let position = Point3::new(20.0e+3, 0.0, 0.0);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(PLANET_MASS), true);
+        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
         let body = create_body_entity(&mut state, Body::new().with_position(position), false);
         assert_eq!(state.component::<Body>(body).unwrap().velocity.x, 0.0);
         apply_gravity(&mut state, 1.0);
@@ -169,13 +178,13 @@ mod gravity_tests {
         let position = Point3::new(20.0e+3, 0.0, 0.0);
 
         let mut state_a = State::new();
-        let _ = create_body_entity(&mut state_a, Body::new().with_mass(PLANET_MASS), true);
+        let _ = create_body_entity(&mut state_a, Body::new().with_mass(EARTH_MASS), true);
         let body_a = create_body_entity(&mut state_a, Body::new().with_position(position), false);
         apply_gravity(&mut state_a, 1.0);
         let v_a = *state_a.component::<Body>(body_a).unwrap().velocity;
 
         let mut state_b = State::new();
-        let _ = create_body_entity(&mut state_b, Body::new().with_mass(PLANET_MASS), true);
+        let _ = create_body_entity(&mut state_b, Body::new().with_mass(EARTH_MASS), true);
         let body_b = create_body_entity(&mut state_b, Body::new().with_position(position), false);
         apply_gravity(&mut state_b, 0.5);
         let v_b = *state_b.component::<Body>(body_b).unwrap().velocity;
@@ -187,7 +196,7 @@ mod gravity_tests {
     fn falls_in_correct_direction() {
         let position = Point3::new(20.0e+3, 0.0, -20.0e+3);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(PLANET_MASS), true);
+        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
         let body = create_body_entity(&mut state, Body::new().with_position(position), false);
         apply_gravity(&mut state, 1.0);
         let v = *state.component::<Body>(body).unwrap().velocity;
@@ -201,11 +210,11 @@ mod gravity_tests {
     fn multiple_wells_cancel_each_other_out() {
         let position = Point3::new(-20.0e+3, 27.5, 154.0);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(PLANET_MASS), true);
+        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
         let _ = create_body_entity(
             &mut state,
             Body::new()
-                .with_mass(PLANET_MASS)
+                .with_mass(EARTH_MASS)
                 .with_position(position * 2.0),
             true,
         );
@@ -215,6 +224,25 @@ mod gravity_tests {
         assert!(v.x.abs() < EPSILON);
         assert!(v.y.abs() < EPSILON);
         assert!(v.z.abs() < EPSILON);
+    }
+
+    #[test]
+    fn accel_on_earth_is_about_right() {
+        let position = Point3::new(-EARTH_RADIUS, 0.0, 0.0);
+        let mut state = State::new();
+        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let body = create_body_entity(&mut state, Body::new().with_position(position), false);
+        apply_gravity(&mut state, 1.0);
+        let v = *state.component::<Body>(body).unwrap().velocity;
+        assert!(v.y.abs() < EPSILON);
+        assert!(v.z.abs() < EPSILON);
+        // When converted to meters/s, should be the well known value 9.81 (measured accel due to
+        // gravity on earth's surface). Because of various factors (centripetal force, earth's mass
+        // being distributed throughout the planet, etc) it wont be exact.
+        let acce_m_per_s = v.x * 1000.0;
+        println!("{}", acce_m_per_s);
+        assert!(acce_m_per_s > 9.7);
+        assert!(acce_m_per_s < 9.9);
     }
 }
 

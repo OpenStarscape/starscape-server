@@ -45,7 +45,7 @@ pub struct Body {
     pub velocity: Element<Vector3<f64>>,
     /// Shape of this object (used for collision detection)
     pub shape: Element<Shape>,
-    /// Mass of this object (kilotonnes aka millions of kilograms)
+    /// Mass of this object (metric tons aka tonnes aka mt aka 1000s of kgs)
     pub mass: Element<f64>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
