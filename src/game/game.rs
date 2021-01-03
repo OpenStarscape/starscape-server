@@ -10,6 +10,7 @@ fn init_solar_system(state: &mut State, scale: f64) {
         .with_position(Point3::origin())
         .with_sphere_shape(696340.0 * scale)
         .with_mass(1.989e+27 * scale)
+        .with_color(ColorRGB::from_u32(0xFFE060))
         .install(state, sun);
 
     // all values are intended to be correct for earth
@@ -22,6 +23,7 @@ fn init_solar_system(state: &mut State, scale: f64) {
         .with_velocity(earth_vel)
         .with_sphere_shape(6371.0 * scale)
         .with_mass(5.972e+21 * scale)
+        .with_color(ColorRGB::from_u32(0x6090FF))
         .install(state, earth);
 
     // all values are intended to be correct for luna (earth's moon)
@@ -32,6 +34,7 @@ fn init_solar_system(state: &mut State, scale: f64) {
         .with_velocity(earth_vel + Vector3::new(0.0, 0.0, 1.022))
         .with_sphere_shape(1737.0 * scale)
         .with_mass(7.34767309e19 * scale)
+        .with_color(ColorRGB::from_u32(0xD0D0D0))
         .install(state, luna);
 }
 

@@ -47,6 +47,8 @@ pub struct Body {
     pub shape: Element<Shape>,
     /// Mass of this object (metric tons aka tonnes aka mt aka 1000s of kgs)
     pub mass: Element<f64>,
+    /// The suggested color of the body, for display purposes only
+    pub color: Element<Option<ColorRGB>>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
 }
@@ -59,6 +61,7 @@ impl Default for Body {
             velocity: Element::new(Vector3::zero()),
             shape: Element::new(Shape::Point),
             mass: Element::new(1.0),
+            color: Element::new(None),
             collision_handler: Box::new(()),
         }
     }
@@ -92,6 +95,11 @@ impl Body {
 
     pub fn with_mass(mut self, mass: f64) -> Self {
         self.mass = Element::new(mass);
+        self
+    }
+
+    pub fn with_color(mut self, color: ColorRGB) -> Self {
+        self.color = Element::new(Some(color));
         self
     }
 
@@ -134,6 +142,12 @@ impl Body {
             move |state, value| Ok(state.component_mut::<Body>(entity)?.mass.set(value)),
         )
         .install_property(state, entity, "mass");
+
+        RWConduit::new(
+            move |state| Ok(&state.component::<Body>(entity)?.color),
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.color.set(value)),
+        )
+        .install_property(state, entity, "color");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
