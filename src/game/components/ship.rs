@@ -1,21 +1,8 @@
 use super::*;
 
-struct PendingUpdates {
-    kill: bool,
-}
-
-impl PendingUpdates {
-    fn new() -> Self {
-        Self { kill: false }
-    }
-}
-
 pub struct Ship {
     max_thrust: f64,
     pub thrust: Element<Vector3<f64>>,
-    #[allow(dead_code)]
-    alive: bool,
-    pending: Mutex<PendingUpdates>,
 }
 
 impl Ship {
@@ -23,8 +10,6 @@ impl Ship {
         Self {
             max_thrust,
             thrust: Element::new(Vector3::zero()),
-            alive: true,
-            pending: Mutex::new(PendingUpdates::new()),
         }
     }
 
@@ -42,14 +27,6 @@ impl Ship {
             Ok(())
         }
     }
-
-    fn kill(&self) {
-        let mut pending = self
-            .pending
-            .lock()
-            .expect("failed lock pending ship updates");
-        pending.kill = true;
-    }
 }
 
 struct ShipBodyController {
@@ -58,8 +35,8 @@ struct ShipBodyController {
 
 impl CollisionHandler for ShipBodyController {
     fn collision(&self, state: &State, _collision: &Collision) {
-        if let Ok(ship) = state.component::<Ship>(self.ship) {
-            ship.kill();
+        if let Ok(_ship) = state.component::<Ship>(self.ship) {
+            // TODO: destroy ship?
         } else {
             error!("colliding ship {:?} does not exist", self.ship);
         }
