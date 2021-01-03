@@ -84,6 +84,17 @@ impl From<Decoded> for DecodedResult<EntityKey> {
     }
 }
 
+impl From<Decoded> for DecodedResult<ColorRGB> {
+    fn from(value: Decoded) -> Self {
+        let s: String = Into::<DecodedResult<String>>::into(value)?;
+        if !s.starts_with("0x") {
+            return Err("color does not start with 0x".to_string());
+        }
+        let u = u32::from_str_radix(&s[2..], 16).map_err(|e| format!("{}", e))?;
+        Ok(ColorRGB::from_u32(u))
+    }
+}
+
 impl<T> From<Decoded> for DecodedResult<Vec<T>>
 where
     Decoded: Into<DecodedResult<T>>,
@@ -398,6 +409,12 @@ mod json_tests {
     fn can_get_entity() {
         let e: Vec<EntityKey> = mock_keys(1);
         assert_decodes_to::<EntityKey>(Entity(e[0]), e[0]);
+    }
+
+    #[test]
+    fn can_get_color() {
+        let color = ColorRGB::from_u32(0xF801A2);
+        assert_decodes_to::<ColorRGB>(Text("0xF801a2".to_string()), color);
     }
 
     #[test]

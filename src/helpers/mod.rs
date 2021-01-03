@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod color_rgb;
 mod datagram_splitter;
 mod initializable;
 mod metronome;
@@ -9,6 +10,7 @@ mod metronome;
 mod test_helpers;
 mod thin_ptr;
 
+pub use color_rgb::ColorRGB;
 pub use datagram_splitter::DatagramSplitter;
 pub use initializable::Initializable;
 pub use metronome::Metronome;
