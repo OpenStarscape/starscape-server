@@ -6,9 +6,7 @@ struct PendingUpdates {
 
 impl PendingUpdates {
     fn new() -> Self {
-        Self {
-            kill: false,
-        }
+        Self { kill: false }
     }
 }
 
@@ -70,7 +68,7 @@ impl CollisionHandler for ShipBodyController {
 
 pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> EntityKey {
     let entity = state.create_entity();
-    state.install_component(entity, Ship::new(1000.0));
+    state.install_component(entity, Ship::new(0.1)); // about 10Gs
     Body::new()
         .with_class(BodyClass::Ship)
         .with_position(position)
