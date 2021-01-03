@@ -91,6 +91,9 @@ impl From<Decoded> for DecodedResult<ColorRGB> {
             return Err("color does not start with 0x".to_string());
         }
         let u = u32::from_str_radix(&s[2..], 16).map_err(|e| format!("{}", e))?;
+        if u >> 24 != 0 {
+            return Err("color has too many digits".to_string());
+        }
         Ok(ColorRGB::from_u32(u))
     }
 }
