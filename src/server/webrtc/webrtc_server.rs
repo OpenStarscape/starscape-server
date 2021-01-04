@@ -53,7 +53,7 @@ async fn run_server(
                         if !closed_sessions.contains(&addr) {
                             // This actually sends the bundle
                             if let Err(err) = webrtc_server
-                                .send(&bundle, webrtc_unreliable::MessageType::Text, &addr)
+                                .send(&bundle, webrtc_unreliable::MessageType::Binary, &addr)
                                 .await
                             {
                                 warn!("could not send message to {}, closing session: {}", addr, err);
