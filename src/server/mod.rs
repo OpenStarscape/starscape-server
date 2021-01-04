@@ -9,6 +9,7 @@ mod server;
 mod session;
 mod tcp;
 mod webrtc;
+mod websocket;
 
 pub use server::Server;
 pub use session::{InboundBundleHandler, Session, SessionBuilder};
@@ -18,6 +19,7 @@ use ip_addrs::*;
 use server::ServerComponent;
 use tcp::*;
 use webrtc::*;
+use websocket::*;
 
 type GenericFilter = warp::filters::BoxedFilter<(Box<dyn warp::Reply>,)>;
 use std::net::{IpAddr, SocketAddr};

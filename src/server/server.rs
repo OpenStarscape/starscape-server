@@ -17,6 +17,7 @@ pub struct Server {
 impl Server {
     pub fn new(
         enable_tcp: bool,
+        enable_websockets: bool,
         enable_webrtc: bool,
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
     ) -> Result<Self, Box<dyn Error>> {
@@ -33,6 +34,13 @@ impl Server {
             let tcp = TcpListener::new(new_session_tx.clone(), addr)
                 .map_err(|e| format!("failed to create TcpListener: {}", e))?;
             components.push(Box::new(tcp));
+        }
+
+        if enable_websockets {
+            let (filter, server) = WebsocketServer::new(new_session_tx.clone())
+                .map_err(|e| format!("failed to create WebSocket server: {}", e))?;
+            components.push(Box::new(server));
+            warp_filter = warp_filter.or(filter).unify().boxed();
         }
 
         if enable_webrtc {
