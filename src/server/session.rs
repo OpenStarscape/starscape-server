@@ -25,6 +25,7 @@ pub trait Session: Send + Debug {
     /// Sends a bundle of data to the client. Bundles should be assumed to be unreliable+unordered.
     /// This errors if there's an issue with the underlying connection, or if data is longer
     /// than max_packet_len() has ever been.
+    /// TODO: this should take an Arc<[u8]> so it can be sent on channels without being copied
     fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>>;
     /// The longest a packet should be. This may change (if, for example, long
     /// packets are frequently dropped). It should be avoided, but It's not an
