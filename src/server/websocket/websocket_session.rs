@@ -12,7 +12,7 @@ async fn send(
         .forward(outbound_tx)
         .await
     {
-        warn!("error sending over websocket: {}", e);
+        warn!("sending packet: {}", e);
     }
 }
 
@@ -27,9 +27,11 @@ async fn receive(
                     handler.handle(message.as_bytes());
                 }
             }
-            Err(e) => error!("receiving packet: {}", e),
+            Err(e) => warn!("receiving packet: {}", e),
         }
     }
+    // Socket has been closed from the client side
+    handler.close();
 }
 
 async fn run_websocket(
