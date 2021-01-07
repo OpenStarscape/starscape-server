@@ -74,7 +74,12 @@ impl From<u32> for Encodable {
 
 impl From<EntityKey> for Encodable {
     fn from(entity: EntityKey) -> Self {
-        Encodable::Entity(entity)
+        use slotmap::Key;
+        if entity.is_null() {
+            Encodable::Null
+        } else {
+            Encodable::Entity(entity)
+        }
     }
 }
 
@@ -188,5 +193,12 @@ mod tests {
     fn encodes_color_correctly() {
         let enc: Encodable = ColorRGB::from_u32(0x0F0080).into();
         assert_eq!(enc, Text("0x0F0080".to_string()));
+    }
+
+    #[test]
+    fn encodes_null_entity_as_null() {
+        use slotmap::Key;
+        let enc: Encodable = EntityKey::null().into();
+        assert_eq!(enc, Null);
     }
 }

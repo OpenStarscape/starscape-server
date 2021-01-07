@@ -77,8 +77,10 @@ impl From<Decoded> for DecodedResult<String> {
 
 impl From<Decoded> for DecodedResult<EntityKey> {
     fn from(value: Decoded) -> Self {
+        use slotmap::Key;
         match value {
             Decoded::Entity(value) => Ok(value),
+            Decoded::Null => Ok(EntityKey::null()),
             _ => Err(format!("{:?} is not an object", value)),
         }
     }
@@ -412,6 +414,17 @@ mod json_tests {
     fn can_get_entity() {
         let e: Vec<EntityKey> = mock_keys(1);
         assert_decodes_to::<EntityKey>(Entity(e[0]), e[0]);
+    }
+
+    #[test]
+    fn can_get_null_entity_from_null() {
+        use slotmap::Key;
+        assert_decodes_to::<EntityKey>(Null, EntityKey::null());
+    }
+
+    #[test]
+    fn can_get_none_option_entity() {
+        assert_decodes_to::<Option<EntityKey>>(Null, None);
     }
 
     #[test]
