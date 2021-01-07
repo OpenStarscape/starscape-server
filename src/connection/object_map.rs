@@ -68,6 +68,10 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
         match obj {
             Some(obj) => obj,
             None => {
+                use slotmap::Key;
+                if entity.is_null() {
+                    error!("ObjectMap::get_or_create_object() given null entity");
+                }
                 let mut write = self.write().expect("failed to lock object map");
                 // Because unlocking a reader and locking a writer isn't atomic, we need to check
                 // that the object hasn't been created in the gap
