@@ -57,10 +57,21 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
     state.install_component(entity, Ship::new(0.1)); // about 10Gs
 
     RWConduit::new(
+        move |state| Ok(&state.component::<Ship>(entity)?.max_acceleration),
+        move |state, value| {
+            Ok(state
+                .component_mut::<Ship>(entity)?
+                .max_acceleration
+                .set(value))
+        },
+    )
+    .install_property(state, entity, "max_accel");
+
+    RWConduit::new(
         move |state| Ok(&state.component::<Ship>(entity)?.acceleration),
         move |state, value| state.component_mut::<Ship>(entity)?.set_thrust(value),
     )
-    .install_property(state, entity, "thrust");
+    .install_property(state, entity, "accel");
 
     entity
 }
