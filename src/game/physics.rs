@@ -97,12 +97,12 @@ pub fn apply_collisions(state: &State, dt: f64) {
 }
 
 /// Applies thrust of all ships to their velocity
-pub fn apply_thrust(state: &mut State, dt: f64) {
+pub fn apply_acceleration(state: &mut State, dt: f64) {
     // Collecting keys into a vec is wastefull, but seems to be the only way currently
     // TODO: improve the ECS so this can be done in one pass
     let ships: Vec<EntityKey> = state.components_iter::<Ship>().map(|(e, _)| e).collect();
     for e in ships {
-        let thrust = *state.component::<Ship>(e).unwrap().thrust;
+        let thrust = *state.component::<Ship>(e).unwrap().acceleration;
         let vel = &mut state.component_mut::<Body>(e).unwrap().velocity;
         vel.set(**vel + thrust * dt);
     }

@@ -42,25 +42,11 @@ pub fn init(state: &mut State) {
     God::default().install(state);
 
     init_solar_system(state, 0.000001);
-
-    /*
-    let _ship_a = create_ship(
-        state,
-        Point3::new(100_000.0, 0.0, 0.0),
-        Vector3::new(0.0, 0.0, 5_000.0),
-    );
-
-    let _ship_b = create_ship(
-        state,
-        Point3::new(0.0, 0.0, 60_000.0),
-        Vector3::new(10_000.0, 1_000.0, 4_000.0),
-    );
-    */
 }
 
 pub fn physics_tick(state: &mut State, delta: f64) {
-    apply_thrust(state, delta);
+    apply_acceleration(state, delta);
     apply_gravity(state, delta);
-    apply_collisions(&state, delta);
+    apply_collisions(state, delta);
     apply_motion(state, delta);
 }

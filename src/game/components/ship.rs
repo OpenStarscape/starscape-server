@@ -1,29 +1,29 @@
 use super::*;
 
 pub struct Ship {
-    max_thrust: f64,
-    pub thrust: Element<Vector3<f64>>,
+    pub max_acceleration: Element<f64>,
+    pub acceleration: Element<Vector3<f64>>,
 }
 
 impl Ship {
-    fn new(max_thrust: f64) -> Self {
+    fn new(max_acceleration: f64) -> Self {
         Self {
-            max_thrust,
-            thrust: Element::new(Vector3::zero()),
+            max_acceleration: Element::new(max_acceleration),
+            acceleration: Element::new(Vector3::zero()),
         }
     }
 
     fn set_thrust(&mut self, thrust: Vector3<f64>) -> Result<(), String> {
         let magnitude = thrust.magnitude();
-        if magnitude > self.max_thrust + EPSILON {
-            let fixed = thrust.normalize() * self.max_thrust;
-            self.thrust.set(fixed);
+        if magnitude > *self.max_acceleration + EPSILON {
+            let fixed = thrust.normalize() * *self.max_acceleration;
+            self.acceleration.set(fixed);
             Err(format!(
                 "{:?} has a magnitude of {}, which is greater than the maximum allowed thrust {}",
-                thrust, magnitude, self.max_thrust
+                thrust, magnitude, *self.max_acceleration
             ))
         } else {
-            self.thrust.set(thrust);
+            self.acceleration.set(thrust);
             Ok(())
         }
     }
@@ -45,7 +45,7 @@ impl CollisionHandler for ShipBodyController {
 
 pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> EntityKey {
     let entity = state.create_entity();
-    state.install_component(entity, Ship::new(0.1)); // about 10Gs
+
     Body::new()
         .with_class(BodyClass::Ship)
         .with_position(position)
@@ -53,12 +53,15 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         .with_sphere_shape(1.0)
         .with_collision_handler(Box::new(ShipBodyController { ship: entity }))
         .install(state, entity);
+
+    state.install_component(entity, Ship::new(0.1)); // about 10Gs
+
     RWConduit::new(
-        move |state| Ok(&state.component::<Ship>(entity)?.thrust),
+        move |state| Ok(&state.component::<Ship>(entity)?.acceleration),
         move |state, value| state.component_mut::<Ship>(entity)?.set_thrust(value),
     )
     .install_property(state, entity, "thrust");
-    info!("ship {:?} created at {:?}", entity, position);
+
     entity
 }
 
