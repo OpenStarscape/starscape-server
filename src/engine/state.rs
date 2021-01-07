@@ -24,7 +24,6 @@ pub struct State {
 
 impl Default for State {
     fn default() -> Self {
-        use slotmap::Key;
         let mut state = Self {
             time: 0.0,
             root: EntityKey::null(),

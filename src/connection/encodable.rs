@@ -74,7 +74,6 @@ impl From<u32> for Encodable {
 
 impl From<EntityKey> for Encodable {
     fn from(entity: EntityKey) -> Self {
-        use slotmap::Key;
         if entity.is_null() {
             Encodable::Null
         } else {

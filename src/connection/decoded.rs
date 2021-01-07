@@ -77,7 +77,6 @@ impl From<Decoded> for DecodedResult<String> {
 
 impl From<Decoded> for DecodedResult<EntityKey> {
     fn from(value: Decoded) -> Self {
-        use slotmap::Key;
         match value {
             Decoded::Entity(value) => Ok(value),
             Decoded::Null => Ok(EntityKey::null()),

@@ -405,7 +405,6 @@ mod tests {
 
     impl Test {
         fn new() -> Self {
-            use slotmap::Key;
             let encoder = MockEncoder::new();
             let entities = mock_keys(1);
             let entity = entities[0];

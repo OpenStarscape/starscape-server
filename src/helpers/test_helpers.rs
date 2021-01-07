@@ -70,7 +70,7 @@ where
 
 /// Returns a list of stotmap of the given length, should only be called once per test for each key
 /// type (else you'll get duplicate keys)
-pub fn mock_keys<T: slotmap::Key>(number: u32) -> Vec<T> {
+pub fn mock_keys<T: Key>(number: u32) -> Vec<T> {
     let mut map = slotmap::DenseSlotMap::with_key();
     (0..number).map(|_| map.insert(())).collect()
 }
