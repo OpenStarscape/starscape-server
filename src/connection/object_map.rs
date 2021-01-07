@@ -68,7 +68,6 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
         match obj {
             Some(obj) => obj,
             None => {
-                use slotmap::Key;
                 if entity.is_null() {
                     error!("ObjectMap::get_or_create_object() given null entity");
                 }

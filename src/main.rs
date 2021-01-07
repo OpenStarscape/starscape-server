@@ -24,7 +24,7 @@ use server::*;
 use anymap::AnyMap;
 use cgmath::*;
 use futures::{executor::block_on, future, StreamExt};
-use slotmap::DenseSlotMap;
+use slotmap::{DenseSlotMap, Key};
 use weak_self::WeakSelf;
 
 use std::error::Error;
