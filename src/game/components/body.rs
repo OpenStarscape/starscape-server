@@ -49,6 +49,8 @@ pub struct Body {
     pub mass: Element<f64>,
     /// The suggested color of the body, for display purposes only
     pub color: Element<Option<ColorRGB>>,
+    /// Human-readable name (generally capitalized with spaces)
+    pub name: Element<Option<String>>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
 }
@@ -62,6 +64,7 @@ impl Default for Body {
             shape: Element::new(Shape::Point),
             mass: Element::new(1.0),
             color: Element::new(None),
+            name: Element::new(None),
             collision_handler: Box::new(()),
         }
     }
@@ -100,6 +103,11 @@ impl Body {
 
     pub fn with_color(mut self, color: ColorRGB) -> Self {
         self.color = Element::new(Some(color));
+        self
+    }
+
+    pub fn with_name(mut self, name: String) -> Self {
+        self.name = Element::new(Some(name));
         self
     }
 
@@ -148,6 +156,12 @@ impl Body {
             move |state, value| Ok(state.component_mut::<Body>(entity)?.color.set(value)),
         )
         .install_property(state, entity, "color");
+
+        RWConduit::new(
+            move |state| Ok(&state.component::<Body>(entity)?.name),
+            move |state, value| Ok(state.component_mut::<Body>(entity)?.name.set(value)),
+        )
+        .install_property(state, entity, "name");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
