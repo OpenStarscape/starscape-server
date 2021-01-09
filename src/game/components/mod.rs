@@ -4,6 +4,6 @@ mod body;
 mod god;
 mod ship;
 
-pub use body::{Body, BodyClass, Collision, CollisionHandler, GravityBody};
-pub use god::God;
-pub use ship::{create_ship, Ship};
+pub use body::*;
+pub use god::*;
+pub use ship::*;

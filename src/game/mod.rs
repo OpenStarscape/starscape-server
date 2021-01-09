@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod autopilot;
 mod components;
 #[allow(clippy::module_inception)]
 mod game;
@@ -9,6 +10,7 @@ mod physics;
 
 pub use game::{init, physics_tick};
 
+use autopilot::*;
 use components::*;
 use physics::*;
 
