@@ -3,7 +3,7 @@ use super::*;
 /// G = 6.67430e-11 N * m^2 / kg^2
 /// N is in kg * m * s^-2
 /// That means that converting to our units (km and mt) we get…
-const GRAVITATIONAL_CONSTANT: f64 = 6.67430e-17;
+pub const GRAVITATIONAL_CONSTANT: f64 = 6.67430e-17;
 
 /// Applies the force of gravity to bodies' velocities
 pub fn apply_gravity(state: &mut State, dt: f64) {
