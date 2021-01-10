@@ -51,6 +51,9 @@ pub struct Body {
     pub color: Element<Option<ColorRGB>>,
     /// Human-readable name (generally capitalized with spaces)
     pub name: Element<Option<String>>,
+    /// The gravity body with the largest effect, or null if none have a significant effect (set by
+    /// the physics engine each tick)
+    pub most_influential_gravity_body: Element<EntityKey>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
 }
@@ -65,6 +68,7 @@ impl Default for Body {
             mass: Element::new(1.0),
             color: Element::new(None),
             name: Element::new(None),
+            most_influential_gravity_body: Element::new(EntityKey::null()),
             collision_handler: Box::new(()),
         }
     }
@@ -162,6 +166,13 @@ impl Body {
             move |state, value| Ok(state.component_mut::<Body>(entity)?.name.set(value)),
         )
         .install_property(state, entity, "name");
+
+        ROConduit::new(move |state| {
+            Ok(&state
+                .component::<Body>(entity)?
+                .most_influential_gravity_body)
+        })
+        .install_property(state, entity, "grav_body");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
