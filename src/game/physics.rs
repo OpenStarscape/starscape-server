@@ -11,6 +11,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
     // position of bodies, so we collect all the info we need into a local vec (which should be
     // good for performence as well)
     struct GravityWell {
+        entity: EntityKey,
         position: Point3<f64>,
         mass: f64,
     };
@@ -22,6 +23,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
                 .component::<Body>(entity)
                 .expect("GravityBody does not have a body");
             GravityWell {
+                entity,
                 position: *body.position,
                 mass: *body.mass,
             }
@@ -29,14 +31,23 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
         .collect();
     let iter = state.components_iter_mut::<Body>();
     iter.for_each(|(_, body)| {
-        wells.iter().for_each(|well| {
-            let distance2 = well.position.distance2(*body.position);
-            if distance2 > EPSILON {
-                let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
-                let delta_vel = (well.position - *body.position).normalize_to(acceleration * dt);
-                body.velocity.set(*body.velocity + delta_vel);
-            }
-        })
+        let (most_influential, _most_accel) = wells.iter().fold(
+            (EntityKey::null(), 0.0),
+            |(most_influential, most_accel), well| {
+                let distance2 = well.position.distance2(*body.position);
+                if distance2 > EPSILON {
+                    let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
+                    let delta_vel =
+                        (well.position - *body.position).normalize_to(acceleration * dt);
+                    body.velocity.set(*body.velocity + delta_vel);
+                    if acceleration > most_accel {
+                        return (well.entity, acceleration);
+                    }
+                }
+                (most_influential, most_accel)
+            },
+        );
+        body.most_influential_gravity_body.set(most_influential);
     });
 }
 
@@ -224,6 +235,40 @@ mod gravity_tests {
         assert!(v.x.abs() < EPSILON);
         assert!(v.y.abs() < EPSILON);
         assert!(v.z.abs() < EPSILON);
+    }
+
+    #[test]
+    fn sets_most_influential_correctly() {
+        let position = Point3::new(-20.0e+3, 27.5, 154.0);
+        let mut state = State::new();
+        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let expected = create_body_entity(
+            &mut state,
+            Body::new()
+                .with_mass(EARTH_MASS * 1.5)
+                .with_position(position * 2.0),
+            true,
+        );
+        let _ = create_body_entity(
+            &mut state,
+            Body::new()
+                .with_mass(EARTH_MASS * 0.1)
+                .with_position(position * 0.5),
+            true,
+        );
+        let body = create_body_entity(
+            &mut state,
+            Body::new()
+                .with_mass(EARTH_MASS * 4.0)
+                .with_position(position),
+            false,
+        );
+        apply_gravity(&mut state, 1.0);
+        let actual = *state
+            .component::<Body>(body)
+            .unwrap()
+            .most_influential_gravity_body;
+        assert_eq!(actual, expected);
     }
 
     #[test]
