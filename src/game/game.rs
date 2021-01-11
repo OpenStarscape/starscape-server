@@ -25,7 +25,7 @@ fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> Entit
     Body::new()
         .with_class(BodyClass::Celestial)
         .with_position(pos)
-        .with_velocity(Vector3::new(0.0, 0.0, vel) + parent_vel)
+        .with_velocity(Vector3::new(0.0, 0.0, -vel) + parent_vel)
         .with_sphere_shape(info.radius * scale)
         .with_mass(info.mass * scale)
         .with_color(ColorRGB::from_u32(info.color))
