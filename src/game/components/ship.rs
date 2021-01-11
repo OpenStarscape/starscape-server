@@ -5,7 +5,10 @@ use super::*;
 pub enum AutopilotScheme {
     /// No autopilot, client should set accel manually
     Off,
-    /// Orbit the target body at the specified distance (or a reasonable default if None)
+    /// Orbit a body with the given parameters
+    /// - target: if null then orbits the currently most influential gravity body, else orbits the
+    ///   given body
+    /// - distance: distance from the target to orbit
     Orbit,
 }
 
