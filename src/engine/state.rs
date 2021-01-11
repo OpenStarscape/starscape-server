@@ -84,10 +84,13 @@ impl State {
     /// Returns the component of type T attached to the given entity
     /// or None if no such component is found
     pub fn component<T: 'static>(&self, entity: EntityKey) -> Result<&T, String> {
-        let e = self
-            .entities
-            .get(entity)
-            .ok_or_else(|| format!("failed to get component on invalid entity {:?}", entity))?;
+        let e = self.entities.get(entity).ok_or_else(|| {
+            format!(
+                "failed to get component on {} entity {:?}",
+                if entity.is_null() { "null" } else { "invalid" },
+                entity
+            )
+        })?;
         let component = *e.component_key().ok_or_else(|| {
             format!(
                 "failed to get invalid component {} on entity {:?}",
