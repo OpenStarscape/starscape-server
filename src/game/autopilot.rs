@@ -18,6 +18,8 @@ struct OrbitParams {
     grav_body_mass: f64,
     /// The distance from the gravity body we want to be orbiting at
     goal_altitude: f64,
+    /// The up direction of the orbit axis, such that the orbit is counter-clockwise from the top
+    goal_axis: Vector3<f64>,
 }
 
 fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<dyn Error>> {
@@ -55,6 +57,7 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
         // TODO: take into account that the target's orbit may be elliptical
         // TODO: somehow actually line up with the target
     }
+    let goal_axis = Vector3::new(0.0, 1.0, 0.0);
     Ok(OrbitParams {
         position,
         velocity,
@@ -63,6 +66,7 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
         grav_body_vel,
         grav_body_mass,
         goal_altitude,
+        goal_axis,
     })
 }
 
@@ -82,8 +86,10 @@ fn accel_for_orbit(params: &OrbitParams) -> Vector3<f64> {
     let forward_velocity_error = goal_forward_velocity - forward_velocity;
     let goal_vertical_velocity = params.goal_altitude - altitude; // achieve goal in ~1s
     let vertical_velocity_error = goal_vertical_velocity - vertical_velocity;
-    let ideal_accel =
-        lateral_direction * forward_velocity_error + vertical_direction * vertical_velocity_error;
+    let pitch_error = vertical_direction.cross(-params.goal_axis).normalize() - lateral_direction;
+    let ideal_accel = lateral_direction * forward_velocity_error
+        + vertical_direction * vertical_velocity_error
+        + pitch_error * 10.0;
     if ideal_accel.magnitude() <= params.max_acceleration {
         ideal_accel
     } else {
