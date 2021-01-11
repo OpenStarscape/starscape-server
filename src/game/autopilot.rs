@@ -19,7 +19,9 @@ struct OrbitParams {
     /// The distance from the gravity body we want to be orbiting at
     goal_altitude: f64,
     /// The up direction of the orbit axis, such that the orbit is counter-clockwise from the top
-    goal_axis: Vector3<f64>,
+    goal_axis: Option<Vector3<f64>>,
+    /// The direction from the grav body we want to be at (normalized)
+    goal_virtical_direction: Option<Vector3<f64>>,
 }
 
 fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<dyn Error>> {
@@ -43,21 +45,26 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
     let grav_body_vel = *grav_body.velocity;
     let grav_body_mass = *grav_body.mass;
     let goal_altitude;
+    let goal_axis;
+    let goal_virtical_direction;
     if grav_body_key == target_key {
         goal_altitude = match *ship.autopilot.distance {
             Some(d) => d,
             None => grav_body.shape.radius() * 4.0 + 0.5,
-        }
+        };
+        goal_axis = None;
+        goal_virtical_direction = None;
     } else {
         let target_body = state
             .component::<Body>(target_key)
             .map_err(|e| format!("getting target body: {}", e))?;
-        let target_position = *target_body.position;
-        goal_altitude = target_position.distance(grav_body_pos);
+        let target_relative_pos = *target_body.position - grav_body_pos;
+        goal_altitude = target_relative_pos.magnitude();
+        goal_axis = Some(target_relative_pos.cross(*target_body.velocity).normalize());
+        goal_virtical_direction = Some(target_relative_pos.normalize());
         // TODO: take into account that the target's orbit may be elliptical
         // TODO: somehow actually line up with the target
     }
-    let goal_axis = Vector3::new(0.0, 1.0, 0.0);
     Ok(OrbitParams {
         position,
         velocity,
@@ -67,6 +74,7 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
         grav_body_mass,
         goal_altitude,
         goal_axis,
+        goal_virtical_direction,
     })
 }
 
@@ -84,9 +92,30 @@ fn accel_for_orbit(params: &OrbitParams) -> Vector3<f64> {
     let goal_angular_momentum = final_forward_velocity * params.goal_altitude; // * our mass but that cancels out
     let goal_forward_velocity = goal_angular_momentum / altitude;
     let forward_velocity_error = goal_forward_velocity - forward_velocity;
-    let goal_vertical_velocity = params.goal_altitude - altitude; // achieve goal in ~1s
+    let goal_altitude = match params.goal_virtical_direction {
+        None => params.goal_altitude,
+        Some(goal_virtical_direction) => {
+            let delta_theta = goal_virtical_direction.dot(vertical_direction).acos();
+            let delta_theta = if (goal_virtical_direction - vertical_direction)
+                .normalize()
+                .dot(lateral_direction)
+                > 0.0
+            {
+                delta_theta
+            } else {
+                -delta_theta
+            };
+            // delta_theta is now the angle (positive or negative) to the target place in the orbit
+            let scale = 1.0 - delta_theta / (PI * 2.0);
+            params.goal_altitude * scale
+        }
+    };
+    let goal_vertical_velocity = goal_altitude - altitude; // achieve goal in ~1s
     let vertical_velocity_error = goal_vertical_velocity - vertical_velocity;
-    let pitch_error = vertical_direction.cross(-params.goal_axis).normalize() - lateral_direction;
+    let pitch_error = match params.goal_axis {
+        Some(axis) => vertical_direction.cross(-axis).normalize() - lateral_direction,
+        None => Vector3::zero(),
+    };
     let ideal_accel = lateral_direction * forward_velocity_error
         + vertical_direction * vertical_velocity_error
         + pitch_error * 10.0;
