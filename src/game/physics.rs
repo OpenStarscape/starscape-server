@@ -13,6 +13,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
     struct GravityWell {
         entity: EntityKey,
         position: Point3<f64>,
+        velocity: Vector3<f64>,
         mass: f64,
     };
     let wells: Vec<GravityWell> = state
@@ -25,29 +26,54 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
             GravityWell {
                 entity,
                 position: *body.position,
+                velocity: *body.velocity,
                 mass: *body.mass,
             }
         })
         .collect();
     let iter = state.components_iter_mut::<Body>();
     iter.for_each(|(_, body)| {
-        let (most_influential, _most_accel) = wells.iter().fold(
-            (EntityKey::null(), 0.0),
-            |(most_influential, most_accel), well| {
+        let (grav_parent, _grav_parent_major) = wells.iter().fold(
+            (EntityKey::null(), f64::INFINITY),
+            |(grav_parent, grav_parent_major_axis), well| {
+                // Get the distance², which is faster than normal distance and possibly all we need
                 let distance2 = well.position.distance2(*body.position);
+                // If comparing body to itself, distance² will be zero or close to it
                 if distance2 > EPSILON {
+                    // Acceleration due to gravity follows the inverse square law
                     let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
+                    // Change in velocity is previously calculated acceleration towards the well
                     let delta_vel =
                         (well.position - *body.position).normalize_to(acceleration * dt);
+                    // Apply delta-velocity to the body
                     body.velocity.set(*body.velocity + delta_vel);
-                    if acceleration > most_accel {
-                        return (well.entity, acceleration);
+                    // Now we check to see if the well is this bodies gravity parent. This is
+                    // defined as the well more massive than the body around which the body is
+                    // orbiting elliptically with the smallest major axis.
+                    // - if the well is less massive than the body, it can't be by definition
+                    // - if distance² is greater than the current smallest major axis, the body
+                    //   can't be orbiting this body with a smaller axis
+                    if well.mass >= *body.mass
+                        && distance2 <= grav_parent_major_axis * grav_parent_major_axis
+                    {
+                        let distance = distance2.sqrt();
+                        let velocity2 = (*body.velocity - well.velocity).magnitude2();
+                        let gm = GRAVITATIONAL_CONSTANT * well.mass;
+                        // The major axis is calculated by 2a = 2rGM/(2GM - rv²) (see math.md)
+                        let major_axis_denom = 2.0 * gm - distance * velocity2;
+                        // The orbit is elliptical only if the denominator is positive and finite
+                        if major_axis_denom > 0.0 && major_axis_denom.is_finite() {
+                            let major_axis = distance * gm / major_axis_denom;
+                            if major_axis < grav_parent_major_axis {
+                                return (well.entity, major_axis);
+                            }
+                        }
                     }
                 }
-                (most_influential, most_accel)
+                (grav_parent, grav_parent_major_axis)
             },
         );
-        body.most_influential_gravity_body.set(most_influential);
+        body.most_influential_gravity_body.set(grav_parent);
     });
 }
 
