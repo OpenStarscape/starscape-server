@@ -73,7 +73,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
                 (grav_parent, grav_parent_major_axis)
             },
         );
-        body.most_influential_gravity_body.set(grav_parent);
+        body.gravity_parent.set(grav_parent);
     });
 }
 
@@ -263,39 +263,7 @@ mod gravity_tests {
         assert!(v.z.abs() < EPSILON);
     }
 
-    #[test]
-    fn sets_most_influential_correctly() {
-        let position = Point3::new(-20.0e+3, 27.5, 154.0);
-        let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        let expected = create_body_entity(
-            &mut state,
-            Body::new()
-                .with_mass(EARTH_MASS * 1.5)
-                .with_position(position * 2.0),
-            true,
-        );
-        let _ = create_body_entity(
-            &mut state,
-            Body::new()
-                .with_mass(EARTH_MASS * 0.1)
-                .with_position(position * 0.5),
-            true,
-        );
-        let body = create_body_entity(
-            &mut state,
-            Body::new()
-                .with_mass(EARTH_MASS * 4.0)
-                .with_position(position),
-            false,
-        );
-        apply_gravity(&mut state, 1.0);
-        let actual = *state
-            .component::<Body>(body)
-            .unwrap()
-            .most_influential_gravity_body;
-        assert_eq!(actual, expected);
-    }
+    // TODO: test gravity parent
 
     #[test]
     fn accel_on_earth_is_about_right() {

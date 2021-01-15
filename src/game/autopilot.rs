@@ -27,7 +27,7 @@ struct OrbitParams {
 fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<dyn Error>> {
     let ship = state.component::<Ship>(ship_key)?;
     let body = state.component::<Body>(ship_key)?;
-    let grav_body_key = *body.most_influential_gravity_body;
+    let grav_body_key = *body.gravity_parent;
     let target_key = if !ship.autopilot.target.is_null() {
         *ship.autopilot.target
     } else if !grav_body_key.is_null() {

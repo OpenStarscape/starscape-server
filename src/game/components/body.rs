@@ -51,9 +51,11 @@ pub struct Body {
     pub color: Element<Option<ColorRGB>>,
     /// Human-readable name (generally capitalized with spaces)
     pub name: Element<Option<String>>,
-    /// The gravity body with the largest effect, or null if none have a significant effect (set by
-    /// the physics engine each tick)
-    pub most_influential_gravity_body: Element<EntityKey>,
+    /// The gravity well more massive than this body which this body is currently elliptically
+    /// orbiting around with the smallest major axis. This logic generally results in a nice tree.
+    /// For example, a ship's parent might be Luna, Luna's parent would be Earth and Earth's parent
+    /// would be Sol.
+    pub gravity_parent: Element<EntityKey>,
     /// The interface the physics system uses to talk to the controller of this object
     pub collision_handler: Box<dyn CollisionHandler>,
 }
@@ -68,7 +70,7 @@ impl Default for Body {
             mass: Element::new(1.0),
             color: Element::new(None),
             name: Element::new(None),
-            most_influential_gravity_body: Element::new(EntityKey::null()),
+            gravity_parent: Element::new(EntityKey::null()),
             collision_handler: Box::new(()),
         }
     }
@@ -167,12 +169,8 @@ impl Body {
         )
         .install_property(state, entity, "name");
 
-        ROConduit::new(move |state| {
-            Ok(&state
-                .component::<Body>(entity)?
-                .most_influential_gravity_body)
-        })
-        .install_property(state, entity, "grav_body");
+        ROConduit::new(move |state| Ok(&state.component::<Body>(entity)?.gravity_parent))
+            .install_property(state, entity, "grav_parent");
 
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.shape),
