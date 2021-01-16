@@ -66,7 +66,7 @@ impl Server {
         {
             // This should resolve to localhost for testing. We need to point the web app to this
             // address (at time of writing that's done with a proxy rule in vue.config.js).
-            let ip = get_ip(None, Some(IpVersion::V4), Some(true))?;
+            let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
             let addr = SocketAddr::new(ip, HTTP_PORT);
             let http_server = HttpServer::new(warp_filter, addr)?;
             components.push(Box::new(http_server));
