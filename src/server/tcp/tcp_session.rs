@@ -11,7 +11,7 @@ fn try_to_read_data(
         match stream.read(&mut buffer) {
             Ok(0) => {
                 // Successful read of zero bytes means connection is closed
-                return Err("connection closed".into());
+                handler.close();
             }
             Ok(len) => {
                 handler.handle(&buffer[0..len]);
