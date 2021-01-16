@@ -19,6 +19,7 @@ impl Server {
         enable_tcp: bool,
         enable_websockets: bool,
         enable_webrtc: bool,
+        static_content_path: Option<&str>,
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
     ) -> Result<Self, Box<dyn Error>> {
         let mut components: Vec<Box<dyn ServerComponent>> = Vec::new();
@@ -52,6 +53,14 @@ impl Server {
                 .map_err(|e| format!("failed to create WebrtcServer: {}", e))?;
             components.push(Box::new(webrtc));
             warp_filter = warp_filter.or(rtc_warp_filter).unify().boxed();
+        }
+
+        if let Some(static_content_path) = static_content_path {
+            let static_content_filter: GenericFilter =
+                warp::fs::dir(static_content_path.to_string())
+                    .map(|reply| Box::new(reply) as Box<dyn warp::Reply>)
+                    .boxed();
+            warp_filter = warp_filter.or(static_content_filter).unify().boxed();
         }
 
         {
