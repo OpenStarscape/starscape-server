@@ -145,15 +145,12 @@ impl ConnectionImpl {
         )
     }
 
-    fn queue_message(&self, data: Vec<u8>) -> Result<(), Box<dyn Error>> {
-        let mut session = self
-            .session
-            .lock()
-            .map_err(|e| format!("failed to lock session: {}", e))?;
-        session
-            .yeet_bundle(&data)
-            .map_err(|e| format!("failed to yeet bundle: {}", e))?;
-        Ok(())
+    fn queue_message(&self, data: Vec<u8>) {
+        let mut session = self.session.lock().unwrap();
+        if let Err(e) = session.yeet_bundle(&data) {
+            warn!("closing session due to problem sending bundle: {}", e);
+            session.close();
+        }
     }
 }
 
@@ -185,7 +182,7 @@ impl Connection for ConnectionImpl {
                 value,
             )?
         };
-        self.queue_message(buffer)?;
+        self.queue_message(buffer);
         Ok(())
     }
 
@@ -209,7 +206,7 @@ impl Connection for ConnectionImpl {
         let buffer =
             self.encoder
                 .encode_event(object, property, self.obj_map.as_encode_ctx(), value)?;
-        self.queue_message(buffer)?;
+        self.queue_message(buffer);
         Ok(())
     }
 
@@ -357,6 +354,10 @@ mod tests {
 
         fn max_packet_len(&self) -> usize {
             panic!("unecpected call");
+        }
+
+        fn close(&mut self) {
+            panic!("unexpected call");
         }
     }
 

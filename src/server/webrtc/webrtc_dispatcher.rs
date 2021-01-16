@@ -72,17 +72,22 @@ impl Drop for DispatchTarget {
 struct DispatcherInner {
     session_map: HashMap<SocketAddr, DispatchTarget>,
     new_session_tx: Sender<Box<dyn SessionBuilder>>,
-    outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
+    outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, WebrtcMessage)>,
 }
 
 /// Dispatches inbound data to the correct session based on source address
 #[derive(Clone)]
 pub struct WebrtcDispatcher(Arc<Mutex<DispatcherInner>>);
 
+pub enum WebrtcMessage {
+    Data(Vec<u8>),
+    Close,
+}
+
 impl WebrtcDispatcher {
     pub fn new(
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
-        outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
+        outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, WebrtcMessage)>,
     ) -> Self {
         Self(Arc::new(Mutex::new(DispatcherInner {
             session_map: HashMap::new(),
@@ -183,7 +188,7 @@ mod tests {
     #[allow(clippy::type_complexity)]
     fn new_test() -> (
         Receiver<Box<dyn SessionBuilder>>,
-        tokio::sync::mpsc::Receiver<(SocketAddr, Vec<u8>)>,
+        tokio::sync::mpsc::Receiver<(SocketAddr, WebrtcMessage)>,
         WebrtcDispatcher,
     ) {
         let (new_session_tx, new_session_rx) = channel();

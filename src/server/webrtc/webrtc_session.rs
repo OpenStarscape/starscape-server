@@ -4,14 +4,14 @@ use super::*;
 pub struct WebrtcSession {
     dispatcher: WebrtcDispatcher,
     addr: SocketAddr,
-    outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
+    outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, WebrtcMessage)>,
 }
 
 impl WebrtcSession {
     pub fn new(
         dispatcher: WebrtcDispatcher,
         addr: SocketAddr,
-        outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, Vec<u8>)>,
+        outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, WebrtcMessage)>,
     ) -> Self {
         Self {
             dispatcher,
@@ -43,7 +43,10 @@ impl Session for WebrtcSession {
                 self.max_packet_len()
             );
         }
-        match self.outbound_tx.try_send((self.addr, data.to_vec())) {
+        match self
+            .outbound_tx
+            .try_send((self.addr, WebrtcMessage::Data(data.to_vec())))
+        {
             Ok(()) => Ok(()),
             Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => Err(format!(
                 "WebRTC outbound channel is full (can't send bundle to {})",
@@ -72,6 +75,22 @@ impl Session for WebrtcSession {
     /// worse or we're hitting other problems. [This might also be helpful](https://blog.mozilla.org/webrtc/large-data-channel-messages/)
     fn max_packet_len(&self) -> usize {
         2020
+    }
+
+    fn close(&mut self) {
+        match self.outbound_tx.try_send((self.addr, WebrtcMessage::Close)) {
+            Ok(()) => (),
+            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => (),
+            Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                error!(
+                    "failed to close session {} because send buffer is full",
+                    self.addr
+                );
+                // This just removes it from the list rather than closing it, but probably better
+                // than nothing
+                self.dispatcher.close_session(&self.addr);
+            }
+        }
     }
 }
 
