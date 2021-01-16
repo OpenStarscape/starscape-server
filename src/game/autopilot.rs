@@ -16,7 +16,7 @@ struct OrbitParams {
     grav_body_vel: Vector3<f64>,
     /// Mass of the body we are currently orbiting around
     grav_body_mass: f64,
-    /// The distance from the gravity body we want to be orbiting at
+    /// The distance from the gravity body we want to be orbiting at, can be infinity
     goal_altitude: f64,
     /// The up direction of the orbit axis, such that the orbit is counter-clockwise from the top
     goal_axis: Option<Vector3<f64>>,
@@ -55,15 +55,24 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
         goal_axis = None;
         goal_virtical_direction = None;
     } else {
-        let target_body = state
-            .component::<Body>(target_key)
-            .map_err(|e| format!("getting target body: {}", e))?;
-        let target_relative_pos = *target_body.position - grav_body_pos;
-        goal_altitude = target_relative_pos.magnitude();
-        goal_axis = Some(target_relative_pos.cross(*target_body.velocity).normalize());
-        goal_virtical_direction = Some(target_relative_pos.normalize());
+        let mut temp_target = state.component::<Body>(target_key);
+        while let Ok(attempted_temp_target) = temp_target {
+            if *attempted_temp_target.gravity_parent == grav_body_key {
+                break;
+            }
+            temp_target = state.component::<Body>(*attempted_temp_target.gravity_parent);
+        }
+        if let Ok(temp_target) = temp_target {
+            let target_relative_pos = *temp_target.position - grav_body_pos;
+            goal_altitude = target_relative_pos.magnitude();
+            goal_axis = Some(target_relative_pos.cross(*temp_target.velocity).normalize());
+            goal_virtical_direction = Some(target_relative_pos.normalize());
         // TODO: take into account that the target's orbit may be elliptical
-        // TODO: somehow actually line up with the target
+        } else {
+            goal_altitude = f64::INFINITY;
+            goal_axis = None;
+            goal_virtical_direction = None;
+        }
     }
     Ok(OrbitParams {
         position,
@@ -86,32 +95,39 @@ fn accel_for_orbit(params: &OrbitParams) -> Vector3<f64> {
     let vertical_velocity = vertical_direction.dot(relative_vel);
     let lateral_velocity = relative_vel - (vertical_velocity * vertical_direction);
     let lateral_direction = lateral_velocity.normalize();
-    let forward_velocity = lateral_velocity.magnitude();
-    let final_forward_velocity =
-        (GRAVITATIONAL_CONSTANT * params.grav_body_mass / params.goal_altitude).sqrt();
-    let goal_angular_momentum = final_forward_velocity * params.goal_altitude; // * our mass but that cancels out
-    let goal_forward_velocity = goal_angular_momentum / altitude;
-    let forward_velocity_error = goal_forward_velocity - forward_velocity;
-    let goal_altitude = match params.goal_virtical_direction {
-        None => params.goal_altitude,
-        Some(goal_virtical_direction) => {
-            let delta_theta = goal_virtical_direction.dot(vertical_direction).acos();
-            let delta_theta = if (goal_virtical_direction - vertical_direction)
-                .normalize()
-                .dot(lateral_direction)
-                > 0.0
-            {
-                delta_theta
-            } else {
-                -delta_theta
-            };
-            // delta_theta is now the angle (positive or negative) to the target place in the orbit
-            let scale = 1.0 - delta_theta / (PI * 2.0);
-            params.goal_altitude * scale
-        }
-    };
-    let goal_vertical_velocity = goal_altitude - altitude; // achieve goal in ~1s
-    let vertical_velocity_error = goal_vertical_velocity - vertical_velocity;
+    let forward_velocity_error;
+    let vertical_velocity_error;
+    if params.goal_altitude.is_finite() {
+        let forward_velocity = lateral_velocity.magnitude();
+        let final_forward_velocity =
+            (GRAVITATIONAL_CONSTANT * params.grav_body_mass / params.goal_altitude).sqrt();
+        let goal_angular_momentum = final_forward_velocity * params.goal_altitude; // * our mass but that cancels out
+        let goal_forward_velocity = goal_angular_momentum / altitude;
+        forward_velocity_error = goal_forward_velocity - forward_velocity;
+        let goal_altitude = match params.goal_virtical_direction {
+            None => params.goal_altitude,
+            Some(goal_virtical_direction) => {
+                let delta_theta = goal_virtical_direction.dot(vertical_direction).acos();
+                let delta_theta = if (goal_virtical_direction - vertical_direction)
+                    .normalize()
+                    .dot(lateral_direction)
+                    > 0.0
+                {
+                    delta_theta
+                } else {
+                    -delta_theta
+                };
+                // delta_theta is now the angle (positive or negative) to the target place in the orbit
+                let scale = 1.0 - delta_theta / (PI * 2.0);
+                params.goal_altitude * scale
+            }
+        };
+        let goal_vertical_velocity = goal_altitude - altitude; // achieve goal in ~1s
+        vertical_velocity_error = goal_vertical_velocity - vertical_velocity;
+    } else {
+        forward_velocity_error = params.max_acceleration;
+        vertical_velocity_error = 0.0;
+    }
     let pitch_error = match params.goal_axis {
         Some(axis) => vertical_direction.cross(-axis).normalize() - lateral_direction,
         None => Vector3::zero(),
