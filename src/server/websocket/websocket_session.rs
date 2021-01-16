@@ -27,7 +27,10 @@ async fn receive(
                     handler.handle(message.as_bytes());
                 }
             }
-            Err(e) => warn!("receiving packet: {}", e),
+            Err(e) => {
+                warn!("closing session due to error receiving packet: {}", e);
+                handler.close();
+            }
         }
     }
     // Socket has been closed from the client side
