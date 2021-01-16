@@ -12,13 +12,13 @@ async fn send(
         .forward(outbound_tx)
         .await
     {
-        warn!("sending packet: {}", e);
+        warn!("WebSocket session failed during send: {}", e);
     }
 }
 
 async fn receive(
     inbound_rx: &mut futures::stream::SplitStream<warp::ws::WebSocket>,
-    mut handler: Box<dyn InboundBundleHandler>,
+    handler: &mut Box<dyn InboundBundleHandler>,
 ) {
     while let Some(result) = inbound_rx.next().await {
         match result {
@@ -28,25 +28,25 @@ async fn receive(
                 }
             }
             Err(e) => {
-                warn!("closing session due to error receiving packet: {}", e);
-                handler.close();
+                warn!("WebSocket session failed during receive: {}", e);
+                break;
             }
         }
     }
     // Socket has been closed from the client side
-    handler.close();
 }
 
 async fn run_websocket(
     websocket: warp::ws::WebSocket,
     outbound_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
-    handler: Box<dyn InboundBundleHandler>,
+    mut handler: Box<dyn InboundBundleHandler>,
 ) {
     let (mut tx, mut rx) = websocket.split();
     tokio::select! {
         _ = send(&mut tx, outbound_rx) => (),
-        _ = receive(&mut rx, handler) => (),
+        _ = receive(&mut rx, &mut handler) => (),
     };
+    handler.close();
     let result = tx.reunite(rx);
     match result {
         Ok(websocket) => {
