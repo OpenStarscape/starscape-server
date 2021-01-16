@@ -28,6 +28,42 @@ async fn listen_for_inbound(
     }
 }
 
+async fn send_outbound(
+    first_outbount: (SocketAddr, Vec<u8>),
+    outbound_rx: &mut tokio::sync::mpsc::Receiver<(SocketAddr, Vec<u8>)>,
+    dispatcher: &WebrtcDispatcher,
+    webrtc_server: &tokio::sync::Mutex<webrtc_unreliable::Server>,
+    closed_sessions: &mut HashSet<SocketAddr>,
+) {
+    // Lock the server. This should be uncontested because the listen_for_inbound()
+    // should now have been dropped
+    let mut webrtc_server = webrtc_server.lock().await;
+    // Wrap the outbound message in outbound_rx.try_recv()'s result type, so we can
+    // loop over any additional messages when we're done with the initial one
+    let mut outbound = Ok(first_outbount);
+    while let Ok((addr, bundle)) = outbound {
+        if !closed_sessions.contains(&addr) {
+            // This actually sends the bundle
+            if let Err(err) = webrtc_server
+                .send(&bundle, webrtc_unreliable::MessageType::Binary, &addr)
+                .await
+            {
+                warn!(
+                    "could not send message to {}, closing session: {}",
+                    addr, err
+                );
+                webrtc_server.disconnect(&addr);
+                dispatcher.close_session(&addr);
+                closed_sessions.insert(addr);
+            }
+        }
+        // If there are multiple outbound messages queued up, processing them now
+        // without letting go of the server lock is more efficient than starting
+        // and quickly aborting listen_for_inbound() a bunch of times.
+        outbound = outbound_rx.try_recv();
+    }
+}
+
 /// Runs the WebRTC server loop. Needs to be aborted externally.
 async fn run_server(
     dispatcher: WebrtcDispatcher,
@@ -43,30 +79,13 @@ async fn run_server(
             _ = listen_for_inbound(&dispatcher, &webrtc_server, &mut closed_sessions) => (),
             outbound = outbound_rx.recv() => {
                 if let Some(outbound) = outbound {
-                    // Lock the server. This should be uncontested because the listen_for_inbound()
-                    // should now have been dropped
-                    let mut webrtc_server = webrtc_server.lock().await;
-                    // Wrap the outbound message in outbound_rx.try_recv()'s result type, so we can
-                    // loop over any additional messages when we're done with the initial one
-                    let mut outbound = Ok(outbound);
-                    while let Ok((addr, bundle)) = outbound {
-                        if !closed_sessions.contains(&addr) {
-                            // This actually sends the bundle
-                            if let Err(err) = webrtc_server
-                                .send(&bundle, webrtc_unreliable::MessageType::Binary, &addr)
-                                .await
-                            {
-                                warn!("could not send message to {}, closing session: {}", addr, err);
-                                webrtc_server.disconnect(&addr);
-                                dispatcher.close_session(&addr);
-                                closed_sessions.insert(addr);
-                            }
-                        }
-                        // If there are multiple outbound messages queued up, processing them now
-                        // without letting go of the server lock is more efficient than starting
-                        // and quickly aborting listen_for_inbound() a bunch of times.
-                        outbound = outbound_rx.try_recv();
-                    }
+                    send_outbound(
+                        outbound,
+                        &mut outbound_rx,
+                        &dispatcher,
+                        &webrtc_server,
+                        &mut closed_sessions
+                    ).await;
                 } else {
                     warn!("outbound bundle sender dropped while WebRTC server was still running");
                 }
