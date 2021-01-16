@@ -57,6 +57,7 @@ async fn run_server(
                                 .await
                             {
                                 warn!("could not send message to {}, closing session: {}", addr, err);
+                                webrtc_server.disconnect(&addr);
                                 dispatcher.close_session(&addr);
                                 closed_sessions.insert(addr);
                             }
