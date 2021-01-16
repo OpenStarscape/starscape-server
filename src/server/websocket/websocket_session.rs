@@ -43,7 +43,10 @@ async fn run_websocket(
     handler: Box<dyn InboundBundleHandler>,
 ) {
     let (mut tx, mut rx) = websocket.split();
-    tokio::join!(send(&mut tx, outbound_rx), receive(&mut rx, handler));
+    tokio::select! {
+        _ = send(&mut tx, outbound_rx) => (),
+        _ = receive(&mut rx, handler) => (),
+    };
     let result = tx.reunite(rx);
     match result {
         Ok(websocket) => {
@@ -78,29 +81,40 @@ impl SessionBuilder for WebsocketSessionBuilder {
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
         let (outbound_tx, outbound_rx) = tokio::sync::mpsc::channel(OUTBOUND_BUNDLE_BUFFER_SIZE);
         tokio::spawn(run_websocket(self.websocket, outbound_rx, handler));
-        Ok(Box::new(WebsocketSession { outbound_tx }))
+        Ok(Box::new(WebsocketSession {
+            outbound_tx: Some(outbound_tx),
+        }))
     }
 }
 
 pub struct WebsocketSession {
-    outbound_tx: tokio::sync::mpsc::Sender<Vec<u8>>,
+    /// Set to None when closed
+    outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
 }
 
 impl Session for WebsocketSession {
     fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
-        match self.outbound_tx.try_send(data.to_vec()) {
-            Ok(()) => Ok(()),
-            Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
-                Err("WebSocket outbound channel is full (can't send bundle)".into())
+        if let Some(outbound_tx) = &mut self.outbound_tx {
+            match outbound_tx.try_send(data.to_vec()) {
+                Ok(()) => Ok(()),
+                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => {
+                    Err("WebSocket outbound channel is full (can't send bundle)".into())
+                }
+                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                    Err("WebSocket outbound channel closed (can't send bundle)".into())
+                }
             }
-            Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
-                Err("WebSocket outbound channel closed (can't send bundle)".into())
-            }
+        } else {
+            Err("WebSocket session has been explicitly closed".into())
         }
     }
 
     fn max_packet_len(&self) -> usize {
         std::usize::MAX
+    }
+
+    fn close(&mut self) {
+        self.outbound_tx = None;
     }
 }
 

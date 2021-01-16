@@ -22,6 +22,7 @@ async fn listen_for_inbound(
                 dispatcher.dispatch_inbound(&received.remote_addr, &message_buf);
             }
             Err(err) => {
+                // TODO: this is likely fatal, so close or maybe restart the WebRTC server
                 error!("could not receive RTC message: {}", err);
             }
         }
@@ -29,8 +30,8 @@ async fn listen_for_inbound(
 }
 
 async fn send_outbound(
-    first_outbount: (SocketAddr, Vec<u8>),
-    outbound_rx: &mut tokio::sync::mpsc::Receiver<(SocketAddr, Vec<u8>)>,
+    first_outbount: (SocketAddr, WebrtcMessage),
+    outbound_rx: &mut tokio::sync::mpsc::Receiver<(SocketAddr, WebrtcMessage)>,
     dispatcher: &WebrtcDispatcher,
     webrtc_server: &tokio::sync::Mutex<webrtc_unreliable::Server>,
     closed_sessions: &mut HashSet<SocketAddr>,
@@ -41,20 +42,29 @@ async fn send_outbound(
     // Wrap the outbound message in outbound_rx.try_recv()'s result type, so we can
     // loop over any additional messages when we're done with the initial one
     let mut outbound = Ok(first_outbount);
-    while let Ok((addr, bundle)) = outbound {
+    while let Ok((addr, message)) = outbound {
         if !closed_sessions.contains(&addr) {
-            // This actually sends the bundle
-            if let Err(err) = webrtc_server
-                .send(&bundle, webrtc_unreliable::MessageType::Binary, &addr)
-                .await
-            {
-                warn!(
-                    "could not send message to {}, closing session: {}",
-                    addr, err
-                );
-                webrtc_server.disconnect(&addr);
-                dispatcher.close_session(&addr);
-                closed_sessions.insert(addr);
+            match message {
+                WebrtcMessage::Data(bundle) => {
+                    // This actually sends the bundle
+                    if let Err(err) = webrtc_server
+                        .send(&bundle, webrtc_unreliable::MessageType::Binary, &addr)
+                        .await
+                    {
+                        warn!(
+                            "could not send message to {}, closing session: {}",
+                            addr, err
+                        );
+                        webrtc_server.disconnect(&addr);
+                        dispatcher.close_session(&addr);
+                        closed_sessions.insert(addr);
+                    }
+                }
+                WebrtcMessage::Close => {
+                    webrtc_server.disconnect(&addr);
+                    dispatcher.close_session(&addr);
+                    closed_sessions.insert(addr);
+                }
             }
         }
         // If there are multiple outbound messages queued up, processing them now
@@ -67,7 +77,7 @@ async fn send_outbound(
 /// Runs the WebRTC server loop. Needs to be aborted externally.
 async fn run_server(
     dispatcher: WebrtcDispatcher,
-    mut outbound_rx: tokio::sync::mpsc::Receiver<(SocketAddr, Vec<u8>)>,
+    mut outbound_rx: tokio::sync::mpsc::Receiver<(SocketAddr, WebrtcMessage)>,
     webrtc_server: webrtc_unreliable::Server,
 ) {
     let webrtc_server = tokio::sync::Mutex::new(webrtc_server);

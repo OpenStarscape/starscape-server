@@ -6,7 +6,7 @@ fn try_to_read_data(
     stream: &mut TcpStream,
     handler: &mut dyn InboundBundleHandler,
 ) -> Result<(), Box<dyn Error>> {
-    let mut buffer = [0 as u8; 1024];
+    let mut buffer = [0; 1024];
     loop {
         match stream.read(&mut buffer) {
             Ok(0) => {
@@ -37,21 +37,28 @@ impl TcpSessionBuilder {
 impl SessionBuilder for TcpSessionBuilder {
     fn build(
         self: Box<Self>,
-        mut handler: Box<dyn InboundBundleHandler>,
+        handler: Box<dyn InboundBundleHandler>,
     ) -> Result<Box<dyn Session>, Box<dyn Error>> {
+        let handler = Arc::new(Mutex::new(handler));
+        let poll_thread_handler = handler.clone();
         let thread = new_mio_poll_thread(self.stream.try_clone()?, move |listener| {
-            try_to_read_data(listener, &mut *handler)
+            // This could probably be done without a lock every message but who cares
+            let mut locked_handler = poll_thread_handler.lock().unwrap();
+            try_to_read_data(listener, &mut **locked_handler)
         })?;
         Ok(Box::new(TcpSession {
             stream: self.stream,
-            _mio_poll_thread: thread,
+            handler,
+            mio_poll_thread: Some(thread),
         }))
     }
 }
 
 struct TcpSession {
     stream: TcpStream,
-    _mio_poll_thread: Box<dyn Drop + Send>,
+    /// Note that the mutex remains locked by the poll thread for as long as it's alive
+    handler: Arc<Mutex<Box<dyn InboundBundleHandler>>>,
+    mio_poll_thread: Option<Box<dyn Drop + Send>>,
 }
 
 impl Debug for TcpSession {
@@ -68,5 +75,13 @@ impl Session for TcpSession {
 
     fn max_packet_len(&self) -> usize {
         std::usize::MAX
+    }
+
+    fn close(&mut self) {
+        self.mio_poll_thread = None;
+        match self.handler.lock() {
+            Ok(mut handler) => handler.close(),
+            Err(e) => error!("failed to close connection, could not lock handler: {}", e),
+        }
     }
 }

@@ -15,6 +15,6 @@ mod webrtc_warp_filter;
 
 pub use webrtc_server::WebrtcServer;
 
-use webrtc_dispatcher::WebrtcDispatcher;
+use webrtc_dispatcher::{WebrtcDispatcher, WebrtcMessage};
 use webrtc_session::WebrtcSession;
 use webrtc_warp_filter::webrtc_warp_filter;

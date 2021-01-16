@@ -32,4 +32,7 @@ pub trait Session: Send + Debug {
     /// error to send a packet with a previously-allowed length (this would be
     /// impossible to prevent in a thread-safe way).
     fn max_packet_len(&self) -> usize;
+    /// Close the session, which should result in its inbound handler getting a close() (although
+    /// not necessarily immediately)
+    fn close(&mut self);
 }
