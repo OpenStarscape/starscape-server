@@ -3,19 +3,11 @@ use super::*;
 /// See try_to_build_connection for why this is needed
 struct StubConnection;
 impl Connection for StubConnection {
-    fn property_value(
-        &self,
-        _: EntityKey,
-        _: &str,
-        _: &Encodable,
-        _: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {
         error!("StubConnection::property_value() called");
-        Err("StubConnection".into())
     }
-    fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
+    fn event(&self, _: EntityKey, _: &str, _: &Encodable) {
         error!("event() called on StubConnection");
-        Err("StubConnection".into())
     }
     fn error(&self, _: &str) {
         error!("error() called on StubConnection");
@@ -32,8 +24,9 @@ impl Connection for StubConnection {
     ) {
         error!("StubConnection::handle_request() called");
     }
-    fn flush(&mut self, _: &mut dyn InboundMessageHandler) {
+    fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
         error!("StubConnection::flush() called");
+        Err(())
     }
     fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
         error!("StubConnection::finalize() called");
@@ -105,8 +98,18 @@ impl ConnectionCollection {
 
     /// Called after game state has been fully updated before waiting for the next tick
     pub fn flush_outbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
-        for (_, connection) in self.connections.iter_mut() {
-            connection.flush(handler);
+        let failed_connections: Vec<ConnectionKey> = self
+            .connections
+            .iter_mut()
+            .filter_map(|(key, connection)| match connection.flush(handler) {
+                Ok(()) => None,
+                Err(()) => Some(key),
+            })
+            .collect();
+        for key in failed_connections {
+            if let Some(mut connection) = self.connections.remove(key) {
+                connection.finalize(handler);
+            }
         }
     }
 
@@ -196,7 +199,7 @@ impl OutboundMessageHandler for ConnectionCollection {
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(connection) = self.connections.get(connection) {
-            connection.property_value(entity, property, &value, true)?;
+            connection.property_value(entity, property, &value, true);
             Ok(())
         } else {
             Err(format!("connection {:?} has died", connection).into())
@@ -210,7 +213,7 @@ impl OutboundMessageHandler for ConnectionCollection {
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(connection) = self.connections.get(connection) {
-            connection.event(entity, property, &value)?;
+            connection.event(entity, property, &value);
             Ok(())
         } else {
             Err(format!("connection {:?} has died", connection).into())
@@ -257,21 +260,13 @@ mod tests {
         }
     }
 
-    struct MockConnection(EntityKey);
+    struct MockConnection {
+        flush_succeeds: bool,
+    }
 
     impl Connection for MockConnection {
-        fn property_value(
-            &self,
-            _: EntityKey,
-            _: &str,
-            _: &Encodable,
-            _: bool,
-        ) -> Result<(), Box<dyn Error>> {
-            Ok(())
-        }
-        fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
-            Ok(())
-        }
+        fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {}
+        fn event(&self, _: EntityKey, _: &str, _: &Encodable) {}
         fn error(&self, _: &str) {}
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
         fn handle_request(
@@ -282,7 +277,13 @@ mod tests {
             _: PropertyRequest,
         ) {
         }
-        fn flush(&mut self, _: &mut dyn InboundMessageHandler) {}
+        fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
+            if self.flush_succeeds {
+                Ok(())
+            } else {
+                Err(())
+            }
+        }
         fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {}
     }
 
@@ -392,6 +393,34 @@ mod tests {
             .expect("failed to send connection builder");
         cc.process_inbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 2);
+    }
+
+    #[test]
+    fn does_not_remove_connections_that_succeed_to_flush() {
+        let e = mock_keys(1);
+        let (_, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
+        cc.connections.insert(Box::new(MockConnection {
+            flush_succeeds: true,
+        }));
+        assert_eq!(cc.connections.len(), 1);
+        let mut handler = MockInboundHandler::new();
+        cc.flush_outbound_messages(&mut handler);
+        assert_eq!(cc.connections.len(), 1);
+    }
+
+    #[test]
+    fn removes_connections_that_fail_to_flush() {
+        let e = mock_keys(1);
+        let (_, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
+        cc.connections.insert(Box::new(MockConnection {
+            flush_succeeds: false,
+        }));
+        assert_eq!(cc.connections.len(), 1);
+        let mut handler = MockInboundHandler::new();
+        cc.flush_outbound_messages(&mut handler);
+        assert_eq!(cc.connections.len(), 0);
     }
 
     /*

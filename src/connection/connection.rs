@@ -10,20 +10,9 @@ new_key_type! {
 pub trait Connection {
     /// Send a property's value to a client. If is_update is true this is a response to a change in
     /// a subscribed property. If false, this is a response to a get request.
-    fn property_value(
-        &self,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-        is_update: bool,
-    ) -> Result<(), Box<dyn Error>>;
+    fn property_value(&self, entity: EntityKey, property: &str, value: &Encodable, is_update: bool);
     /// Inform the client an event has fired.
-    fn event(
-        &self,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>>;
+    fn event(&self, entity: EntityKey, property: &str, value: &Encodable);
     /// Inform the client of an error
     fn error(&self, message: &str);
     /// Inform a client that an entity no longer exists on the server.
@@ -37,7 +26,7 @@ pub trait Connection {
         action: PropertyRequest,
     );
     /// Called at the end of each network tick to send any pending bundles
-    fn flush(&mut self, handler: &mut dyn InboundMessageHandler);
+    fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()>;
     /// Called just after connection is removed from the connection map before it is dropped
     fn finalize(&mut self, handler: &mut dyn InboundMessageHandler);
 }
@@ -93,6 +82,7 @@ pub struct ConnectionImpl {
     session: Mutex<Box<dyn Session>>,
     pending_get_requests: HashSet<(EntityKey, String)>,
     subscriptions: HashMap<(EntityKey, String), Box<dyn Any>>,
+    has_failed: AtomicBool,
 }
 
 impl ConnectionImpl {
@@ -127,6 +117,7 @@ impl ConnectionImpl {
             session: Mutex::new(session),
             pending_get_requests: HashSet::new(),
             subscriptions: HashMap::new(),
+            has_failed: AtomicBool::new(false),
         })
     }
 
@@ -151,6 +142,7 @@ impl ConnectionImpl {
         let mut session = self.session.lock().unwrap();
         if let Err(e) = session.yeet_bundle(&data) {
             warn!("closing session due to problem sending bundle: {}", e);
+            self.has_failed.store(true, SeqCst);
             session.close();
         }
     }
@@ -163,41 +155,56 @@ impl Connection for ConnectionImpl {
         property: &str,
         value: &Encodable,
         is_update: bool,
-    ) -> Result<(), Box<dyn Error>> {
-        let object = self
-            .obj_map
-            .get_object(entity)
-            .ok_or_else(|| format!("{:?} not in object map", entity))?;
+    ) {
+        let object = match self.obj_map.get_object(entity) {
+            Some(o) => o,
+            None => {
+                error!(
+                    "failed to send property value, {:?} not in object map",
+                    entity
+                );
+                return;
+            }
+        };
         trace!("{:?}::{}.{} = {:?}", self.self_key, object, property, value);
-        let buffer = if is_update {
-            self.encoder.encode_property_update(
+        let encode_result;
+        if is_update {
+            encode_result = self.encoder.encode_property_update(
                 object,
                 property,
                 self.obj_map.as_encode_ctx(),
                 value,
-            )?
+            )
         } else {
-            self.encoder.encode_get_response(
+            encode_result = self.encoder.encode_get_response(
                 object,
                 property,
                 self.obj_map.as_encode_ctx(),
                 value,
-            )?
+            )
+        };
+        let buffer = match encode_result {
+            Ok(buffer) => buffer,
+            Err(e) => {
+                error!(
+                    "failed to encode property value {:?}.{} = {:?}: {}",
+                    entity, property, value, e
+                );
+                self.has_failed.store(true, SeqCst);
+                return;
+            }
         };
         self.queue_message(buffer);
-        Ok(())
     }
 
-    fn event(
-        &self,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>> {
-        let object = self
-            .obj_map
-            .get_object(entity)
-            .ok_or_else(|| format!("{:?} not in object map", entity))?;
+    fn event(&self, entity: EntityKey, property: &str, value: &Encodable) {
+        let object = match self.obj_map.get_object(entity) {
+            Some(o) => o,
+            None => {
+                error!("failed to send event, {:?} not in object map", entity);
+                return;
+            }
+        };
         trace!(
             "{:?}::{}.{} -> ({:?})",
             self.self_key,
@@ -206,17 +213,31 @@ impl Connection for ConnectionImpl {
             value
         );
         let buffer =
-            self.encoder
-                .encode_event(object, property, self.obj_map.as_encode_ctx(), value)?;
+            match self
+                .encoder
+                .encode_event(object, property, self.obj_map.as_encode_ctx(), value)
+            {
+                Ok(buffer) => buffer,
+                Err(e) => {
+                    error!(
+                        "failed to encode event {:?}.{} -> {:?}: {}",
+                        entity, property, value, e
+                    );
+                    self.has_failed.store(true, SeqCst);
+                    return;
+                }
+            };
         self.queue_message(buffer);
-        Ok(())
     }
 
     fn error(&self, message: &str) {
         trace!("{:?} error: {}", self.self_key, message,);
         match self.encoder.encode_error(message) {
             Ok(buffer) => self.queue_message(buffer),
-            Err(e) => error!("failed to encode error: {}", e),
+            Err(e) => {
+                error!("failed to encode error: {}", e);
+                self.has_failed.store(true, SeqCst);
+            }
         }
     }
 
@@ -272,7 +293,7 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn flush(&mut self, handler: &mut dyn InboundMessageHandler) {
+    fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()> {
         let pending_get_requests =
             std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in pending_get_requests.iter() {
@@ -280,10 +301,13 @@ impl Connection for ConnectionImpl {
             // not a property, so it goes in the pending get requests list and is processed here.
             // That fails, and so we simply ignore errors here. There's probably a better way.
             if let Ok(value) = handler.get(self.self_key, *entity, property) {
-                if let Err(e) = self.property_value(*entity, property, &value, false) {
-                    warn!("failed to get {:?}.{}: {}", entity, property, e);
-                }
+                self.property_value(*entity, property, &value, false);
             }
+        }
+        if self.has_failed.load(SeqCst) {
+            Err(())
+        } else {
+            Ok(())
         }
     }
 
@@ -430,6 +454,7 @@ mod tests {
                 session: Mutex::new(Box::new(MockSession)),
                 pending_get_requests: HashSet::new(),
                 subscriptions: HashMap::new(),
+                has_failed: AtomicBool::new(false),
             };
             Self {
                 encoder,
@@ -444,8 +469,7 @@ mod tests {
     fn serializes_normal_property_update() {
         let test = Test::new();
         test.conn
-            .property_value(test.entity, "foo", &Scalar(12.5), true)
-            .expect("error updating property");
+            .property_value(test.entity, "foo", &Scalar(12.5), true);
         assert_eq!(
             test.encoder.borrow().log,
             vec![(test.obj_id, "foo".to_owned(), Scalar(12.5))]
