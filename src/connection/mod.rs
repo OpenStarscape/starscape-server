@@ -9,16 +9,16 @@ mod connection_collection;
 mod decoded;
 mod encodable;
 mod format;
+mod inbound_message_handler;
 mod json;
 mod object_map;
 mod request;
 
 pub use connection::{Connection, ConnectionImpl, ConnectionKey};
-pub use connection_collection::{
-    ConnectionCollection, InboundMessageHandler, OutboundMessageHandler,
-};
+pub use connection_collection::{ConnectionCollection, OutboundMessageHandler};
 pub use decoded::Decoded;
 pub use encodable::Encodable;
+pub use inbound_message_handler::InboundMessageHandler;
 pub use object_map::{ObjectId, ObjectMap};
 
 use format::{DecodeCtx, Decoder, EncodeCtx, Encoder};
