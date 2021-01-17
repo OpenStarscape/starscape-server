@@ -6,6 +6,7 @@ Type=simple
 Restart=on-success
 RestartSec=3
 User=root
+KillSignal=SIGINT
 ExecStart=/root/starscape/server/target/release/starscape-server
 WorkingDirectory=/root/starscape/server/
 
