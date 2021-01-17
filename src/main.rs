@@ -43,12 +43,12 @@ use std::{
 };
 
 /// The number of game ticks/second
-const TICKS_PER_SEC: u32 = 30;
+const TICKS_PER_SEC: u32 = 15;
 /// Used for both physics and the real timing of the game
 const TICK_TIME: f64 = 1.0 / TICKS_PER_SEC as f64;
 /// The amount of time the engine is given to do it's thing each tick. If it can't complete a tick
 /// on time, the game will slow down.
-const TIME_BUDGET: f64 = 0.005;
+const TIME_BUDGET: f64 = 0.01;
 /// Clients that can complete a roundtrip faster than this will be able to respond before any
 /// additional updates are made and will all be on a level playing field. The engine must
 /// be able to complete a full tick in the gap between this and TICK_TIME. If it can't, the game
