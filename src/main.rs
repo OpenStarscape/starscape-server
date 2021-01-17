@@ -56,7 +56,7 @@ const TIME_BUDGET: f64 = 0.01;
 const MIN_SLEEP_TIME: f64 = TICK_TIME - TIME_BUDGET;
 
 /// The total time (in in-game seconds) before the engine shuts down
-const GAME_TIME: f64 = 10.0 * 60.0;
+const GAME_TIME: f64 = 20.0 * 60.0;
 
 /// By default show error, warn and info messages
 fn init_logger() {
