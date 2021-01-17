@@ -276,13 +276,13 @@ impl Connection for ConnectionImpl {
         let pending_get_requests =
             std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in pending_get_requests.iter() {
-            match handler.get(self.self_key, *entity, property) {
-                Ok(value) => {
-                    if let Err(e) = self.property_value(*entity, property, &value, false) {
-                        warn!("failed to get {:?}.{}: {}", entity, property, e);
-                    }
+            // When a client subscribes to an event, we have no way of knowing it's an event and
+            // not a property, so it goes in the pending get requests list and is processed here.
+            // That fails, and so we simply ignore errors here. There's probably a better way.
+            if let Ok(value) = handler.get(self.self_key, *entity, property) {
+                if let Err(e) = self.property_value(*entity, property, &value, false) {
+                    warn!("failed to get {:?}.{}: {}", entity, property, e);
                 }
-                Err(e) => warn!("failed to sand value on {:?}: {}", self.self_key, e),
             }
         }
     }
