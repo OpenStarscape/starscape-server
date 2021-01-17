@@ -1,5 +1,42 @@
 use super::*;
 
+/// See try_to_build_connection for why this is needed
+struct StubConnection;
+impl Connection for StubConnection {
+    fn property_value(
+        &self,
+        _: EntityKey,
+        _: &str,
+        _: &Encodable,
+        _: bool,
+    ) -> Result<(), Box<dyn Error>> {
+        error!("StubConnection::property_value() called");
+        Err("StubConnection".into())
+    }
+    fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
+        error!("event() called on StubConnection");
+        Err("StubConnection".into())
+    }
+    fn entity_destroyed(&self, _: &State, _: EntityKey) {
+        error!("StubConnection::entity_destroyed() called");
+    }
+    fn handle_request(
+        &mut self,
+        _: &mut dyn InboundMessageHandler,
+        _: EntityKey,
+        _: &str,
+        _: PropertyRequest,
+    ) {
+        error!("StubConnection::handle_request() called");
+    }
+    fn flush(&mut self, _: &mut dyn InboundMessageHandler) {
+        error!("StubConnection::flush() called");
+    }
+    fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
+        error!("StubConnection::finalize() called");
+    }
+}
+
 /// Holds all the active connections for a game. process_requests() should be called by the game
 /// once per network tick.
 pub struct ConnectionCollection {
@@ -63,42 +100,6 @@ impl ConnectionCollection {
         // DenseSlotMap::insert_with_key() lets us create a connection with a key. Unfortanitely
         // the given function can not fail. Connection building can fail, so we have to return a
         // stub connection in that case (and then immediately remove it). A mess, I know.
-        struct StubConnection;
-        impl Connection for StubConnection {
-            fn property_value(
-                &self,
-                _: EntityKey,
-                _: &str,
-                _: &Encodable,
-                _: bool,
-            ) -> Result<(), Box<dyn Error>> {
-                error!("StubConnection::property_value() called");
-                Err("StubConnection".into())
-            }
-            fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
-                error!("event() called on StubConnection");
-                Err("StubConnection".into())
-            }
-            fn entity_destroyed(&self, _: &State, _: EntityKey) {
-                error!("StubConnection::entity_destroyed() called");
-            }
-            fn handle_request(
-                &mut self,
-                _: &mut dyn InboundMessageHandler,
-                _: EntityKey,
-                _: &str,
-                _: PropertyRequest,
-            ) {
-                error!("StubConnection::handle_request() called");
-            }
-            fn flush(&mut self, _: &mut dyn InboundMessageHandler) {
-                error!("StubConnection::flush() called");
-            }
-            fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
-                error!("StubConnection::finalize() called");
-            }
-        }
-
         let mut failed_to_build = false;
         let request_tx = self.request_tx.clone();
         let root_entity = self.root_entity;
