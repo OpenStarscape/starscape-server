@@ -55,6 +55,9 @@ const TIME_BUDGET: f64 = 0.01;
 /// will be slowed down.
 const MIN_SLEEP_TIME: f64 = TICK_TIME - TIME_BUDGET;
 
+/// The total time (in in-game seconds) before the engine shuts down
+const GAME_TIME: f64 = 10.0 * 60.0;
+
 /// By default show error, warn and info messages
 fn init_logger() {
     env_logger::builder()
@@ -92,7 +95,13 @@ async fn main() {
         });
     // Create the game engine. The `init` and `physics_tick` callbacks are the entiry points into
     // the `game` module
-    let mut engine = Engine::new(new_session_rx, TICK_TIME, game::init, game::physics_tick);
+    let mut engine = Engine::new(
+        new_session_rx,
+        TICK_TIME,
+        GAME_TIME,
+        game::init,
+        game::physics_tick,
+    );
 
     info!("running game…");
 

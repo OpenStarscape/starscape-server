@@ -2,6 +2,7 @@ use super::*;
 
 pub struct Engine {
     should_quit: bool,
+    quit_after: f64,
     /// In-game delta-time for each physics step
     physics_tick_delta: f64,
     pub state: State,
@@ -14,6 +15,7 @@ impl Engine {
     pub fn new<InitFn, TickFn>(
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
         physics_tick_delta: f64,
+        quit_after: f64,
         init: InitFn,
         physics_tick: TickFn,
     ) -> Self
@@ -26,6 +28,7 @@ impl Engine {
         init(&mut state);
         Self {
             should_quit: false,
+            quit_after,
             physics_tick_delta,
             state,
             back_notif_buffer: Vec::new(),
@@ -57,6 +60,13 @@ impl Engine {
         self.connections.flush_outbound_messages(&mut self.state);
 
         self.state.time += self.physics_tick_delta;
+        if self.state.time > self.quit_after {
+            self.should_quit = true;
+            info!(
+                "engine has run for {:?}, stopping…",
+                std::time::Duration::from_secs_f64(self.quit_after)
+            )
+        }
         !self.should_quit
     }
 }
