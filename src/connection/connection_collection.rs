@@ -17,6 +17,9 @@ impl Connection for StubConnection {
         error!("event() called on StubConnection");
         Err("StubConnection".into())
     }
+    fn error(&self, _: &str) {
+        error!("error() called on StubConnection");
+    }
     fn entity_destroyed(&self, _: &State, _: EntityKey) {
         error!("StubConnection::entity_destroyed() called");
     }
@@ -34,6 +37,27 @@ impl Connection for StubConnection {
     }
     fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
         error!("StubConnection::finalize() called");
+    }
+}
+
+struct NullInboundMessageHandler;
+impl InboundMessageHandler for NullInboundMessageHandler {
+    fn set(&mut self, _: ConnectionKey, _: EntityKey, _: &str, _: Decoded) -> Result<(), String> {
+        Err("connection failed".into())
+    }
+    fn get(&self, _: ConnectionKey, _: EntityKey, _: &str) -> Result<Encodable, String> {
+        Err("connection failed".into())
+    }
+    fn subscribe(
+        &mut self,
+        _: ConnectionKey,
+        _: EntityKey,
+        _: &str,
+    ) -> Result<Box<dyn Any>, String> {
+        Err("connection failed".into())
+    }
+    fn unsubscribe(&mut self, _: Box<dyn Any>) -> Result<(), String> {
+        Err("connection failed".into())
     }
 }
 
@@ -89,9 +113,26 @@ impl ConnectionCollection {
     fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
         if self.connections.len() >= self.max_connections {
             error!(
-                "not building connection, not allowed to have more than {} connections",
-                self.connections.len()
+                "maximum {} connections reached, new connection {:?} will not be added",
+                self.connections.len(),
+                builder
             );
+            let (tx, _) = channel();
+            match ConnectionImpl::new_with_json(
+                ConnectionKey::null(),
+                self.root_entity,
+                builder,
+                tx,
+            ) {
+                Ok(mut conn) => {
+                    conn.error(&format!(
+                        "server full (max {} connections)",
+                        self.max_connections
+                    ));
+                    conn.finalize(&mut NullInboundMessageHandler);
+                }
+                Err(e) => error!("failed to build connection: {}", e),
+            };
             return;
         }
 
@@ -108,7 +149,7 @@ impl ConnectionCollection {
                 Ok(conn) => Box::new(conn),
                 Err(e) => {
                     failed_to_build = true;
-                    error!("error building connection: {}", e);
+                    error!("failed to build connection: {}", e);
                     Box::new(StubConnection)
                 }
             }
@@ -187,7 +228,7 @@ mod tests {
 
     impl Session for MockSession {
         fn yeet_bundle(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
-            panic!("unecpected call");
+            Ok(())
         }
 
         fn max_packet_len(&self) -> usize {
@@ -231,6 +272,7 @@ mod tests {
         fn event(&self, _: EntityKey, _: &str, _: &Encodable) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
+        fn error(&self, _: &str) {}
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
         fn handle_request(
             &mut self,

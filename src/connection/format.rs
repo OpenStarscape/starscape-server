@@ -34,6 +34,8 @@ pub trait Encoder {
         ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>>;
+    /// An error detected by the server
+    fn encode_error(&self, text: &str) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
 /// The context required for decoding a Decoded. The normal implementation is ObjectMapImpl.

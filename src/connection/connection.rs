@@ -24,6 +24,8 @@ pub trait Connection {
         property: &str,
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>>;
+    /// Inform the client of an error
+    fn error(&self, message: &str);
     /// Inform a client that an entity no longer exists on the server.
     fn entity_destroyed(&self, state: &State, entity: EntityKey);
     /// Process a request from the client
@@ -210,6 +212,14 @@ impl Connection for ConnectionImpl {
         Ok(())
     }
 
+    fn error(&self, message: &str) {
+        trace!("{:?} error: {}", self.self_key, message,);
+        match self.encoder.encode_error(message) {
+            Ok(buffer) => self.queue_message(buffer),
+            Err(e) => error!("failed to encode error: {}", e),
+        }
+    }
+
     fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
         self.obj_map.remove_entity(entity);
         // TODO: tell client object was destroyed
@@ -340,6 +350,9 @@ mod tests {
             self.borrow_mut()
                 .log
                 .push((object, property.to_owned(), (*value).clone()));
+            Ok(vec![])
+        }
+        fn encode_error(&self, _: &str) -> Result<Vec<u8>, Box<dyn Error>> {
             Ok(vec![])
         }
     }
