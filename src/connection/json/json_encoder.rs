@@ -119,6 +119,16 @@ impl Encoder for JsonEncoder {
         message.end()?;
         Ok(serializer.into_inner())
     }
+
+    fn encode_error(&self, text: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+        let buffer = Vec::with_capacity(text.len() + 32);
+        let mut serializer = serde_json::Serializer::new(buffer);
+        let mut message = serializer.serialize_struct("Message", 2)?;
+        message.serialize_field("mtype", "error")?;
+        message.serialize_field("text", text)?;
+        message.end()?;
+        Ok(serializer.into_inner())
+    }
 }
 
 #[cfg(test)]
