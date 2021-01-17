@@ -185,6 +185,8 @@ impl ConnectionCollection {
 
     pub fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
         for (_, mut connection) in self.connections.drain() {
+            connection.error("server has shut down");
+            let _ = connection.flush(handler);
             connection.finalize(handler);
         }
     }
