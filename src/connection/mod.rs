@@ -12,14 +12,16 @@ mod format;
 mod inbound_message_handler;
 mod json;
 mod object_map;
+mod outbound_message_handler;
 mod request;
 
 pub use connection::{Connection, ConnectionImpl, ConnectionKey};
-pub use connection_collection::{ConnectionCollection, OutboundMessageHandler};
+pub use connection_collection::ConnectionCollection;
 pub use decoded::Decoded;
 pub use encodable::Encodable;
 pub use inbound_message_handler::InboundMessageHandler;
 pub use object_map::{ObjectId, ObjectMap};
+pub use outbound_message_handler::OutboundMessageHandler;
 
 use format::{DecodeCtx, Decoder, EncodeCtx, Encoder};
 use json::json_protocol_impls;
