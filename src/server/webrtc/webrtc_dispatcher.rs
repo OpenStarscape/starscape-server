@@ -79,6 +79,7 @@ struct DispatcherInner {
 #[derive(Clone)]
 pub struct WebrtcDispatcher(Arc<Mutex<DispatcherInner>>);
 
+#[derive(Debug, PartialEq)]
 pub enum WebrtcMessage {
     Data(Vec<u8>),
     Close,
@@ -323,7 +324,7 @@ mod tests {
         let (addr, bundle) = run_with_timeout(move || block_on(outbound_rx.recv()))
             .expect("failed to receive bundle");
         assert_eq!(addr, test_addr(1));
-        assert_eq!(bundle, test_data(2));
+        assert_eq!(bundle, WebrtcMessage::Data(test_data(2)));
     }
 
     #[test]
