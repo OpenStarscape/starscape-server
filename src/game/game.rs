@@ -34,6 +34,20 @@ fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> Entit
     e
 }
 
+// TODO: generalize create_celestial() to support non-circular, non-level orbits
+fn create_planet_9(state: &mut State, scale: f64) {
+    let e = state.create_entity();
+    Body::new()
+        .with_class(BodyClass::Celestial)
+        .with_position(Point3::new(3.0e8, 6.0e7, 0.0) * scale)
+        .with_velocity(Vector3::new(0.0, 0.0, -12.0))
+        .with_sphere_shape(12000.0 * scale)
+        .with_mass(6e+22 * scale)
+        .with_color(ColorRGB::from_u32(0x2e5747))
+        .with_name("Planet 9".to_string())
+        .install(state, e);
+}
+
 fn init_solar_system(state: &mut State, scale: f64) {
     // Note that scale affects mass, size and position but not velocity. This keeps orbits correct.
 
@@ -120,6 +134,8 @@ fn init_solar_system(state: &mut State, scale: f64) {
             radius: 3389.5,
         },
     );
+
+    create_planet_9(state, scale);
 }
 
 pub fn init(state: &mut State) {
