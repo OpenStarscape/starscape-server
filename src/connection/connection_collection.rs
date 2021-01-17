@@ -53,10 +53,15 @@ pub struct ConnectionCollection {
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     request_tx: Sender<Request>,
     request_rx: Receiver<Request>,
+    max_connections: usize,
 }
 
 impl ConnectionCollection {
-    pub fn new(new_session_rx: Receiver<Box<dyn SessionBuilder>>, root_entity: EntityKey) -> Self {
+    pub fn new(
+        new_session_rx: Receiver<Box<dyn SessionBuilder>>,
+        root_entity: EntityKey,
+        max_connections: usize,
+    ) -> Self {
         let (request_tx, request_rx) = channel();
         Self {
             root_entity,
@@ -64,6 +69,7 @@ impl ConnectionCollection {
             new_session_rx,
             request_tx,
             request_rx,
+            max_connections,
         }
     }
 
@@ -89,6 +95,14 @@ impl ConnectionCollection {
     }
 
     fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
+        if self.connections.len() >= self.max_connections {
+            error!(
+                "not building connection, not allowed to have more than {} connections",
+                self.connections.len()
+            );
+            return;
+        }
+
         info!("new session: {:?}", builder);
 
         // DenseSlotMap::insert_with_key() lets us create a connection with a key. Unfortanitely
@@ -229,6 +243,7 @@ mod tests {
         }
     }
 
+    /// Contained value is if building session should succeed
     #[derive(Debug)]
     struct MockSessionBuilder(bool);
 
@@ -331,7 +346,7 @@ mod tests {
     fn can_create_connection_from_session_builder() {
         let e = mock_keys(1);
         let (session_tx, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0]);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
         let builder = Box::new(MockSessionBuilder(true));
         session_tx
             .send(builder)
@@ -346,7 +361,7 @@ mod tests {
     fn does_not_create_connection_when_building_session_fails() {
         let e = mock_keys(1);
         let (session_tx, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0]);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
         session_tx
@@ -355,6 +370,30 @@ mod tests {
         let mut handler = MockInboundHandler::new();
         cc.process_inbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 0);
+    }
+
+    #[test]
+    fn building_connections_fail_after_max_connections_reached() {
+        let e = mock_keys(1);
+        let (session_tx, session_rx) = channel();
+        let mut cc = ConnectionCollection::new(session_rx, e[0], 2);
+        session_tx
+            .send(Box::new(MockSessionBuilder(true)))
+            .expect("failed to send connection builder");
+        session_tx
+            .send(Box::new(MockSessionBuilder(true)))
+            .expect("failed to send connection builder");
+        session_tx
+            .send(Box::new(MockSessionBuilder(true)))
+            .expect("failed to send connection builder");
+        let mut handler = MockInboundHandler::new();
+        cc.process_inbound_messages(&mut handler);
+        assert_eq!(cc.connections.len(), 2);
+        session_tx
+            .send(Box::new(MockSessionBuilder(true)))
+            .expect("failed to send connection builder");
+        cc.process_inbound_messages(&mut handler);
+        assert_eq!(cc.connections.len(), 2);
     }
 
     /*
