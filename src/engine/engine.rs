@@ -22,7 +22,7 @@ impl Engine {
         TickFn: Fn(&mut State, f64) + 'static,
     {
         let mut state = State::new();
-        let connections = ConnectionCollection::new(new_session_rx, state.root_entity());
+        let connections = ConnectionCollection::new(new_session_rx, state.root_entity(), 10);
         init(&mut state);
         Self {
             should_quit: false,
