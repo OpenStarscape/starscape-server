@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the OpenStarscape server
+
+[Service]
+Type=simple
+Restart=on-success
+RestartSec=3
+User=root
+ExecStart=/root/starscape/server/target/release/starscape-server
+WorkingDirectory=/root/starscape/server/
+
+[Install]
+WantedBy=multi-user.target
