@@ -173,7 +173,8 @@ mod encodable_tests {
 
     #[test]
     fn int() {
-        assert_json_eq((-243 as i64).into(), "-243");
+        let i: i64 = -243;
+        assert_json_eq(i.into(), "-243");
     }
 
     #[test]
