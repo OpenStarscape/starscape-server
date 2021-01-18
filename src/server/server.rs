@@ -1,7 +1,8 @@
 use super::*;
 
 const START_PORT: u16 = 56_560;
-const HTTP_PORT: u16 = 443;
+const HTTP_PORT: u16 = 80;
+const HTTPS_PORT: u16 = 443;
 const WEB_RTC_PORT: u16 = START_PORT + 1;
 const TCP_PORT: u16 = START_PORT + 2;
 
@@ -66,11 +67,13 @@ impl Server {
         {
             // This should resolve to localhost for testing. We need to point the web app to this
             // address (at time of writing that's done with a proxy rule in vue.config.js).
-            let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
-            let addr = SocketAddr::new(ip, HTTP_PORT);
+            let ip = get_ip(None, Some(IpVersion::V4), Some(true))?;
+            let https_addr = SocketAddr::new(ip, HTTPS_PORT);
+            let http_addr = SocketAddr::new(ip, HTTP_PORT);
             let http_server = HttpServer::new_encrypted(
                 warp_filter,
-                addr,
+                https_addr,
+                http_addr,
                 "../ssl/cert.pem",
                 "../ssl/privkey.pem",
             )?;
