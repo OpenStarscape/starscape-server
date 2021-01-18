@@ -67,7 +67,7 @@ impl Server {
         {
             // This should resolve to localhost for testing. We need to point the web app to this
             // address (at time of writing that's done with a proxy rule in vue.config.js).
-            let ip = get_ip(None, Some(IpVersion::V4), Some(true))?;
+            let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
             let https_addr = SocketAddr::new(ip, HTTPS_PORT);
             let http_addr = SocketAddr::new(ip, HTTP_PORT);
             let http_server = HttpServer::new_encrypted(
