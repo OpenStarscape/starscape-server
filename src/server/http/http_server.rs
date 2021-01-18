@@ -35,19 +35,20 @@ impl HttpServer {
 
     pub fn new_encrypted(
         filter: GenericFilter,
-        socket_addr: SocketAddr,
+        https_socket_addr: SocketAddr,
+        http_socket_addr: SocketAddr,
         cert_path: &str,
         key_path: &str,
     ) -> Result<Self, Box<dyn Error>> {
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
         let (shutdown_http_tx, shutdown_http_rx) = futures::channel::oneshot::channel();
-        trace!("starting HTTPS server on {:?}", socket_addr);
+        trace!("starting HTTPS server on {:?}", https_socket_addr);
 
         let (_addr, https_server) = warp::serve(filter)
             .tls()
             .cert_path(cert_path)
             .key_path(key_path)
-            .bind_with_graceful_shutdown(socket_addr, async {
+            .bind_with_graceful_shutdown(https_socket_addr, async {
                 let _ = shutdown_rx.await;
                 let _ = shutdown_http_tx.send(());
             });
@@ -58,13 +59,21 @@ impl HttpServer {
 
         let (_addr, http_server) =
             warp::serve(warp::path::full().map(|path: warp::path::FullPath| {
-                warn!("redirecting to hard-coded path, request path: {}", path.as_str());
+                warn!(
+                    "redirecting to hard-coded path, request path: {}",
+                    path.as_str()
+                );
                 warp::redirect(warp::hyper::Uri::from_static("https://starscape.wmww.sh"))
             }))
-            .try_bind_with_graceful_shutdown(socket_addr, async {
+            .try_bind_with_graceful_shutdown(http_socket_addr, async {
                 let _ = shutdown_http_rx.await;
             })
-            .map_err(|e| format!("failed to bind HTTP server to {}: {}", socket_addr, e))?;
+            .map_err(|e| {
+                format!(
+                    "failed to bind HTTP redirect server to {}: {}",
+                    http_socket_addr, e
+                )
+            })?;
 
         let server = future::join(https_server, http_server);
 
@@ -73,7 +82,7 @@ impl HttpServer {
             trace!("HTTPS server shut down");
         });
         Ok(HttpServer {
-            socket_addr,
+            socket_addr: https_socket_addr,
             shutdown_tx: Some(shutdown_tx),
             join_handle: Some(join_handle),
         })
