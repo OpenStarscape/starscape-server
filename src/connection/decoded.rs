@@ -532,7 +532,7 @@ mod json_tests {
         assert_doesnt_decode_to::<(Decoded, Decoded)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
-        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
+        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded);
     }
 
     #[test]
@@ -541,7 +541,7 @@ mod json_tests {
         assert_doesnt_decode_to::<(Decoded,)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
-        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
+        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded);
     }
 
     #[test]
@@ -550,7 +550,7 @@ mod json_tests {
         assert_doesnt_decode_to::<(Decoded,)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
-        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
+        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded);
     }
 
     #[test]
@@ -559,7 +559,7 @@ mod json_tests {
         assert_doesnt_decode_to::<(Decoded,)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded)>(decoded.clone());
-        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
+        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded, Decoded)>(decoded);
     }
 
     #[test]
@@ -568,6 +568,6 @@ mod json_tests {
         assert_doesnt_decode_to::<(Decoded,)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded)>(decoded.clone());
         assert_doesnt_decode_to::<(Decoded, Decoded, Decoded)>(decoded.clone());
-        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded)>(decoded.clone());
+        assert_doesnt_decode_to::<(Decoded, Decoded, Decoded, Decoded)>(decoded);
     }
 }
