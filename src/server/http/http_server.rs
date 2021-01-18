@@ -10,7 +10,10 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    pub fn new(filter: GenericFilter, socket_addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
+    pub fn new_unencrypted(
+        filter: GenericFilter,
+        socket_addr: SocketAddr,
+    ) -> Result<Self, Box<dyn Error>> {
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
         trace!("starting HTTP server on {:?}", socket_addr);
         let (_addr, server) = warp::serve(filter)
@@ -21,6 +24,36 @@ impl HttpServer {
         let join_handle = tokio::spawn(async move {
             server.await;
             trace!("HTTP server shut down");
+        });
+        Ok(HttpServer {
+            socket_addr,
+            shutdown_tx: Some(shutdown_tx),
+            join_handle: Some(join_handle),
+        })
+    }
+
+    pub fn new_encrypted(
+        filter: GenericFilter,
+        socket_addr: SocketAddr,
+        cert_path: &str,
+        key_path: &str,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
+        trace!("starting HTTPS server on {:?}", socket_addr);
+        let (_addr, server) = warp::serve(filter)
+            .tls()
+            .cert_path(cert_path)
+            .key_path(key_path)
+            .bind_with_graceful_shutdown(socket_addr, async {
+                shutdown_rx.await.ok();
+            });
+        // TODO: we want to use .try_bind_with_graceful_shutdown() (like we do in new_unencrypted())
+        // so it doesn't panic if there's an error, but that's not implemented for TlsServer (see
+        // https://github.com/seanmonstar/warp/pull/717). Once that PR lands and we upgrade to a
+        // warp version that supports it we should use it.
+        let join_handle = tokio::spawn(async move {
+            server.await;
+            trace!("HTTPS server shut down");
         });
         Ok(HttpServer {
             socket_addr,
