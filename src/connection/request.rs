@@ -28,6 +28,7 @@ impl Request {
         Self { connection, data }
     }
 
+    #[allow(dead_code)]
     pub fn new_object_request(
         connection: ConnectionKey,
         entity: EntityKey,
