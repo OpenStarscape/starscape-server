@@ -1,4 +1,5 @@
 use super::*;
+use warp::reply::Reply;
 
 /// Uses Warp to spin up an HTTP server. At time of writing this is only used to initialize WebRTC,
 /// but it accepts an arbitrary Warp filter and so could easily be used for whatever else we
@@ -57,23 +58,67 @@ impl HttpServer {
         // https://github.com/seanmonstar/warp/pull/717). Once that PR lands and we upgrade to a
         // warp version that supports it we should use it.
 
-        let (_addr, http_server) =
-            warp::serve(warp::path::full().map(|path: warp::path::FullPath| {
-                warn!(
-                    "redirecting to hard-coded path, request path: {}",
-                    path.as_str()
-                );
-                warp::redirect(warp::hyper::Uri::from_static("https://starscape.wmww.sh"))
-            }))
-            .try_bind_with_graceful_shutdown(http_socket_addr, async {
-                let _ = shutdown_http_rx.await;
-            })
-            .map_err(|e| {
-                format!(
-                    "failed to bind HTTP redirect server to {}: {}",
-                    http_socket_addr, e
-                )
-            })?;
+        let (_addr, http_server) = warp::serve(
+            warp::host::optional()
+                .and(warp::path::full())
+                .and(warp::query::raw())
+                .map(
+                    |authority: Option<warp::host::Authority>,
+                     path: warp::path::FullPath,
+                     query: String| {
+                        warn!(
+                            "redirecting to hard-coded path, request path: {}",
+                            path.as_str()
+                        );
+                        let authority = match authority {
+                            Some(a) => a,
+                            None => {
+								warn!("could not redirect to HTTPS: no authority");
+                                return Box::new(
+                                    warp::http::status::StatusCode::NOT_FOUND.into_response(),
+                                ) as Box<dyn warp::Reply>
+                            }
+                        };
+						let path_and_query = match warp::http::uri::PathAndQuery::from_maybe_shared(format!(
+                                    "{}{}",
+                                    path.as_str(),
+                                    query
+                                )) {
+							Ok(p) => p,
+							Err(e) => {
+								warn!("could not redirect to HTTPS: failed to build path and query: {}", e);
+								return Box::new(
+                                    warp::http::status::StatusCode::NOT_FOUND.into_response(),
+                                ) as Box<dyn warp::Reply>
+							}
+						};
+                        match warp::hyper::Uri::builder()
+                            .scheme("https")
+                            .authority(authority)
+                            .path_and_query(path_and_query)
+                            .build()
+                        {
+                            Ok(uri) => Box::new(warp::redirect(uri)) as Box<dyn warp::Reply>,
+                            Err(e) => {
+                                error!("could not redirect to HTTPS: failed to build URI: {}", e);
+                                Box::new(
+                                    warp::http::status::StatusCode::INTERNAL_SERVER_ERROR
+                                        .into_response(),
+                                ) as Box<dyn warp::Reply>
+                            }
+                        }
+                    },
+                ),
+        )
+        .try_bind_with_graceful_shutdown(http_socket_addr, async {
+            let _ = shutdown_http_rx.await;
+        })
+        .map_err(|e| {
+            format!(
+                "failed to bind HTTP redirect server to {}: {}",
+                http_socket_addr, e
+            )
+        })?;
 
         let server = future::join(https_server, http_server);
 
