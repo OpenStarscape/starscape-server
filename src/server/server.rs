@@ -68,7 +68,12 @@ impl Server {
             // address (at time of writing that's done with a proxy rule in vue.config.js).
             let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
             let addr = SocketAddr::new(ip, HTTP_PORT);
-            let http_server = HttpServer::new(warp_filter, addr)?;
+            let http_server = HttpServer::new_encrypted(
+                warp_filter,
+                addr,
+                "../ssl/cert.pem",
+                "../ssl/privkey.pem",
+            )?;
             components.push(Box::new(http_server));
         }
 
