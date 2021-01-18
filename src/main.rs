@@ -88,7 +88,7 @@ async fn main() {
     // Create a server, which will spin up everything required to talk to clients. The server object
     // is not used directly but needs to be kept in scope for as long as the game runs.
     let (new_session_tx, new_session_rx) = channel();
-    let _server = Server::new(true, true, true, Some("../web/dist"), new_session_tx)
+    let _server = Server::new(true, true, true, true, Some("../web/dist"), new_session_tx)
         .unwrap_or_else(|e| {
             error!("{}", e);
             panic!("failed to create game");
