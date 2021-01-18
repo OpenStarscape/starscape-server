@@ -114,9 +114,10 @@ impl<T: Clone + 'static> EventElement<T> {
         }
         let dispatcher = self.dispatcher.as_ref().unwrap();
         let mut events = dispatcher.events.lock().unwrap();
-        if let Err(e) = events.notif_queue.try_init(notif_queue) {
-            error!("problem creating event conduit: {}", e);
-        }
+        events
+            .notif_queue
+            .try_init(notif_queue)
+            .or_log_error("problem creating event conduit");
         Arc::downgrade(&dispatcher)
     }
 }

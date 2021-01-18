@@ -23,9 +23,9 @@ impl ConduitSubscriberList {
             let lock = self.lock.lock().expect("failed to lock subscribers");
             for (_ptr, subscriber) in &lock.0 {
                 if let Some(subscriber) = subscriber.upgrade() {
-                    if let Err(e) = subscriber.notify(state, prop_update_subscriber) {
-                        error!("failed to process notification: {}", e);
-                    }
+                    subscriber
+                        .notify(state, prop_update_subscriber)
+                        .or_log_error("failed to process notification");
                 } else {
                     error!(
                         "failed to lock Weak; should have been unsubscribed before being dropped"
