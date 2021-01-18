@@ -88,27 +88,27 @@ impl ConnectionCollection {
     /// be called at the start of each network tick.
     pub fn process_inbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
         if self.set_max_connections {
-            if let Err(e) = handler.set(
-                ConnectionKey::null(),
-                self.root_entity,
-                "max_conn_count",
-                Decoded::Integer(self.max_connections as i64),
-            ) {
-                error!("setting max connection count property: {}", e);
-            }
+            handler
+                .set(
+                    ConnectionKey::null(),
+                    self.root_entity,
+                    "max_conn_count",
+                    Decoded::Integer(self.max_connections as i64),
+                )
+                .or_log_error("setting max connection count property");
             self.set_max_connections = false;
         }
         // Build sessions for any new clients that are trying to connect
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_to_build_connection(session_builder);
-            if let Err(e) = handler.set(
-                ConnectionKey::null(),
-                self.root_entity,
-                "conn_count",
-                Decoded::Integer(self.connections.len() as i64),
-            ) {
-                error!("setting connection count property: {}", e);
-            }
+            handler
+                .set(
+                    ConnectionKey::null(),
+                    self.root_entity,
+                    "conn_count",
+                    Decoded::Integer(self.connections.len() as i64),
+                )
+                .or_log_error("setting connection count property");
         }
         // Process pending requests
         while let Ok(request) = self.request_rx.try_recv() {
