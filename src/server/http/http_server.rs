@@ -79,11 +79,12 @@ impl HttpServer {
                                 ) as Box<dyn warp::Reply>
                             }
                         };
-						let path_and_query = match warp::http::uri::PathAndQuery::from_maybe_shared(format!(
-                                    "{}{}",
-                                    path.as_str(),
-                                    query
-                                )) {
+						let path_and_query_str = if query.is_empty() {
+							path.as_str().to_string()
+						} else {
+							format!("{}?{}", path.as_str(), query)
+						};
+						let path_and_query = match warp::http::uri::PathAndQuery::from_maybe_shared(path_and_query_str) {
 							Ok(p) => p,
 							Err(e) => {
 								warn!("could not redirect to HTTPS: failed to build path and query: {}", e);
