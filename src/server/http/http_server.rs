@@ -34,31 +34,11 @@ impl HttpServer {
         })
     }
 
-    pub fn new_encrypted(
-        filter: GenericFilter,
-        https_socket_addr: SocketAddr,
-        http_socket_addr: SocketAddr,
-        cert_path: &str,
-        key_path: &str,
-    ) -> Result<Self, Box<dyn Error>> {
+    /// Create a new server that redirects all requests to HTTPS
+    pub fn new_https_redirect(socket_addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
-        let (shutdown_http_tx, shutdown_http_rx) = futures::channel::oneshot::channel();
-        trace!("starting HTTPS server on {:?}", https_socket_addr);
-
-        let (_addr, https_server) = warp::serve(filter)
-            .tls()
-            .cert_path(cert_path)
-            .key_path(key_path)
-            .bind_with_graceful_shutdown(https_socket_addr, async {
-                let _ = shutdown_rx.await;
-                let _ = shutdown_http_tx.send(());
-            });
-        // TODO: we want to use .try_bind_with_graceful_shutdown() (like we do in new_unencrypted())
-        // so it doesn't panic if there's an error, but that's not implemented for TlsServer (see
-        // https://github.com/seanmonstar/warp/pull/717). Once that PR lands and we upgrade to a
-        // warp version that supports it we should use it.
-
-        let (_addr, http_server) = warp::serve(
+        trace!("starting redirect-to-HTTPS server on {:?}", socket_addr);
+        let (_addr, server) = warp::serve(
             warp::host::optional()
                 .and(warp::path::full())
                 .and(warp::query::raw())
@@ -111,24 +91,54 @@ impl HttpServer {
                     },
                 ),
         )
-        .try_bind_with_graceful_shutdown(http_socket_addr, async {
-            let _ = shutdown_http_rx.await;
+        .try_bind_with_graceful_shutdown(socket_addr, async {
+            let _ = shutdown_rx.await;
         })
         .map_err(|e| {
             format!(
                 "failed to bind HTTP redirect server to {}: {}",
-                http_socket_addr, e
+                socket_addr, e
             )
         })?;
-
-        let server = future::join(https_server, http_server);
 
         let join_handle = tokio::spawn(async move {
             server.await;
             trace!("HTTPS server shut down");
         });
         Ok(HttpServer {
-            socket_addr: https_socket_addr,
+            socket_addr,
+            shutdown_tx: Some(shutdown_tx),
+            join_handle: Some(join_handle),
+        })
+    }
+
+    pub fn new_encrypted(
+        filter: GenericFilter,
+        socket_addr: SocketAddr,
+        cert_path: &str,
+        key_path: &str,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
+        trace!("starting HTTPS server on {:?}", socket_addr);
+
+        let (_addr, server) = warp::serve(filter)
+            .tls()
+            .cert_path(cert_path)
+            .key_path(key_path)
+            .bind_with_graceful_shutdown(socket_addr, async {
+                let _ = shutdown_rx.await;
+            });
+        // TODO: we want to use .try_bind_with_graceful_shutdown() (like we do in new_unencrypted())
+        // so it doesn't panic if there's an error, but that's not implemented for TlsServer (see
+        // https://github.com/seanmonstar/warp/pull/717). Once that PR lands and we upgrade to a
+        // warp version that supports it we should use it.
+
+        let join_handle = tokio::spawn(async move {
+            server.await;
+            trace!("HTTPS server shut down");
+        });
+        Ok(HttpServer {
+            socket_addr,
             shutdown_tx: Some(shutdown_tx),
             join_handle: Some(join_handle),
         })

@@ -1,8 +1,9 @@
 use super::*;
 
-const START_PORT: u16 = 56_560;
 const HTTP_PORT: u16 = 80;
 const HTTPS_PORT: u16 = 443;
+const START_PORT: u16 = 56_560;
+const DEVEL_HTTP_PORT: u16 = START_PORT;
 const WEB_RTC_PORT: u16 = START_PORT + 1;
 const TCP_PORT: u16 = START_PORT + 2;
 
@@ -20,6 +21,7 @@ impl Server {
         enable_tcp: bool,
         enable_websockets: bool,
         enable_webrtc: bool,
+        enable_https: bool,
         static_content_path: Option<&str>,
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
     ) -> Result<Self, Box<dyn Error>> {
@@ -64,19 +66,28 @@ impl Server {
             warp_filter = warp_filter.or(static_content_filter).unify().boxed();
         }
 
-        {
-            // This should resolve to localhost for testing. We need to point the web app to this
-            // address (at time of writing that's done with a proxy rule in vue.config.js).
+        if enable_https {
             let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
+
             let https_addr = SocketAddr::new(ip, HTTPS_PORT);
-            let http_addr = SocketAddr::new(ip, HTTP_PORT);
-            let http_server = HttpServer::new_encrypted(
+            let https_server = HttpServer::new_encrypted(
                 warp_filter,
                 https_addr,
-                http_addr,
                 "../ssl/cert.pem",
                 "../ssl/privkey.pem",
             )?;
+            components.push(Box::new(https_server));
+
+            let http_addr = SocketAddr::new(ip, HTTP_PORT);
+            let http_redirect_server = HttpServer::new_https_redirect(http_addr)?;
+            components.push(Box::new(http_redirect_server));
+        } else {
+            // This should resolve to localhost for testing. We need to point the web app to this
+            // address (at time of writing that's done with a proxy rule in vue.config.js).
+            let ip = get_ip(None, Some(IpVersion::V4), Some(true))?;
+
+            let http_addr = SocketAddr::new(ip, DEVEL_HTTP_PORT);
+            let http_server = HttpServer::new_unencrypted(warp_filter, http_addr)?;
             components.push(Box::new(http_server));
         }
 
