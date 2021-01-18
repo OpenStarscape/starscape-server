@@ -3,7 +3,7 @@ use super::*;
 pub type EntityProperty = (EntityKey, String);
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum PropertyRequest {
+pub enum ObjectRequest {
     Set(Decoded),
     Get,
     Subscribe,
@@ -11,8 +11,8 @@ pub enum PropertyRequest {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum RequestType {
-    Property(EntityProperty, PropertyRequest),
+pub enum RequestData {
+    Object(EntityProperty, ObjectRequest),
     Close,
 }
 
@@ -20,14 +20,24 @@ pub enum RequestType {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Request {
     pub connection: ConnectionKey,
-    pub request: RequestType,
+    pub data: RequestData,
 }
 
 impl Request {
-    pub fn new(connection: ConnectionKey, request: RequestType) -> Self {
-        Self {
-            connection,
-            request,
-        }
+    pub fn new(connection: ConnectionKey, data: RequestData) -> Self {
+        Self { connection, data }
+    }
+
+    pub fn new_object_request(
+        connection: ConnectionKey,
+        entity: EntityKey,
+        property: String,
+        data: ObjectRequest,
+    ) -> Self {
+        Self::new(connection, RequestData::Object((entity, property), data))
+    }
+
+    pub fn new_close_request(connection: ConnectionKey) -> Self {
+        Self::new(connection, RequestData::Close)
     }
 }

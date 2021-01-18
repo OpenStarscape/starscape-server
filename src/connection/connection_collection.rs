@@ -20,7 +20,7 @@ impl Connection for StubConnection {
         _: &mut dyn InboundMessageHandler,
         _: EntityKey,
         _: &str,
-        _: PropertyRequest,
+        _: ObjectRequest,
     ) {
         error!("StubConnection::handle_request() called");
     }
@@ -163,8 +163,8 @@ impl ConnectionCollection {
     }
 
     fn request(&mut self, handler: &mut dyn InboundMessageHandler, request: Request) {
-        match request.request {
-            RequestType::Property((entity, prop), action) => {
+        match request.data {
+            RequestData::Object((entity, prop), action) => {
                 match self.connections.get_mut(request.connection) {
                     Some(connection) => connection.handle_request(handler, entity, &prop, action),
                     None => warn!(
@@ -173,7 +173,7 @@ impl ConnectionCollection {
                     ),
                 }
             }
-            RequestType::Close => {
+            RequestData::Close => {
                 info!("closing connection {:?}", request.connection);
                 match self.connections.remove(request.connection) {
                     Some(mut connection) => connection.finalize(handler),
@@ -276,7 +276,7 @@ mod tests {
             _: &mut dyn InboundMessageHandler,
             _: EntityKey,
             _: &str,
-            _: PropertyRequest,
+            _: ObjectRequest,
         ) {
         }
         fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {

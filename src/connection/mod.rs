@@ -26,4 +26,4 @@ pub use outbound_message_handler::OutboundMessageHandler;
 use format::{DecodeCtx, Decoder, EncodeCtx, Encoder};
 use json::json_protocol_impls;
 use object_map::ObjectMapImpl;
-use request::{EntityProperty, PropertyRequest, Request, RequestType};
+use request::{EntityProperty, ObjectRequest, Request, RequestData};

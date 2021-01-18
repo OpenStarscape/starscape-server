@@ -23,7 +23,7 @@ pub trait Connection {
         handler: &mut dyn InboundMessageHandler,
         entity: EntityKey,
         property: &str,
-        action: PropertyRequest,
+        action: ObjectRequest,
     );
     /// Called at the end of each network tick to send any pending bundles
     fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()>;
@@ -68,7 +68,7 @@ impl InboundBundleHandler for ConnectionInboundHandler {
     fn close(&mut self) {
         if let Err(e) = self
             .request_tx
-            .send(Request::new(self.connection_key, RequestType::Close))
+            .send(Request::new_close_request(self.connection_key))
         {
             warn!("failed to close {:?}: {}", self.connection_key, e);
         }
@@ -251,19 +251,19 @@ impl Connection for ConnectionImpl {
         handler: &mut dyn InboundMessageHandler,
         entity: EntityKey,
         property: &str,
-        action: PropertyRequest,
+        action: ObjectRequest,
     ) {
         use std::collections::hash_map::Entry;
         let result =
             match action {
-                PropertyRequest::Set(value) => handler.set(self.self_key, entity, property, value),
-                PropertyRequest::Get => {
+                ObjectRequest::Set(value) => handler.set(self.self_key, entity, property, value),
+                ObjectRequest::Get => {
                     // it doesn't matter if it's already there or not, it's not an error to make two
                     // get requests but it will only result in one response.
                     self.pending_get_requests.insert((entity, property.into()));
                     Ok(())
                 }
-                PropertyRequest::Subscribe => {
+                ObjectRequest::Subscribe => {
                     let key = (entity, property.to_string());
                     match self.subscriptions.entry(key) {
                         Entry::Occupied(_) => Err("tried to subscribe multiple times".into()),
@@ -277,7 +277,7 @@ impl Connection for ConnectionImpl {
                         self.pending_get_requests.insert((entity, property.into()));
                     })
                 }
-                PropertyRequest::Unsubscribe => {
+                ObjectRequest::Unsubscribe => {
                     let key = (entity, property.to_string());
                     match self.subscriptions.remove(&key) {
                         Some(entry) => handler.unsubscribe(entry),
