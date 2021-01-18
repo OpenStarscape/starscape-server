@@ -59,18 +59,26 @@ async fn run_websocket(
 }
 
 pub struct WebsocketSessionBuilder {
+    addr: Option<SocketAddr>,
     websocket: warp::ws::WebSocket,
 }
 
 impl WebsocketSessionBuilder {
-    pub fn new(websocket: warp::ws::WebSocket) -> Self {
-        Self { websocket }
+    pub fn new(addr: Option<SocketAddr>, websocket: warp::ws::WebSocket) -> Self {
+        Self { addr, websocket }
     }
 }
 
 impl Debug for WebsocketSessionBuilder {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WebsocketSessionBuilder")
+        write!(
+            f,
+            "WebSocket {}",
+            match self.addr {
+                Some(addr) => format!("{}", addr),
+                None => "[unknown IP]".to_string(),
+            }
+        )
     }
 }
 
@@ -82,12 +90,14 @@ impl SessionBuilder for WebsocketSessionBuilder {
         let (outbound_tx, outbound_rx) = tokio::sync::mpsc::channel(OUTBOUND_BUNDLE_BUFFER_SIZE);
         tokio::spawn(run_websocket(self.websocket, outbound_rx, handler));
         Ok(Box::new(WebsocketSession {
+            addr: self.addr,
             outbound_tx: Some(outbound_tx),
         }))
     }
 }
 
 pub struct WebsocketSession {
+    addr: Option<SocketAddr>,
     /// Set to None when closed
     outbound_tx: Option<tokio::sync::mpsc::Sender<Vec<u8>>>,
 }
@@ -120,6 +130,13 @@ impl Session for WebsocketSession {
 
 impl Debug for WebsocketSession {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WebsocketSession")
+        write!(
+            f,
+            "WebSocket {}",
+            match self.addr {
+                Some(addr) => format!("{}", addr),
+                None => "[unknown IP]".to_string(),
+            }
+        )
     }
 }
