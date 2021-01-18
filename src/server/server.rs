@@ -1,7 +1,7 @@
 use super::*;
 
 const START_PORT: u16 = 56_560;
-const HTTP_PORT: u16 = 80;
+const HTTP_PORT: u16 = 443;
 const WEB_RTC_PORT: u16 = START_PORT + 1;
 const TCP_PORT: u16 = START_PORT + 2;
 
