@@ -72,6 +72,14 @@ impl ConnectionCollection {
         max_connections: usize,
     ) -> Self {
         let (request_tx, request_rx) = channel();
+        if let Err(e) = request_tx.send(Request::new_object_request(
+            ConnectionKey::null(),
+            root_entity,
+            "max_conn_count".to_string(),
+            ObjectRequest::Set(Decoded::Integer(max_connections as i64)),
+        )) {
+            error!("setting max connection count: {}", e);
+        }
         Self {
             root_entity,
             connections: DenseSlotMap::with_key(),
@@ -88,6 +96,14 @@ impl ConnectionCollection {
         // First, build sessions for any new clients that are trying to connect
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_to_build_connection(session_builder);
+            if let Err(e) = handler.set(
+                ConnectionKey::null(),
+                self.root_entity,
+                "conn_count",
+                Decoded::Integer(self.connections.len() as i64),
+            ) {
+                error!("setting connection count property: {}", e);
+            }
         }
         // Then process pending requests
         while let Ok(request) = self.request_rx.try_recv() {
