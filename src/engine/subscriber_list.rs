@@ -10,11 +10,17 @@ pub struct UnsubscribeReport {
     pub is_now_empty: bool,
 }
 
-/// Conceptually this is a set of Weaks, but you can't hash or compare a weak so we use
-/// thin_ptr() for that. Since most lists will contain 0 or 1 elements and iteration speed is
+/// A list of subscribers, with methods for adding and removing subscribers. Conceptually this is a
+/// set of Weaks.
+///
+/// You can't hash or compare a weak so we use a map. The  keys are pointers obtained with
+/// thin_ptr(). Raw pointers should be sync but aren't (see https://internals.rust-lang.org/t/8818),
+/// so we cast them to usize.
+///
+/// Since most lists will contain 0 or 1 elements and iteration speed is
 /// most important, we use a Vec instead of a map. We store the thin pointers instead of getting
 /// them each time because getting required upgrading to an Arc
-pub struct SubscriberList(pub Vec<(*const (), Weak<dyn Subscriber>)>);
+pub struct SubscriberList(pub Vec<(usize, Weak<dyn Subscriber>)>);
 
 impl SubscriberList {
     pub fn new() -> Self {
@@ -25,7 +31,7 @@ impl SubscriberList {
         &mut self,
         subscriber: &Arc<dyn Subscriber>,
     ) -> RequestResult<SubscribeReport> {
-        let subscriber_ptr = subscriber.thin_ptr();
+        let subscriber_ptr = subscriber.thin_ptr() as usize;
         let subscriber = Arc::downgrade(subscriber);
         if self
             .0
@@ -44,7 +50,7 @@ impl SubscriberList {
         &mut self,
         subscriber: &Weak<dyn Subscriber>,
     ) -> RequestResult<UnsubscribeReport> {
-        let subscriber_ptr = subscriber.thin_ptr();
+        let subscriber_ptr = subscriber.thin_ptr() as usize;
         match self
             .0
             .iter()

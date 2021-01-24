@@ -1,13 +1,21 @@
 use super::subscriber_list::{SubscribeReport, UnsubscribeReport};
 use super::*;
 
-pub struct ConduitSubscriberList {
+/// A SubscriberList that is Sync (NOTE: is not currently sync because SubscriberList is not Send
+/// because conduits are not Send because aaaahhhhh, but this will get fixed). Useful for sticking
+/// in conduits that have to manage subscriptions in non-mut methods.
+pub struct SyncSubscriberList {
     lock: Mutex<SubscriberList>,
+    /// Always true when the subscriber list has subscribers. Can be briefly true when the inner
+    /// subscriber does not have subscribers. Slightly speeds up the case of no subscribers.
+    /// Absolutely a premature optimization.
     has_subscribers: AtomicBool,
 }
 
-// TODO: document
-impl ConduitSubscriberList {
+// TODO: make this actually sync
+// impl AssertIsSync for ConduitSubscriberList {}
+
+impl SyncSubscriberList {
     pub fn new() -> Self {
         Self {
             lock: Mutex::new(SubscriberList::new()),
@@ -15,6 +23,7 @@ impl ConduitSubscriberList {
         }
     }
 
+    /// Notify all subscribers
     pub fn send_notifications(&self, state: &State, handler: &dyn EventHandler) {
         if self.has_subscribers.load(SeqCst) {
             let lock = self.lock.lock().expect("failed to lock subscribers");
@@ -30,12 +39,19 @@ impl ConduitSubscriberList {
         }
     }
 
+    /// Add a subscriber
     pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> RequestResult<SubscribeReport> {
         self.has_subscribers.store(true, SeqCst);
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
-        inner.subscribe(subscriber)
+        inner.subscribe(subscriber).map_err(|e| {
+            if inner.0.is_empty() {
+                self.has_subscribers.store(false, SeqCst);
+            }
+            e
+        })
     }
 
+    /// Remove a subscriber
     pub fn unsubscribe(
         &self,
         subscriber: &Weak<dyn Subscriber>,
@@ -57,14 +73,14 @@ mod tests {
     use super::*;
 
     fn setup() -> (
-        ConduitSubscriberList,
+        SyncSubscriberList,
         NotifQueue,
         Vec<Arc<dyn Subscriber>>,
         Vec<MockSubscriber>,
     ) {
         let mock_subscribers: Vec<MockSubscriber> = (0..3).map(|_| MockSubscriber::new()).collect();
         (
-            ConduitSubscriberList::new(),
+            SyncSubscriberList::new(),
             NotifQueue::new(),
             mock_subscribers.iter().map(|s| s.get()).collect(),
             mock_subscribers,
