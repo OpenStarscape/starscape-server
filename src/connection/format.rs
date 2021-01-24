@@ -10,32 +10,8 @@ pub trait EncodeCtx {
 /// Encodes a specific data format (ex JSON)
 /// Any encoder should be compatible with any session (JSON should work with TCP, websockets, etc)
 pub trait Encoder {
-    /// An update to a subscribed property resulting from a change
-    fn encode_property_update(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>>;
-    /// A response to a clients get requst on a property
-    fn encode_get_response(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>>;
-    /// A signal sent from the server to clients
-    fn encode_signal(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>>;
-    /// An error detected by the server
-    fn encode_error(&self, text: &str) -> Result<Vec<u8>, Box<dyn Error>>;
+    /// Encode an event
+    fn encode_event(&self, ctx: &dyn EncodeCtx, event: &Event) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
 /// The context required for decoding a Decoded. The normal implementation is ObjectMapImpl.

@@ -65,67 +65,34 @@ impl JsonEncoder {
 }
 
 impl Encoder for JsonEncoder {
-    fn encode_property_update(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
+    fn encode_event(&self, ctx: &dyn EncodeCtx, event: &Event) -> Result<Vec<u8>, Box<dyn Error>> {
         // TODO: why aren't we reusing buffers?
         let buffer = Vec::with_capacity(128);
         let mut serializer = serde_json::Serializer::new(buffer);
-        let mut message = serializer.serialize_struct("Message", 4)?;
-        message.serialize_field("mtype", "update")?;
-        message.serialize_field("object", &object)?;
-        message.serialize_field("property", property)?;
-        message.serialize_field("value", &Contextualized::new(value, ctx))?;
-        message.end()?;
-        Ok(serializer.into_inner())
-    }
-
-    fn encode_get_response(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
-        let buffer = Vec::with_capacity(128);
-        let mut serializer = serde_json::Serializer::new(buffer);
-        let mut message = serializer.serialize_struct("Message", 4)?;
-        message.serialize_field("mtype", "value")?;
-        message.serialize_field("object", &object)?;
-        message.serialize_field("property", property)?;
-        message.serialize_field("value", &Contextualized::new(value, ctx))?;
-        message.end()?;
-        Ok(serializer.into_inner())
-    }
-
-    fn encode_signal(
-        &self,
-        object: ObjectId,
-        property: &str,
-        ctx: &dyn EncodeCtx,
-        value: &Encodable,
-    ) -> Result<Vec<u8>, Box<dyn Error>> {
-        let buffer = Vec::with_capacity(128);
-        let mut serializer = serde_json::Serializer::new(buffer);
-        let mut message = serializer.serialize_struct("Message", 4)?;
-        message.serialize_field("mtype", "event")?;
-        message.serialize_field("object", &object)?;
-        message.serialize_field("property", property)?;
-        message.serialize_field("value", &Contextualized::new(value, ctx))?;
-        message.end()?;
-        Ok(serializer.into_inner())
-    }
-
-    fn encode_error(&self, text: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-        let buffer = Vec::with_capacity(text.len() + 32);
-        let mut serializer = serde_json::Serializer::new(buffer);
-        let mut message = serializer.serialize_struct("Message", 2)?;
-        message.serialize_field("mtype", "error")?;
-        message.serialize_field("text", text)?;
+        let mut message = serializer.serialize_map(None)?;
+        match event {
+            Event::Method(entity, member, method, value) => {
+                message.serialize_field(
+                    "mtype",
+                    match method {
+                        EventMethod::Value => "value",
+                        EventMethod::Update => "update",
+                        EventMethod::Signal => "event",
+                    },
+                )?;
+                message.serialize_field("object", &ctx.object_for(*entity))?;
+                message.serialize_field("property", member)?;
+                message.serialize_field("value", &Contextualized::new(value, ctx))?;
+            }
+            Event::Destroyed(entity) => {
+                message.serialize_field("mtype", "destroyed")?;
+                message.serialize_field("object", &ctx.object_for(*entity))?;
+            }
+            Event::FatalError(text) => {
+                message.serialize_field("mtype", "error")?;
+                message.serialize_field("text", text)?;
+            }
+        }
         message.end()?;
         Ok(serializer.into_inner())
     }
@@ -216,7 +183,7 @@ mod message_tests {
 
     impl EncodeCtx for MockEncoderCtx {
         fn object_for(&self, _entity: EntityKey) -> ObjectId {
-            panic!("unexpected call")
+            42
         }
     }
 
@@ -230,12 +197,12 @@ mod message_tests {
     #[test]
     fn basic_property_update() {
         let p = JsonEncoder::new();
-        let obj = 42;
-        let prop = "foobar";
+        let e = mock_keys(1);
+        let prop = "foobar".to_string();
         let value = Encodable::Scalar(12.5);
         assert_json_eq(
-            &p.encode_property_update(obj, prop, &MockEncoderCtx, &value)
-                .expect("failed to serialize property update"),
+            &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
+                .unwrap(),
             "{
 				\"mtype\": \"update\",
 				\"object\": 42,
@@ -246,19 +213,83 @@ mod message_tests {
     }
 
     #[test]
+    fn property_update_with_obj() {
+        let p = JsonEncoder::new();
+        let e = mock_keys(1);
+        let prop = "foobar".to_string();
+        let value = Encodable::Entity(e[0]);
+        assert_json_eq(
+            &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
+                .unwrap(),
+            "{
+				\"mtype\": \"update\",
+				\"object\": 42,
+				\"property\": \"foobar\",
+				\"value\": [42]
+			}",
+        )
+    }
+
+    #[test]
     fn basic_property_value() {
         let p = JsonEncoder::new();
-        let obj = 8;
-        let prop = "abc";
+        let e = mock_keys(1);
+        let prop = "abc".to_string();
         let value = Encodable::Integer(19);
         assert_json_eq(
-            &p.encode_get_response(obj, prop, &MockEncoderCtx, &value)
-                .expect("failed to serialize property update"),
+            &p.encode_event(&MockEncoderCtx, &Event::value(e[0], prop, value))
+                .unwrap(),
             "{
 				\"mtype\": \"value\",
-				\"object\": 8,
+				\"object\": 42,
 				\"property\": \"abc\",
 				\"value\": 19
+			}",
+        )
+    }
+
+    #[test]
+    fn basic_signal() {
+        let p = JsonEncoder::new();
+        let e = mock_keys(1);
+        let prop = "abc".to_string();
+        let value = Encodable::Text("hello".to_string());
+        assert_json_eq(
+            &p.encode_event(&MockEncoderCtx, &Event::signal(e[0], prop, value))
+                .unwrap(),
+            "{
+				\"mtype\": \"event\",
+				\"object\": 42,
+				\"property\": \"abc\",
+				\"value\": \"hello\"
+			}",
+        )
+    }
+
+    #[test]
+    fn entity_destroyed() {
+        let p = JsonEncoder::new();
+        let e = mock_keys(1);
+        assert_json_eq(
+            &p.encode_event(&MockEncoderCtx, &Event::Destroyed(e[0]))
+                .unwrap(),
+            "{
+				\"mtype\": \"destroyed\",
+				\"object\": 42
+			}",
+        )
+    }
+
+    #[test]
+    fn fatal_error() {
+        let p = JsonEncoder::new();
+        let message = "Error Message".to_string();
+        assert_json_eq(
+            &p.encode_event(&MockEncoderCtx, &Event::FatalError(message))
+                .unwrap(),
+            "{
+				\"mtype\": \"error\",
+				\"text\": \"Error Message\"
 			}",
         )
     }

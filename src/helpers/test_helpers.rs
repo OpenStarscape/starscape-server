@@ -75,9 +75,7 @@ pub fn mock_keys<T: Key>(number: u32) -> Vec<T> {
     (0..number).map(|_| map.insert(())).collect()
 }
 
-pub struct MockOutboundMessageHandler(
-    pub RefCell<Vec<(ConnectionKey, EntityKey, String, Encodable)>>,
-);
+pub struct MockOutboundMessageHandler(pub RefCell<Vec<(ConnectionKey, Event)>>);
 
 impl MockOutboundMessageHandler {
     pub fn new() -> Self {
@@ -86,29 +84,8 @@ impl MockOutboundMessageHandler {
 }
 
 impl OutboundMessageHandler for MockOutboundMessageHandler {
-    fn property_update(
-        &self,
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>> {
-        self.0
-            .borrow_mut()
-            .push((connection, entity, property.to_owned(), value.clone()));
-        Ok(())
-    }
-    fn signal(
-        &self,
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>> {
-        self.0
-            .borrow_mut()
-            .push((connection, entity, property.to_owned(), value.clone()));
-        Ok(())
+    fn event(&self, connection: ConnectionKey, event: Event) {
+        self.0.borrow_mut().push((connection, event));
     }
 }
 

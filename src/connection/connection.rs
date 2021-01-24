@@ -10,15 +10,8 @@ new_key_type! {
 pub trait Connection {
     /// Called at the start of the tick, process all inbound messages
     fn process_requests(&mut self, handler: &mut dyn InboundMessageHandler);
-    /// Send a property's value to a client. If is_update is true this is a response to a change in
-    /// a subscribed property. If false, this is a response to a get request.
-    fn property_value(&self, entity: EntityKey, property: &str, value: &Encodable, is_update: bool);
-    /// Inform the client a signal has fired.
-    fn signal(&self, entity: EntityKey, property: &str, value: &Encodable);
-    /// Inform the client of an error
-    fn error(&self, message: &str);
-    /// Inform a client that an entity no longer exists on the server.
-    fn entity_destroyed(&self, state: &State, entity: EntityKey);
+    /// Send an event to the client, may not go through until flush()
+    fn send_event(&self, event: Event);
     /// Called at the end of each network tick to send any pending bundles. If it returns
     fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()>;
     /// Called just after connection is removed from the connection map before it is dropped
@@ -202,112 +195,33 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn property_value(
-        &self,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-        is_update: bool,
-    ) {
-        let object = match self.obj_map.get_object(entity) {
-            Some(o) => o,
-            None => {
-                error!(
-                    "failed to send property value, {:?} not in object map",
-                    entity
-                );
-                return;
-            }
-        };
-        trace!("{:?}::{}.{} = {:?}", self.self_key, object, property, value);
-        let encode_result;
-        if is_update {
-            encode_result = self.encoder.encode_property_update(
-                object,
-                property,
-                self.obj_map.as_encode_ctx(),
-                value,
-            )
-        } else {
-            encode_result = self.encoder.encode_get_response(
-                object,
-                property,
-                self.obj_map.as_encode_ctx(),
-                value,
-            )
-        };
-        let buffer = match encode_result {
+    fn send_event(&self, event: Event) {
+        let buffer = match self
+            .encoder
+            .encode_event(self.obj_map.as_encode_ctx(), &event)
+        {
             Ok(buffer) => buffer,
             Err(e) => {
-                error!(
-                    "failed to encode property value {:?}.{} = {:?}: {}",
-                    entity, property, value, e
-                );
+                error!("failed to encode {:?}: {}", event, e);
                 self.should_close.store(true, SeqCst);
                 return;
             }
         };
         self.queue_message(buffer);
-    }
 
-    fn signal(&self, entity: EntityKey, property: &str, value: &Encodable) {
-        let object = match self.obj_map.get_object(entity) {
-            Some(o) => o,
-            None => {
-                error!("failed to send signal, {:?} not in object map", entity);
-                return;
-            }
-        };
-        trace!(
-            "{:?}::{}.{} -> ({:?})",
-            self.self_key,
-            object,
-            property,
-            value
-        );
-        let buffer =
-            match self
-                .encoder
-                .encode_signal(object, property, self.obj_map.as_encode_ctx(), value)
-            {
-                Ok(buffer) => buffer,
-                Err(e) => {
-                    error!(
-                        "failed to encode signal {:?}.{} -> {:?}: {}",
-                        entity, property, value, e
-                    );
-                    self.should_close.store(true, SeqCst);
-                    return;
-                }
-            };
-        self.queue_message(buffer);
-    }
-
-    fn error(&self, message: &str) {
-        trace!("{:?} error: {}", self.self_key, message,);
-        match self.encoder.encode_error(message) {
-            Ok(buffer) => self.queue_message(buffer),
-            Err(e) => {
-                error!("failed to encode error: {}", e);
-                self.should_close.store(true, SeqCst);
-            }
+        if let Event::Destroyed(entity) = event {
+            self.obj_map.remove_entity(entity);
         }
     }
 
-    fn entity_destroyed(&self, _state: &State, entity: EntityKey) {
-        self.obj_map.remove_entity(entity);
-        // TODO: tell client object was destroyed
-    }
-
     fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()> {
-        let pending_get_requests =
-            std::mem::replace(&mut self.pending_get_requests, HashSet::new());
-        for (entity, property) in pending_get_requests.iter() {
+        let get_requests = std::mem::replace(&mut self.pending_get_requests, HashSet::new());
+        for (entity, property) in get_requests.into_iter() {
             // When a client subscribes to a signal, we have no way of knowing it's a signal and
             // not a property, so it goes in the pending get requests list and is processed here.
             // That fails, and so we simply ignore errors here. There's probably a better way.
-            if let Ok(value) = handler.get_property(self.self_key, *entity, property) {
-                self.property_value(*entity, property, &value, false);
+            if let Ok(value) = handler.get_property(self.self_key, entity, &property) {
+                self.send_event(Event::value(entity, property, value));
             }
         }
         if self.should_close.load(SeqCst) {
@@ -334,6 +248,7 @@ impl Connection for ConnectionImpl {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -489,3 +404,4 @@ mod tests {
         );
     }
 }
+*/
