@@ -18,44 +18,6 @@ pub trait Connection {
     fn finalize(&mut self, handler: &mut dyn RequestHandler);
 }
 
-/// Receives data from the session layer (on the session's thread), decodes it into requests and
-/// sends those off to be processed by the session on the main thead.
-struct ConnectionInboundHandler {
-    connection_key: ConnectionKey,
-    decoder: Box<dyn Decoder>,
-    decode_ctx: Arc<dyn DecodeCtx>,
-    request_tx: Sender<Request>,
-}
-
-impl InboundBundleHandler for ConnectionInboundHandler {
-    fn handle(&mut self, data: &[u8]) {
-        match self
-            .decoder
-            .decode(self.decode_ctx.as_ref(), data.to_owned())
-        {
-            Ok(requests) => {
-                requests.into_iter().for_each(|request| {
-                    if let Err(e) = self.request_tx.send(request) {
-                        warn!("failed to handle data for {:?}: {}", self.connection_key, e);
-                    }
-                });
-            }
-            Err(e) => {
-                warn!(
-                    "can't decode inbound bundle: {} on {:?}",
-                    e, self.connection_key
-                );
-            }
-        }
-    }
-
-    fn close(&mut self) {
-        if let Err(e) = self.request_tx.send(Request::Close) {
-            warn!("failed to close {:?}: {}", self.connection_key, e);
-        }
-    }
-}
-
 pub struct ConnectionImpl {
     self_key: ConnectionKey,
     encoder: Box<dyn Encoder>,
@@ -85,12 +47,7 @@ impl ConnectionImpl {
             );
         }
         let (request_tx, request_rx) = channel();
-        let handler = ConnectionInboundHandler {
-            connection_key: self_key,
-            decoder,
-            decode_ctx: obj_map.clone(),
-            request_tx,
-        };
+        let handler = BundleHandler::new(self_key, decoder, obj_map.clone(), request_tx);
         let session = session_builder.build(Box::new(handler))?;
         info!("created connection {:?} on {:?}", self_key, session);
         Ok(Self {
