@@ -1,13 +1,194 @@
-//! All things related to decoding (deserializing) data from the client
+//! All things relating to encoding (serializing) data that is to be sent to the client
 
 use super::*;
+
+/// A value that can be encoded (aka serialized) and sent to a client. Note that it requires an
+/// EncodeCtx in order to be encoded. See bind().
+#[derive(Debug, PartialEq, Clone)]
+pub enum Encodable {
+    Vector(Vector3<f64>),
+    Scalar(f64),
+    Integer(i64),
+    Text(String),
+    Entity(EntityKey),
+    Array(Vec<Encodable>),
+    Null,
+    // TODO: add boolean
+    // TODO: add map
+    // (for each JSON encoding, JSON decoding and Decoded getting needs to be tested)
+}
 
 /// A value received from a client. Same type as Encodable, but different name used for clearity.
 /// Easiest way to use is to simply call .decode() in a context in which the type is implied.
 pub type Decoded = Encodable;
 
-pub type DecodedError = String;
-pub type DecodedResult<T> = Result<T, DecodedError>;
+pub type DecodeError = String;
+pub type DecodeResult<T> = Result<T, DecodeError>;
+
+impl From<String> for Encodable {
+    fn from(text: String) -> Self {
+        Encodable::Text(text)
+    }
+}
+
+impl From<Point3<f64>> for Encodable {
+    fn from(point: Point3<f64>) -> Self {
+        Encodable::Vector(point.to_vec())
+    }
+}
+
+impl From<Vector3<f64>> for Encodable {
+    fn from(vector: Vector3<f64>) -> Self {
+        Encodable::Vector(vector)
+    }
+}
+
+impl From<f64> for Encodable {
+    fn from(value: f64) -> Self {
+        Encodable::Scalar(value)
+    }
+}
+
+impl From<f32> for Encodable {
+    fn from(value: f32) -> Self {
+        Encodable::Scalar(f64::from(value))
+    }
+}
+
+impl From<i64> for Encodable {
+    fn from(value: i64) -> Self {
+        Encodable::Integer(value)
+    }
+}
+
+impl From<i32> for Encodable {
+    fn from(value: i32) -> Self {
+        Encodable::Integer(i64::from(value))
+    }
+}
+
+impl From<u64> for Encodable {
+    fn from(value: u64) -> Self {
+        Encodable::Integer(value as i64)
+    }
+}
+
+impl From<u32> for Encodable {
+    fn from(value: u32) -> Self {
+        Encodable::Integer(i64::from(value))
+    }
+}
+
+impl From<EntityKey> for Encodable {
+    fn from(entity: EntityKey) -> Self {
+        if entity.is_null() {
+            Encodable::Null
+        } else {
+            Encodable::Entity(entity)
+        }
+    }
+}
+
+impl From<ColorRGB> for Encodable {
+    fn from(color: ColorRGB) -> Self {
+        Encodable::Text(format!("0x{:02X}{:02X}{:02X}", color.r, color.g, color.b))
+    }
+}
+
+impl<T> From<Vec<T>> for Encodable
+where
+    T: Into<Encodable>,
+{
+    fn from(vec: Vec<T>) -> Self {
+        Encodable::Array(vec.into_iter().map(Into::into).collect())
+    }
+}
+
+impl From<()> for Encodable {
+    fn from(_: ()) -> Self {
+        Encodable::Null
+    }
+}
+
+impl<T> From<Option<T>> for Encodable
+where
+    T: Into<Encodable>,
+{
+    fn from(opt: Option<T>) -> Self {
+        match opt {
+            Some(value) => value.into(),
+            None => Encodable::Null,
+        }
+    }
+}
+
+// TODO: implement tuples with a macro
+
+impl<A> From<(A,)> for Encodable
+where
+    A: Into<Encodable>,
+{
+    fn from(tuple: (A,)) -> Self {
+        Encodable::Array(vec![tuple.0.into()])
+    }
+}
+
+impl<A, B> From<(A, B)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+{
+    fn from(tuple: (A, B)) -> Self {
+        Encodable::Array(vec![tuple.0.into(), tuple.1.into()])
+    }
+}
+
+impl<A, B, C> From<(A, B, C)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+    C: Into<Encodable>,
+{
+    fn from(tuple: (A, B, C)) -> Self {
+        Encodable::Array(vec![tuple.0.into(), tuple.1.into(), tuple.2.into()])
+    }
+}
+
+impl<A, B, C, D> From<(A, B, C, D)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+    C: Into<Encodable>,
+    D: Into<Encodable>,
+{
+    fn from(tuple: (A, B, C, D)) -> Self {
+        Encodable::Array(vec![
+            tuple.0.into(),
+            tuple.1.into(),
+            tuple.2.into(),
+            tuple.3.into(),
+        ])
+    }
+}
+
+impl<A, B, C, D, E> From<(A, B, C, D, E)> for Encodable
+where
+    A: Into<Encodable>,
+    B: Into<Encodable>,
+    C: Into<Encodable>,
+    D: Into<Encodable>,
+    E: Into<Encodable>,
+{
+    fn from(tuple: (A, B, C, D, E)) -> Self {
+        Encodable::Array(vec![
+            tuple.0.into(),
+            tuple.1.into(),
+            tuple.2.into(),
+            tuple.3.into(),
+            tuple.4.into(),
+        ])
+    }
+}
 
 impl Decoded {
     pub fn is_null(&self) -> bool {
@@ -15,13 +196,13 @@ impl Decoded {
     }
 }
 
-impl From<Decoded> for DecodedResult<Decoded> {
+impl From<Decoded> for DecodeResult<Decoded> {
     fn from(value: Decoded) -> Self {
         Ok(value)
     }
 }
 
-impl From<Decoded> for DecodedResult<Vector3<f64>> {
+impl From<Decoded> for DecodeResult<Vector3<f64>> {
     fn from(value: Decoded) -> Self {
         match value {
             Decoded::Vector(v) => Ok(v),
@@ -30,13 +211,13 @@ impl From<Decoded> for DecodedResult<Vector3<f64>> {
     }
 }
 
-impl From<Decoded> for DecodedResult<Point3<f64>> {
+impl From<Decoded> for DecodeResult<Point3<f64>> {
     fn from(value: Decoded) -> Self {
-        DecodedResult::<Vector3<f64>>::from(value).map(Point3::from_vec)
+        DecodeResult::<Vector3<f64>>::from(value).map(Point3::from_vec)
     }
 }
 
-impl From<Decoded> for DecodedResult<f64> {
+impl From<Decoded> for DecodeResult<f64> {
     fn from(value: Decoded) -> Self {
         match value {
             Decoded::Scalar(value) => Ok(value),
@@ -46,7 +227,7 @@ impl From<Decoded> for DecodedResult<f64> {
     }
 }
 
-impl From<Decoded> for DecodedResult<i64> {
+impl From<Decoded> for DecodeResult<i64> {
     fn from(value: Decoded) -> Self {
         match value {
             Decoded::Integer(value) => Ok(value),
@@ -56,17 +237,17 @@ impl From<Decoded> for DecodedResult<i64> {
     }
 }
 
-impl From<Decoded> for DecodedResult<u64> {
+impl From<Decoded> for DecodeResult<u64> {
     fn from(value: Decoded) -> Self {
         use std::convert::TryInto;
-        match DecodedResult::<i64>::from(value)?.try_into() {
+        match DecodeResult::<i64>::from(value)?.try_into() {
             Ok(i) => Ok(i),
             Err(e) => Err(format!("{}", e)),
         }
     }
 }
 
-impl From<Decoded> for DecodedResult<String> {
+impl From<Decoded> for DecodeResult<String> {
     fn from(value: Decoded) -> Self {
         match value {
             Decoded::Text(value) => Ok(value),
@@ -75,7 +256,7 @@ impl From<Decoded> for DecodedResult<String> {
     }
 }
 
-impl From<Decoded> for DecodedResult<EntityKey> {
+impl From<Decoded> for DecodeResult<EntityKey> {
     fn from(value: Decoded) -> Self {
         match value {
             Decoded::Entity(value) => Ok(value),
@@ -85,9 +266,9 @@ impl From<Decoded> for DecodedResult<EntityKey> {
     }
 }
 
-impl From<Decoded> for DecodedResult<ColorRGB> {
+impl From<Decoded> for DecodeResult<ColorRGB> {
     fn from(value: Decoded) -> Self {
-        let s: String = Into::<DecodedResult<String>>::into(value)?;
+        let s: String = Into::<DecodeResult<String>>::into(value)?;
         if !s.starts_with("0x") {
             return Err("color does not start with 0x".to_string());
         }
@@ -99,9 +280,9 @@ impl From<Decoded> for DecodedResult<ColorRGB> {
     }
 }
 
-impl<T> From<Decoded> for DecodedResult<Vec<T>>
+impl<T> From<Decoded> for DecodeResult<Vec<T>>
 where
-    Decoded: Into<DecodedResult<T>>,
+    Decoded: Into<DecodeResult<T>>,
 {
     fn from(value: Decoded) -> Self {
         match value {
@@ -111,7 +292,7 @@ where
     }
 }
 
-impl From<Decoded> for DecodedResult<()> {
+impl From<Decoded> for DecodeResult<()> {
     fn from(value: Decoded) -> Self {
         if value.is_null() {
             Ok(())
@@ -121,9 +302,9 @@ impl From<Decoded> for DecodedResult<()> {
     }
 }
 
-impl<T> From<Decoded> for DecodedResult<Option<T>>
+impl<T> From<Decoded> for DecodeResult<Option<T>>
 where
-    Decoded: Into<DecodedResult<T>>,
+    Decoded: Into<DecodeResult<T>>,
 {
     fn from(value: Decoded) -> Self {
         if value.is_null() {
@@ -136,9 +317,9 @@ where
 
 /// TODO: implement all the tuples with a macro
 
-impl<A> From<Decoded> for DecodedResult<(A,)>
+impl<A> From<Decoded> for DecodeResult<(A,)>
 where
-    Decoded: Into<DecodedResult<A>>,
+    Decoded: Into<DecodeResult<A>>,
 {
     fn from(value: Decoded) -> Self {
         const LEN: usize = 1;
@@ -160,14 +341,14 @@ where
             ));
         }
         let mut iter = vec.into_iter();
-        Ok((Into::<DecodedResult<A>>::into(iter.next().unwrap())?,))
+        Ok((Into::<DecodeResult<A>>::into(iter.next().unwrap())?,))
     }
 }
 
-impl<A, B> From<Decoded> for DecodedResult<(A, B)>
+impl<A, B> From<Decoded> for DecodeResult<(A, B)>
 where
-    Decoded: Into<DecodedResult<A>>,
-    Decoded: Into<DecodedResult<B>>,
+    Decoded: Into<DecodeResult<A>>,
+    Decoded: Into<DecodeResult<B>>,
 {
     fn from(value: Decoded) -> Self {
         const LEN: usize = 2;
@@ -190,17 +371,17 @@ where
         }
         let mut iter = vec.into_iter();
         Ok((
-            Into::<DecodedResult<A>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<B>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<A>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<B>>::into(iter.next().unwrap())?,
         ))
     }
 }
 
-impl<A, B, C> From<Decoded> for DecodedResult<(A, B, C)>
+impl<A, B, C> From<Decoded> for DecodeResult<(A, B, C)>
 where
-    Decoded: Into<DecodedResult<A>>,
-    Decoded: Into<DecodedResult<B>>,
-    Decoded: Into<DecodedResult<C>>,
+    Decoded: Into<DecodeResult<A>>,
+    Decoded: Into<DecodeResult<B>>,
+    Decoded: Into<DecodeResult<C>>,
 {
     fn from(value: Decoded) -> Self {
         const LEN: usize = 3;
@@ -223,19 +404,19 @@ where
         }
         let mut iter = vec.into_iter();
         Ok((
-            Into::<DecodedResult<A>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<B>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<C>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<A>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<B>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<C>>::into(iter.next().unwrap())?,
         ))
     }
 }
 
-impl<A, B, C, D> From<Decoded> for DecodedResult<(A, B, C, D)>
+impl<A, B, C, D> From<Decoded> for DecodeResult<(A, B, C, D)>
 where
-    Decoded: Into<DecodedResult<A>>,
-    Decoded: Into<DecodedResult<B>>,
-    Decoded: Into<DecodedResult<C>>,
-    Decoded: Into<DecodedResult<D>>,
+    Decoded: Into<DecodeResult<A>>,
+    Decoded: Into<DecodeResult<B>>,
+    Decoded: Into<DecodeResult<C>>,
+    Decoded: Into<DecodeResult<D>>,
 {
     fn from(value: Decoded) -> Self {
         const LEN: usize = 4;
@@ -258,21 +439,21 @@ where
         }
         let mut iter = vec.into_iter();
         Ok((
-            Into::<DecodedResult<A>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<B>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<C>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<D>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<A>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<B>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<C>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<D>>::into(iter.next().unwrap())?,
         ))
     }
 }
 
-impl<A, B, C, D, E> From<Decoded> for DecodedResult<(A, B, C, D, E)>
+impl<A, B, C, D, E> From<Decoded> for DecodeResult<(A, B, C, D, E)>
 where
-    Decoded: Into<DecodedResult<A>>,
-    Decoded: Into<DecodedResult<B>>,
-    Decoded: Into<DecodedResult<C>>,
-    Decoded: Into<DecodedResult<D>>,
-    Decoded: Into<DecodedResult<E>>,
+    Decoded: Into<DecodeResult<A>>,
+    Decoded: Into<DecodeResult<B>>,
+    Decoded: Into<DecodeResult<C>>,
+    Decoded: Into<DecodeResult<D>>,
+    Decoded: Into<DecodeResult<E>>,
 {
     fn from(value: Decoded) -> Self {
         const LEN: usize = 5;
@@ -295,35 +476,54 @@ where
         }
         let mut iter = vec.into_iter();
         Ok((
-            Into::<DecodedResult<A>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<B>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<C>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<D>>::into(iter.next().unwrap())?,
-            Into::<DecodedResult<E>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<A>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<B>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<C>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<D>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<E>>::into(iter.next().unwrap())?,
         ))
     }
 }
 
 #[cfg(test)]
-mod json_tests {
+mod encode_tests {
+    use super::*;
+    use Encodable::*;
+
+    #[test]
+    fn encodes_color_correctly() {
+        let enc: Encodable = ColorRGB::from_u32(0x0F0080).into();
+        assert_eq!(enc, Text("0x0F0080".to_string()));
+    }
+
+    #[test]
+    fn encodes_null_entity_as_null() {
+        use slotmap::Key;
+        let enc: Encodable = EntityKey::null().into();
+        assert_eq!(enc, Null);
+    }
+}
+
+#[cfg(test)]
+mod decode_tests {
     use super::*;
     use Encodable::*;
 
     fn assert_decodes_to<T>(decodable: Decoded, expected: T)
     where
         T: PartialEq + Debug,
-        DecodedResult<T>: From<Decoded>,
+        DecodeResult<T>: From<Decoded>,
     {
-        let actual: T = DecodedResult::<T>::from(decodable).expect("failed to decode");
+        let actual: T = DecodeResult::<T>::from(decodable).expect("failed to decode");
         assert_eq!(actual, expected);
     }
 
     fn assert_doesnt_decode_to<T>(decodable: Decoded)
     where
         T: PartialEq + Debug,
-        DecodedResult<T>: From<Decoded>,
+        DecodeResult<T>: From<Decoded>,
     {
-        assert!(matches!(DecodedResult::<T>::from(decodable), Err(_)));
+        assert!(matches!(DecodeResult::<T>::from(decodable), Err(_)));
     }
 
     #[test]
