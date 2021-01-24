@@ -217,17 +217,17 @@ impl State {
         }
     }
 
-    /// Create an event for an entity. Panics if entity doesn't exist or already has something with
+    /// Create a signal for an entity. Panics if entity doesn't exist or already has something with
     /// this name.
-    pub fn install_event<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
+    pub fn install_signal<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
-        C: Conduit<Vec<Encodable>, EventsDontTakeInputSilly> + 'static,
+        C: Conduit<Vec<Encodable>, SignalsDontTakeInputSilly> + 'static,
     {
         if let Some(entity) = self.entities.get_mut(entity_key) {
             let conduit =
-                Arc::new(conduit) as Arc<dyn Conduit<Vec<Encodable>, EventsDontTakeInputSilly>>;
+                Arc::new(conduit) as Arc<dyn Conduit<Vec<Encodable>, SignalsDontTakeInputSilly>>;
             entity.register_conduit(name, move |connection| {
-                Ok(EventConduit::new(
+                Ok(SignalConduit::new(
                     connection,
                     entity_key,
                     name,
@@ -236,7 +236,7 @@ impl State {
             });
         } else {
             panic!(
-                "failed to register event on invalid entity {:?}",
+                "failed to register signal on invalid entity {:?}",
                 entity_key
             );
         }
@@ -276,7 +276,7 @@ impl State {
             && self.entities.get(self.root).is_some()
     }
 
-    /// Returns the conduit for the property, event or action with the given name.
+    /// Returns the conduit for the property, signal or action with the given name.
     fn conduit(
         &self,
         connection: ConnectionKey,

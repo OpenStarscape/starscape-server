@@ -98,7 +98,7 @@ impl OutboundMessageHandler for MockOutboundMessageHandler {
             .push((connection, entity, property.to_owned(), value.clone()));
         Ok(())
     }
-    fn event(
+    fn signal(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,

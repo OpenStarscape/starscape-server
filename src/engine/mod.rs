@@ -10,8 +10,8 @@ mod element;
 #[allow(clippy::module_inception)]
 mod engine;
 mod entity;
-mod event_element;
 mod notif_queue;
+mod signal;
 mod state;
 mod subscriber;
 mod subscriber_list;
@@ -20,8 +20,8 @@ mod subscription;
 pub use conduit::{ActionConduit, ComponentListConduit, Conduit, ROConduit, RWConduit};
 pub use element::Element;
 pub use engine::Engine;
-pub use event_element::EventElement;
 pub use notif_queue::{NotifQueue, Notification};
+pub use signal::Signal;
 pub use state::{EntityKey, State};
 pub use subscriber::Subscriber;
 
@@ -29,6 +29,6 @@ use component_key::ComponentKey;
 use conduit::*;
 use conduit_subscriber_list::ConduitSubscriberList;
 use entity::Entity;
-use event_element::EventsDontTakeInputSilly;
+use signal::SignalsDontTakeInputSilly;
 use subscriber_list::SubscriberList;
 use subscription::Subscription;

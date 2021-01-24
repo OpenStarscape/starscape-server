@@ -1,7 +1,7 @@
 use super::*;
 
 pub struct God {
-    ship_created: EventElement<EntityKey>,
+    ship_created: Signal<EntityKey>,
     max_connections: Element<u64>,
     current_connections: Element<u64>,
 }
@@ -9,7 +9,7 @@ pub struct God {
 impl Default for God {
     fn default() -> Self {
         Self {
-            ship_created: EventElement::new(),
+            ship_created: Signal::new(),
             max_connections: Element::new(0),
             current_connections: Element::new(0),
         }
@@ -23,7 +23,7 @@ impl God {
 
         self.ship_created
             .conduit(&state.notif_queue)
-            .install_event(state, entity, "ship_created");
+            .install_signal(state, entity, "ship_created");
         ActionConduit::new(move |state, (position, velocity)| {
             let ship = create_ship(state, position, velocity);
             state.component_mut::<God>(entity)?.ship_created.fire(ship);

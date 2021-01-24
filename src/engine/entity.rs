@@ -42,7 +42,7 @@ impl Entity {
         self.components.get::<ComponentKey<T>>()
     }
 
-    /// Registers a conduit as a property/event/action, shows error and does nothing else if there
+    /// Registers a conduit as a property/signal/action, shows error and does nothing else if there
     /// is already a registered conduit with the same name
     pub fn register_conduit<F>(&mut self, name: &'static str, f: F)
     where
