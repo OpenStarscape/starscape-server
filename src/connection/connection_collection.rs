@@ -3,23 +3,23 @@ use super::*;
 /// See try_to_build_connection for why this is needed
 struct StubConnection;
 impl Connection for StubConnection {
-    fn process_requests(&mut self, _: &mut dyn InboundMessageHandler) {
+    fn process_requests(&mut self, _: &mut dyn RequestHandler) {
         error!("StubConnection::process_requests() called");
     }
     fn send_event(&self, _: Event) {
         error!("StubConnection::send_event() called");
     }
-    fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
+    fn flush(&mut self, _: &mut dyn RequestHandler) -> Result<(), ()> {
         error!("StubConnection::flush() called");
         Err(())
     }
-    fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {
+    fn finalize(&mut self, _: &mut dyn RequestHandler) {
         error!("StubConnection::finalize() called");
     }
 }
 
-struct NullInboundMessageHandler;
-impl InboundMessageHandler for NullInboundMessageHandler {
+struct NullRequestHandler;
+impl RequestHandler for NullRequestHandler {
     fn fire_action(
         &mut self,
         _: ConnectionKey,
@@ -81,7 +81,7 @@ impl ConnectionCollection {
 
     /// Handle incoming connection requests and messages from clients on the current thread. Should
     /// be called at the start of each network tick.
-    pub fn process_inbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
+    pub fn process_inbound_messages(&mut self, handler: &mut dyn RequestHandler) {
         // If we need to update the max connections property on the state, do so
         if self.set_max_connections {
             handler
@@ -113,7 +113,7 @@ impl ConnectionCollection {
     }
 
     /// Called after game state has been fully updated before waiting for the next tick
-    pub fn flush_outbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
+    pub fn flush_outbound_messages(&mut self, handler: &mut dyn RequestHandler) {
         let failed_connections: Vec<ConnectionKey> = self
             .connections
             .iter_mut()
@@ -143,7 +143,7 @@ impl ConnectionCollection {
                         "server full (max {} connections)",
                         self.max_connections
                     )));
-                    conn.finalize(&mut NullInboundMessageHandler);
+                    conn.finalize(&mut NullRequestHandler);
                 }
                 Err(e) => error!("failed to build connection: {}", e),
             };
@@ -170,7 +170,7 @@ impl ConnectionCollection {
         }
     }
 
-    pub fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
+    pub fn finalize(&mut self, handler: &mut dyn RequestHandler) {
         for (_, mut connection) in self.connections.drain() {
             connection.send_event(Event::FatalError("server has shut down".to_string()));
             let _ = connection.flush(handler);
@@ -179,7 +179,7 @@ impl ConnectionCollection {
     }
 }
 
-impl OutboundMessageHandler for ConnectionCollection {
+impl EventHandler for ConnectionCollection {
     fn event(&self, connection: ConnectionKey, event: Event) {
         if let Some(connection) = self.connections.get(connection) {
             connection.send_event(event);
@@ -236,16 +236,16 @@ mod tests {
     }
 
     impl Connection for MockConnection {
-        fn process_requests(&mut self, _: &mut dyn InboundMessageHandler) {}
+        fn process_requests(&mut self, _: &mut dyn RequestHandler) {}
         fn send_event(&self, _: Event) {}
-        fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
+        fn flush(&mut self, _: &mut dyn RequestHandler) -> Result<(), ()> {
             if self.flush_succeeds {
                 Ok(())
             } else {
                 Err(())
             }
         }
-        fn finalize(&mut self, _: &mut dyn InboundMessageHandler) {}
+        fn finalize(&mut self, _: &mut dyn RequestHandler) {}
     }
 
     struct MockInboundHandler(RefCell<Vec<(String, EntityKey, String)>>);
@@ -256,7 +256,7 @@ mod tests {
         }
     }
 
-    impl InboundMessageHandler for MockInboundHandler {
+    impl RequestHandler for MockInboundHandler {
         fn fire_action(
             &mut self,
             _: ConnectionKey,

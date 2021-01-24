@@ -34,11 +34,7 @@ impl<C> Subscriber for PropertyConduit<C>
 where
     C: Conduit<Encodable, Decoded> + 'static,
 {
-    fn notify(
-        &self,
-        state: &State,
-        handler: &dyn OutboundMessageHandler,
-    ) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, handler: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
         let value = self.inner.output(state)?;
         handler.event(
             self.connection,

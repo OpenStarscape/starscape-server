@@ -2,7 +2,7 @@ use super::*;
 
 /// Processes requests from a client. Implemented by State in the engine and used by
 /// ConnectionCollection.
-pub trait InboundMessageHandler {
+pub trait RequestHandler {
     fn fire_action(
         &mut self,
         connection: ConnectionKey,
@@ -33,4 +33,10 @@ pub trait InboundMessageHandler {
     ) -> Result<Box<dyn Any>, String>;
     /// Takes a subscription that was previously returned from subscribe()
     fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String>;
+}
+
+/// Allows sending property updates and other messages to clients. Implemented by
+/// ConnectionCollection and used by the engine.
+pub trait EventHandler {
+    fn event(&self, connection: ConnectionKey, event: Event);
 }

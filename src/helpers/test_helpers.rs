@@ -75,15 +75,15 @@ pub fn mock_keys<T: Key>(number: u32) -> Vec<T> {
     (0..number).map(|_| map.insert(())).collect()
 }
 
-pub struct MockOutboundMessageHandler(pub RefCell<Vec<(ConnectionKey, Event)>>);
+pub struct MockEventHandler(pub RefCell<Vec<(ConnectionKey, Event)>>);
 
-impl MockOutboundMessageHandler {
+impl MockEventHandler {
     pub fn new() -> Self {
         Self(RefCell::new(Vec::new()))
     }
 }
 
-impl OutboundMessageHandler for MockOutboundMessageHandler {
+impl EventHandler for MockEventHandler {
     fn event(&self, connection: ConnectionKey, event: Event) {
         self.0.borrow_mut().push((connection, event));
     }
@@ -125,7 +125,7 @@ impl MockSubscriber {
 }
 
 impl Subscriber for MockSubscriberInner {
-    fn notify(&self, state: &State, _: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, _: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
         *self.count.borrow_mut() += 1;
         (self.f)(state);
         Ok(())
