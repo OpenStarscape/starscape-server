@@ -3,6 +3,9 @@ use super::*;
 /// See try_to_build_connection for why this is needed
 struct StubConnection;
 impl Connection for StubConnection {
+    fn process_requests(&mut self, _: &mut dyn InboundMessageHandler) {
+        error!("StubConnection::process_requests() called");
+    }
     fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {
         error!("StubConnection::property_value() called");
     }
@@ -14,15 +17,6 @@ impl Connection for StubConnection {
     }
     fn entity_destroyed(&self, _: &State, _: EntityKey) {
         error!("StubConnection::entity_destroyed() called");
-    }
-    fn handle_request(
-        &mut self,
-        _: &mut dyn InboundMessageHandler,
-        _: EntityKey,
-        _: &str,
-        _: ObjectRequest,
-    ) {
-        error!("StubConnection::handle_request() called");
     }
     fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
         error!("StubConnection::flush() called");
@@ -60,8 +54,6 @@ pub struct ConnectionCollection {
     root_entity: EntityKey,
     connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
-    request_tx: Sender<Request>,
-    request_rx: Receiver<Request>,
     max_connections: usize,
     set_max_connections: bool,
 }
@@ -72,13 +64,10 @@ impl ConnectionCollection {
         root_entity: EntityKey,
         max_connections: usize,
     ) -> Self {
-        let (request_tx, request_rx) = channel();
         Self {
             root_entity,
             connections: DenseSlotMap::with_key(),
             new_session_rx,
-            request_tx,
-            request_rx,
             max_connections,
             set_max_connections: true,
         }
@@ -87,6 +76,7 @@ impl ConnectionCollection {
     /// Handle incoming connection requests and messages from clients on the current thread. Should
     /// be called at the start of each network tick.
     pub fn process_inbound_messages(&mut self, handler: &mut dyn InboundMessageHandler) {
+        // If we need to update the max connections property on the state, do so
         if self.set_max_connections {
             handler
                 .set(
@@ -110,10 +100,9 @@ impl ConnectionCollection {
                 )
                 .or_log_error("setting connection count property");
         }
-        // Process pending requests
-        while let Ok(request) = self.request_rx.try_recv() {
-            trace!("got request: {:?}", request);
-            self.request(handler, request);
+        // Process requests on all connections
+        for connection in self.connections.values_mut() {
+            connection.process_requests(handler);
         }
     }
 
@@ -141,13 +130,8 @@ impl ConnectionCollection {
                 self.connections.len(),
                 builder
             );
-            let (tx, _) = channel();
-            match ConnectionImpl::new_with_json(
-                ConnectionKey::null(),
-                self.root_entity,
-                builder,
-                tx,
-            ) {
+            // Build a temporary connection in order to report the error to the client
+            match ConnectionImpl::new_with_json(ConnectionKey::null(), self.root_entity, builder) {
                 Ok(mut conn) => {
                     conn.error(&format!(
                         "server full (max {} connections)",
@@ -166,10 +150,9 @@ impl ConnectionCollection {
         // the given function can not fail. Connection building can fail, so we have to return a
         // stub connection in that case (and then immediately remove it). A mess, I know.
         let mut failed_to_build = false;
-        let request_tx = self.request_tx.clone();
         let root_entity = self.root_entity;
         let key = self.connections.insert_with_key(|key| {
-            match ConnectionImpl::new_with_json(key, root_entity, builder, request_tx) {
+            match ConnectionImpl::new_with_json(key, root_entity, builder) {
                 Ok(conn) => Box::new(conn),
                 Err(e) => {
                     failed_to_build = true;
@@ -181,27 +164,6 @@ impl ConnectionCollection {
         if failed_to_build {
             self.connections.remove(key);
         }
-    }
-
-    fn request(&mut self, handler: &mut dyn InboundMessageHandler, request: Request) {
-        match request.data {
-            RequestData::Object((entity, prop), action) => {
-                match self.connections.get_mut(request.connection) {
-                    Some(connection) => connection.handle_request(handler, entity, &prop, action),
-                    None => warn!(
-                        "request {:?} {:?}.{} on dead connection {:?}",
-                        action, entity, prop, request.connection
-                    ),
-                }
-            }
-            RequestData::Close => {
-                info!("closing connection {:?}", request.connection);
-                match self.connections.remove(request.connection) {
-                    Some(mut connection) => connection.finalize(handler),
-                    None => error!("invalid connection closed: {:?}", request.connection),
-                }
-            }
-        };
     }
 
     pub fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
@@ -288,18 +250,11 @@ mod tests {
     }
 
     impl Connection for MockConnection {
+        fn process_requests(&mut self, _: &mut dyn InboundMessageHandler) {}
         fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {}
         fn signal(&self, _: EntityKey, _: &str, _: &Encodable) {}
         fn error(&self, _: &str) {}
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
-        fn handle_request(
-            &mut self,
-            _: &mut dyn InboundMessageHandler,
-            _: EntityKey,
-            _: &str,
-            _: ObjectRequest,
-        ) {
-        }
         fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
             if self.flush_succeeds {
                 Ok(())

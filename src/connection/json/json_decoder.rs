@@ -35,10 +35,7 @@ impl JsonDecoder {
             1 => {
                 if let Some(obj_id) = array[0].as_i64() {
                     // An array-wrapped int is an object ID
-                    match ctx.entity_for(obj_id as u64) {
-                        Some(entity) => Ok(Decoded::Entity(entity)),
-                        None => Err(format!("object {} does not exist", obj_id)),
-                    }
+                    ctx.entity_for(obj_id as u64).map(Decoded::Entity)
                 } else if let Some(array) = array[0].as_array() {
                     // An array-wrapped array is an actual array
                     let result: Result<Vec<_>, _> = array
@@ -81,30 +78,34 @@ impl JsonDecoder {
         }
     }
 
-    fn decode_obj_prop(
+    fn decode_obj(
         ctx: &dyn DecodeCtx,
         datagram: &serde_json::map::Map<String, Value>,
-    ) -> Result<EntityProperty, Box<dyn Error>> {
+    ) -> Result<EntityKey, Box<dyn Error>> {
         let obj = datagram
             .get("object")
             .ok_or("request does not have an object ID")?
             .as_u64()
             .ok_or("object ID not an unsigned int")?;
-        let entity = ctx.entity_for(obj).ok_or("unknown object")?;
-        let prop = datagram
+        ctx.entity_for(obj).map_err(Into::into)
+    }
+
+    fn decode_name(
+        datagram: &serde_json::map::Map<String, Value>,
+    ) -> Result<String, Box<dyn Error>> {
+        Ok(datagram
             .get("property")
             .ok_or("request does not have a property")?
             .as_str()
             .ok_or("property not a string")?
-            .to_owned();
-        Ok((entity, prop))
+            .to_string())
     }
 
     fn decode_datagram(
         &self,
         ctx: &dyn DecodeCtx,
         bytes: &[u8],
-    ) -> Result<RequestData, Box<dyn Error>> {
+    ) -> Result<Request, Box<dyn Error>> {
         // serde doesn't handle internally tagged enums terribly well
         // (https://github.com/serde-rs/serde/issues/1495)
         // and this is unlikely to be a bottleneck so easier to just deserialize into a Value
@@ -118,8 +119,9 @@ impl JsonDecoder {
             .as_str()
             .ok_or("request type is not a string")?;
         Ok(match mtype {
-            "set" => RequestData::Object(
-                Self::decode_obj_prop(ctx, &datagram)?,
+            "set" => Request::Object(
+                Self::decode_obj(ctx, &datagram)?,
+                Self::decode_name(&datagram)?,
                 ObjectRequest::Set(
                     self.decode_value(
                         ctx,
@@ -129,15 +131,19 @@ impl JsonDecoder {
                     )?,
                 ),
             ),
-            "get" => {
-                RequestData::Object(Self::decode_obj_prop(ctx, &datagram)?, ObjectRequest::Get)
-            }
-            "subscribe" => RequestData::Object(
-                Self::decode_obj_prop(ctx, &datagram)?,
+            "get" => Request::Object(
+                Self::decode_obj(ctx, &datagram)?,
+                Self::decode_name(&datagram)?,
+                ObjectRequest::Get,
+            ),
+            "subscribe" => Request::Object(
+                Self::decode_obj(ctx, &datagram)?,
+                Self::decode_name(&datagram)?,
                 ObjectRequest::Subscribe,
             ),
-            "unsubscribe" => RequestData::Object(
-                Self::decode_obj_prop(ctx, &datagram)?,
+            "unsubscribe" => Request::Object(
+                Self::decode_obj(ctx, &datagram)?,
+                Self::decode_name(&datagram)?,
                 ObjectRequest::Unsubscribe,
             ),
             _ => return Err("request has invalid mtype".into()),
@@ -150,7 +156,7 @@ impl Decoder for JsonDecoder {
         &mut self,
         ctx: &dyn DecodeCtx,
         bytes: Vec<u8>,
-    ) -> Result<Vec<RequestData>, Box<dyn Error>> {
+    ) -> Result<Vec<Request>, Box<dyn Error>> {
         let mut requests = Vec::new();
         for datagram in self.splitter.data(bytes) {
             requests.push(self.decode_datagram(ctx, &datagram)?);
@@ -183,8 +189,11 @@ impl std::ops::Index<usize> for MockDecodeCtx {
 
 #[cfg(test)]
 impl DecodeCtx for MockDecodeCtx {
-    fn entity_for(&self, obj: ObjectId) -> Option<EntityKey> {
-        self.e.get(obj as usize).cloned()
+    fn entity_for(&self, obj: ObjectId) -> Result<EntityKey, String> {
+        self.e
+            .get(obj as usize)
+            .cloned()
+            .ok_or_else(|| "invalid obj".to_string())
     }
 }
 
@@ -196,7 +205,7 @@ mod decode_tests {
     struct TerrifiedDecodeCtx;
 
     impl DecodeCtx for TerrifiedDecodeCtx {
-        fn entity_for(&self, _obj: ObjectId) -> Option<EntityKey> {
+        fn entity_for(&self, _obj: ObjectId) -> Result<EntityKey, String> {
             panic!("should not have been called")
         }
     }
@@ -316,7 +325,7 @@ mod decode_tests {
 
     #[test]
     fn unknown_object_is_error() {
-        assert_results_in_error_with_ctx(&MockDecodeCtx::new(12), "[88]", "88 does not exist");
+        assert_results_in_error_with_ctx(&MockDecodeCtx::new(12), "[88]", "invalid obj");
     }
 }
 
@@ -324,9 +333,9 @@ mod decode_tests {
 mod message_tests {
     use super::*;
     use ObjectRequest::*;
-    use RequestData::*;
+    use Request::*;
 
-    fn assert_results_in_request(ctx: &dyn DecodeCtx, json: &str, request: RequestData) {
+    fn assert_results_in_request(ctx: &dyn DecodeCtx, json: &str, request: Request) {
         let mut decoder = JsonDecoder::new();
         let result = decoder
             .decode(ctx, json.as_bytes().to_owned())
@@ -356,7 +365,7 @@ mod message_tests {
                 \"object\": 6, \
                 \"property\": \"foobar\" \
             }\n",
-            Object((e[6], "foobar".to_owned()), Get),
+            Object(e[6], "foobar".to_owned(), Get),
         );
     }
 
@@ -371,7 +380,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": null \
             }\n",
-            Object((e[9], "xyz".to_owned()), Set(Decoded::Null)),
+            Object(e[9], "xyz".to_owned(), Set(Decoded::Null)),
         );
     }
 
@@ -385,7 +394,7 @@ mod message_tests {
                 \"object\": 2, \
                 \"property\": \"abc\" \
             }\n",
-            Object((e[2], "abc".to_owned()), Subscribe),
+            Object(e[2], "abc".to_owned(), Subscribe),
         );
     }
 
@@ -399,7 +408,7 @@ mod message_tests {
                 \"object\": 11, \
                 \"property\": \"abc\" \
             }\n",
-            Object((e[11], "abc".to_owned()), Unsubscribe),
+            Object(e[11], "abc".to_owned(), Unsubscribe),
         );
     }
 
@@ -436,9 +445,9 @@ mod message_tests {
         assert_eq!(
             result,
             vec![
-                Object((e[2], "foobar".to_owned()), Get),
-                Object((e[8], "abc".to_owned()), Set(Decoded::Integer(12))),
-                Object((e[11], "xyz".to_owned()), Subscribe)
+                Object(e[2], "foobar".to_owned(), Get),
+                Object(e[8], "abc".to_owned(), Set(Decoded::Integer(12))),
+                Object(e[11], "xyz".to_owned(), Subscribe)
             ]
         );
     }
@@ -469,9 +478,9 @@ mod message_tests {
         assert_eq!(
             result,
             vec![
-                Object((e[3], "foobar".to_owned()), Get),
-                Object((e[5], "abc".to_owned()), Set(Decoded::Integer(12))),
-                Object((e[7], "xyz".to_owned()), Subscribe)
+                Object(e[3], "foobar".to_owned(), Get),
+                Object(e[5], "abc".to_owned(), Set(Decoded::Integer(12))),
+                Object(e[7], "xyz".to_owned(), Subscribe)
             ]
         );
     }
@@ -510,9 +519,9 @@ mod message_tests {
         assert_eq!(
             result,
             vec![
-                Object((e[9], "foobar".to_owned()), Get),
-                Object((e[2], "abc".to_owned()), Set(Decoded::Integer(12))),
-                Object((e[1], "xyz".to_owned()), Subscribe)
+                Object(e[9], "foobar".to_owned(), Get),
+                Object(e[2], "abc".to_owned(), Set(Decoded::Integer(12))),
+                Object(e[1], "xyz".to_owned(), Subscribe)
             ]
         );
     }

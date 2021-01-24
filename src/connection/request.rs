@@ -1,7 +1,6 @@
 use super::*;
 
-pub type EntityProperty = (EntityKey, String);
-
+/// An action on a property, signal or action of an object
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectRequest {
     Set(Decoded),
@@ -10,35 +9,11 @@ pub enum ObjectRequest {
     Unsubscribe,
 }
 
+/// Represents a message from a client to the server
 #[derive(Debug, PartialEq, Clone)]
-pub enum RequestData {
-    Object(EntityProperty, ObjectRequest),
+pub enum Request {
+    /// A request on an object (represented by an entity). The String is the member name.
+    Object(EntityKey, String, ObjectRequest),
+    /// Indicates the session should close.
     Close,
-}
-
-/// An incomming message from a client, only used in the connection module
-#[derive(Debug, PartialEq, Clone)]
-pub struct Request {
-    pub connection: ConnectionKey,
-    pub data: RequestData,
-}
-
-impl Request {
-    pub fn new(connection: ConnectionKey, data: RequestData) -> Self {
-        Self { connection, data }
-    }
-
-    #[allow(dead_code)]
-    pub fn new_object_request(
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: String,
-        data: ObjectRequest,
-    ) -> Self {
-        Self::new(connection, RequestData::Object((entity, property), data))
-    }
-
-    pub fn new_close_request(connection: ConnectionKey) -> Self {
-        Self::new(connection, RequestData::Close)
-    }
 }
