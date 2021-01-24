@@ -6,6 +6,7 @@ pub struct ConduitSubscriberList {
     has_subscribers: AtomicBool,
 }
 
+// TODO: document
 impl ConduitSubscriberList {
     pub fn new() -> Self {
         Self {
@@ -14,14 +15,12 @@ impl ConduitSubscriberList {
         }
     }
 
-    pub fn send_notifications(&self, state: &State, prop_update_subscriber: &dyn EventHandler) {
+    pub fn send_notifications(&self, state: &State, handler: &dyn EventHandler) {
         if self.has_subscribers.load(SeqCst) {
             let lock = self.lock.lock().expect("failed to lock subscribers");
             for (_ptr, subscriber) in &lock.0 {
                 if let Some(subscriber) = subscriber.upgrade() {
-                    subscriber
-                        .notify(state, prop_update_subscriber)
-                        .or_log_error("failed to process notification");
+                    subscriber.notify(state, handler);
                 } else {
                     error!(
                         "failed to lock Weak; should have been unsubscribed before being dropped"
