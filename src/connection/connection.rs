@@ -130,7 +130,12 @@ impl ConnectionImpl {
     ) -> Result<(), String> {
         use std::collections::hash_map::Entry;
         match data {
-            ObjectRequest::Set(value) => handler.set(self.self_key, entity, property, value)?,
+            ObjectRequest::Fire(value) => {
+                handler.fire_action(self.self_key, entity, property, value)?;
+            }
+            ObjectRequest::Set(value) => {
+                handler.set_property(self.self_key, entity, property, value)?;
+            }
             ObjectRequest::Get => {
                 // it doesn't matter if it's already there or not, it's not an error to make two
                 // get requests but it will only result in one response.
@@ -299,7 +304,7 @@ impl Connection for ConnectionImpl {
             // When a client subscribes to a signal, we have no way of knowing it's a signal and
             // not a property, so it goes in the pending get requests list and is processed here.
             // That fails, and so we simply ignore errors here. There's probably a better way.
-            if let Ok(value) = handler.get(self.self_key, *entity, property) {
+            if let Ok(value) = handler.get_property(self.self_key, *entity, property) {
                 self.property_value(*entity, property, &value, false);
             }
         }

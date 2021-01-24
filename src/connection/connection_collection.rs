@@ -29,10 +29,25 @@ impl Connection for StubConnection {
 
 struct NullInboundMessageHandler;
 impl InboundMessageHandler for NullInboundMessageHandler {
-    fn set(&mut self, _: ConnectionKey, _: EntityKey, _: &str, _: Decoded) -> Result<(), String> {
+    fn fire_action(
+        &mut self,
+        _: ConnectionKey,
+        _: EntityKey,
+        _: &str,
+        _: Decoded,
+    ) -> Result<(), String> {
         Err("connection failed".into())
     }
-    fn get(&self, _: ConnectionKey, _: EntityKey, _: &str) -> Result<Encodable, String> {
+    fn set_property(
+        &mut self,
+        _: ConnectionKey,
+        _: EntityKey,
+        _: &str,
+        _: Decoded,
+    ) -> Result<(), String> {
+        Err("connection failed".into())
+    }
+    fn get_property(&self, _: ConnectionKey, _: EntityKey, _: &str) -> Result<Encodable, String> {
         Err("connection failed".into())
     }
     fn subscribe(
@@ -79,7 +94,7 @@ impl ConnectionCollection {
         // If we need to update the max connections property on the state, do so
         if self.set_max_connections {
             handler
-                .set(
+                .set_property(
                     ConnectionKey::null(),
                     self.root_entity,
                     "max_conn_count",
@@ -92,7 +107,7 @@ impl ConnectionCollection {
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
             self.try_to_build_connection(session_builder);
             handler
-                .set(
+                .set_property(
                     ConnectionKey::null(),
                     self.root_entity,
                     "conn_count",
@@ -272,39 +287,51 @@ mod tests {
     }
 
     impl InboundMessageHandler for MockInboundHandler {
-        fn set(
+        fn fire_action(
             &mut self,
             _: ConnectionKey,
             entity: EntityKey,
-            property: &str,
+            name: &str,
             _: Decoded,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()
-                .push(("set".into(), entity, property.into()));
+                .push(("fire".into(), entity, name.into()));
             Ok(())
         }
-        fn get(
+        fn set_property(
+            &mut self,
+            _: ConnectionKey,
+            entity: EntityKey,
+            name: &str,
+            _: Decoded,
+        ) -> Result<(), String> {
+            self.0
+                .borrow_mut()
+                .push(("set".into(), entity, name.into()));
+            Ok(())
+        }
+        fn get_property(
             &self,
             _: ConnectionKey,
             entity: EntityKey,
-            property: &str,
+            name: &str,
         ) -> Result<Encodable, String> {
             self.0
                 .borrow_mut()
-                .push(("get".into(), entity, property.into()));
+                .push(("get".into(), entity, name.into()));
             Ok(Encodable::Null)
         }
         fn subscribe(
             &mut self,
             _: ConnectionKey,
             entity: EntityKey,
-            property: &str,
+            name: &str,
         ) -> Result<Box<dyn Any>, String> {
             self.0
                 .borrow_mut()
-                .push(("subscribe".into(), entity, property.into()));
-            let subscription: (EntityKey, String) = (entity, property.into());
+                .push(("subscribe".into(), entity, name.into()));
+            let subscription: (EntityKey, String) = (entity, name.into());
             Ok(Box::new(subscription))
         }
         fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String> {

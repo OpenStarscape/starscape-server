@@ -119,6 +119,18 @@ impl JsonDecoder {
             .as_str()
             .ok_or("request type is not a string")?;
         Ok(match mtype {
+            "fire" => Request::Object(
+                Self::decode_obj(ctx, &datagram)?,
+                Self::decode_name(&datagram)?,
+                ObjectRequest::Fire(
+                    self.decode_value(
+                        ctx,
+                        datagram
+                            .get("value")
+                            .ok_or("fire request does not have a value")?,
+                    )?,
+                ),
+            ),
             "set" => Request::Object(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
@@ -381,6 +393,21 @@ mod message_tests {
 				\"value\": null \
             }\n",
             Object(e[9], "xyz".to_owned(), Set(Decoded::Null)),
+        );
+    }
+
+    #[test]
+    fn basic_fire_request() {
+        let e = MockDecodeCtx::new(12);
+        assert_results_in_request(
+            &e,
+            "{ \
+                \"mtype\": \"fire\", \
+                \"object\": 9, \
+                \"property\": \"xyz\", \
+				\"value\": 12 \
+            }\n",
+            Object(e[9], "xyz".to_owned(), Fire(Decoded::Integer(12))),
         );
     }
 

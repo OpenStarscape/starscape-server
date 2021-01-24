@@ -3,6 +3,7 @@ use super::*;
 /// An action on a property, signal or action of an object
 #[derive(Debug, PartialEq, Clone)]
 pub enum ObjectRequest {
+    Fire(Decoded),
     Set(Decoded),
     Get,
     Subscribe,
