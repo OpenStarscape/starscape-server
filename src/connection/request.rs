@@ -3,8 +3,8 @@ use super::*;
 /// The data for a method request. That is, a request on an object memeber.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RequestMethod {
-    Action(Decoded),
-    Set(Decoded),
+    Action(Value),
+    Set(Value),
     Get,
     Subscribe,
     Unsubscribe,
@@ -21,11 +21,11 @@ pub enum Request {
 }
 
 impl Request {
-    pub fn action(entity: EntityKey, name: String, value: Decoded) -> Self {
+    pub fn action(entity: EntityKey, name: String, value: Value) -> Self {
         Self::Method(entity, name, RequestMethod::Action(value))
     }
 
-    pub fn set(entity: EntityKey, name: String, value: Decoded) -> Self {
+    pub fn set(entity: EntityKey, name: String, value: Value) -> Self {
         Self::Method(entity, name, RequestMethod::Set(value))
     }
 

@@ -16,7 +16,7 @@ pub enum EventMethod {
 pub enum Event {
     /// A method on an object member (property/action/signal). The member is represented by it's
     /// entity and name).
-    Method(EntityKey, String, EventMethod, Encodable),
+    Method(EntityKey, String, EventMethod, Value),
     /// Notify the client that an object has been destroyed and wont be used any more
     Destroyed(EntityKey),
     /// Some problem has caused the server or connection to fail. This should be the last event
@@ -25,15 +25,15 @@ pub enum Event {
 }
 
 impl Event {
-    pub fn value(entity: EntityKey, name: String, value: Encodable) -> Self {
+    pub fn value(entity: EntityKey, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Value, value)
     }
 
-    pub fn update(entity: EntityKey, name: String, value: Encodable) -> Self {
+    pub fn update(entity: EntityKey, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Update, value)
     }
 
-    pub fn signal(entity: EntityKey, name: String, value: Encodable) -> Self {
+    pub fn signal(entity: EntityKey, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Signal, value)
     }
 }

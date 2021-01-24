@@ -9,9 +9,9 @@ impl<T: 'static> ComponentListConduit<T> {
     }
 }
 
-impl<T: 'static> Conduit<Encodable, ReadOnlyPropSetType> for ComponentListConduit<T> {
-    fn output(&self, state: &State) -> Result<Encodable, String> {
-        let entities: Vec<Encodable> = state
+impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T> {
+    fn output(&self, state: &State) -> Result<Value, String> {
+        let entities: Vec<Value> = state
             .components_iter::<T>()
             .map(|(entity, _)| entity.into())
             .collect();

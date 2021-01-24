@@ -37,17 +37,17 @@ pub trait Conduit<O, I> {
     fn install_property(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
-        O: Into<Encodable> + 'static,
+        O: Into<Value> + 'static,
         I: 'static,
-        Decoded: Into<Result<I, String>>,
+        Value: Into<Result<I, String>>,
     {
-        state.install_property(entity, name, self.map_into::<Encodable, Decoded>());
+        state.install_property(entity, name, self.map_into::<Value, Value>());
     }
 
     fn install_signal<T>(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
-        T: Into<Encodable>,
+        T: Into<Value>,
         O: IntoIterator<Item = T> + 'static,
         I: 'static,
         SignalsDontTakeInputSilly: Into<Result<I, String>>,
@@ -63,20 +63,20 @@ pub trait Conduit<O, I> {
         Self: Sized + 'static,
         O: Into<ActionsDontProduceOutputSilly> + 'static,
         I: 'static,
-        Decoded: Into<Result<I, String>>,
+        Value: Into<Result<I, String>>,
     {
         state.install_action(
             entity,
             name,
-            self.map_into::<ActionsDontProduceOutputSilly, Decoded>(),
+            self.map_into::<ActionsDontProduceOutputSilly, Value>(),
         );
     }
 }
 
 pub enum ReadOnlyPropSetType {}
 
-impl From<Decoded> for Result<ReadOnlyPropSetType, String> {
-    fn from(_value: Decoded) -> Result<ReadOnlyPropSetType, String> {
+impl From<Value> for Result<ReadOnlyPropSetType, String> {
+    fn from(_value: Value) -> Result<ReadOnlyPropSetType, String> {
         Err("read_only_property".to_string())
     }
 }

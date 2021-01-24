@@ -39,7 +39,7 @@ where
         let mut cached = self
             .cached_value
             .lock()
-            .expect("failed to lock cached Encodable mutex");
+            .expect("failed to lock cached Value mutex");
         if cached.as_ref() != Some(&value) {
             *cached = Some(value);
             self.subscribers.send_notifications(state, sink);
@@ -108,7 +108,7 @@ mod tests {
     impl MockConduit {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self {
-                value_to_get: Err("no Encodable yet".to_owned()),
+                value_to_get: Err("no Value yet".to_owned()),
                 subscribed: None,
             }))
         }

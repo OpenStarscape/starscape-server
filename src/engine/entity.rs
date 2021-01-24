@@ -1,7 +1,6 @@
 use super::*;
 
-type ConduitBuilder =
-    Box<dyn Fn(ConnectionKey) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String>>;
+type ConduitBuilder = Box<dyn Fn(ConnectionKey) -> Result<Box<dyn Conduit<Value, Value>>, String>>;
 
 /// Conceptual owner of the various components in the state that make up a single "thing"
 pub struct Entity {
@@ -46,7 +45,7 @@ impl Entity {
     /// is already a registered conduit with the same name
     pub fn register_conduit<F>(&mut self, name: &'static str, f: F)
     where
-        F: Fn(ConnectionKey) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String> + 'static,
+        F: Fn(ConnectionKey) -> Result<Box<dyn Conduit<Value, Value>>, String> + 'static,
     {
         use std::collections::hash_map::Entry;
         match self.conduit_builders.entry(name) {
@@ -67,7 +66,7 @@ impl Entity {
         &self,
         connection: ConnectionKey,
         name: &str,
-    ) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String> {
+    ) -> Result<Box<dyn Conduit<Value, Value>>, String> {
         match self.conduit_builders.get(name) {
             Some(builder) => builder(connection),
             None => Err(format!("entity does not have member {:?}", name)),
