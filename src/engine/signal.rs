@@ -1,38 +1,53 @@
 use super::*;
 
-struct Signals<T> {
-    signals: Vec<T>,
-    notif_queue: Initializable<NotifQueue>,
+struct PendingSignalEvents<T> {
+    /// Holds all the signal events queued up to be send this tick. When the dispatcher is notified
+    /// all subscribers registered to the notif_queue are notified to give them a chance to process
+    /// the signal events, then all events are dropped.
+    signal_events: Vec<T>,
+    /// Must be inside the lock becuase it's initialized after construction. Shared handle to the
+    /// State's NotifQueue. Our subscribers __do not__ go here. Instead the dispatcher goes here,
+    /// which then notifies our subscribers. This is so we only get one notification per tick, and
+    /// can flush the pending events at the end of it without future notifications wanting them.
+    state_notif_queue: Initializable<NotifQueue>,
 }
 
+/// Managing dispatching a signal to a list of subscribers. This is tricky because there can be
+/// multiple signal events in a single tick and multiple subscribers and no great way to flush all
+/// the events at the end. Instead of putting all subscribers on the State's NotifQueue, we put this
+/// dispatcher on the State's NotifQueue no more than once, and manage notifying subscribers
+/// ourselves. This way we can know when all subscribers have been notified for this tick and clear
+/// pending signal events.
 struct Dispatcher<T> {
-    signals: Mutex<Signals<T>>,
-    /// Needs to be on a differnt lock than signals so notify() doesn't deadlock
-    subscribers: ConduitSubscriberList,
+    /// The signal events that have been queued up and not yet dispatched
+    pending: Mutex<PendingSignalEvents<T>>,
+    /// Needs to be on a differnt lock than pending so notify() doesn't deadlock
+    subscribers: SyncSubscriberList,
 }
 
 impl<T> Dispatcher<T> {
     fn new() -> Self {
         Self {
-            signals: Mutex::new(Signals {
-                signals: Vec::new(),
-                notif_queue: Initializable::new(),
+            pending: Mutex::new(PendingSignalEvents {
+                signal_events: Vec::new(),
+                state_notif_queue: Initializable::new(),
             }),
-            subscribers: ConduitSubscriberList::new(),
+            subscribers: SyncSubscriberList::new(),
         }
     }
 }
 
 impl<T> Subscriber for Dispatcher<T> {
     fn notify(&self, state: &State, handler: &dyn EventHandler) {
+        // this notifies our subscribers,
         self.subscribers.send_notifications(state, handler);
         // now that the notifications have been processed we clear the pending signals
-        let mut signals = self.signals.lock().unwrap();
-        signals.signals.clear();
+        let mut pending = self.pending.lock().unwrap();
+        pending.signal_events.clear();
         // Balence between not letting a very active tick consume a lot of memory indefinitely and
         // not requiring reallocation every time
-        if signals.signals.capacity() > 10 {
-            signals.signals.shrink_to_fit();
+        if pending.signal_events.capacity() > 10 {
+            pending.signal_events.shrink_to_fit();
         }
     }
 }
@@ -52,9 +67,9 @@ impl<T: Clone> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak<Dispatcher<T>
         let dispatcher = self
             .upgrade()
             .ok_or_else(|| InternalError("signal no longer exists".into()))?;
-        let signals = dispatcher.signals.lock().unwrap();
+        let pending = dispatcher.pending.lock().unwrap();
         // We have to clone because there might be mutliple subscribers
-        Ok(signals.signals.clone())
+        Ok(pending.signal_events.clone())
     }
 
     fn input(&self, _: &mut State, _: SignalsDontTakeInputSilly) -> RequestResult<()> {
@@ -91,10 +106,10 @@ impl<T: Clone + 'static> Signal<T> {
     /// Fire a signal. Requires mut conceptually even though it could be implemented without it.
     pub fn fire(&mut self, data: T) {
         if let Some(dispatcher) = &self.dispatcher {
-            let mut signals = dispatcher.signals.lock().unwrap();
+            let mut pending = dispatcher.pending.lock().unwrap();
             // Only add the dispatcher to the notification queue for the first signal fired
-            if signals.signals.is_empty() {
-                match signals.notif_queue.get() {
+            if pending.signal_events.is_empty() {
+                match pending.state_notif_queue.get() {
                     Ok(notif_queue) => notif_queue
                         .extend(std::iter::once(
                             Arc::downgrade(&dispatcher) as Weak<dyn Subscriber>
@@ -102,7 +117,7 @@ impl<T: Clone + 'static> Signal<T> {
                     Err(e) => error!("failed to fire signal: {}", e),
                 }
             }
-            signals.signals.push(data);
+            pending.signal_events.push(data);
         }
     }
 
@@ -115,10 +130,10 @@ impl<T: Clone + 'static> Signal<T> {
             self.dispatcher = Some(Arc::new(Dispatcher::new()));
         }
         let dispatcher = self.dispatcher.as_ref().unwrap();
-        let mut signals = dispatcher.signals.lock().unwrap();
-        signals
-            .notif_queue
-            .try_init(notif_queue)
+        let mut pending = dispatcher.pending.lock().unwrap();
+        pending
+            .state_notif_queue
+            .try_init_with_clone(notif_queue)
             .or_log_error("problem creating signal conduit");
         Arc::downgrade(&dispatcher)
     }

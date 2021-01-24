@@ -20,8 +20,8 @@ impl Entity {
         }
     }
 
-    /// Register that a component of type T is attached to this entity
-    /// Panics if a component of type T is already registered
+    /// Register that a component of type T is attached to this entity.
+    /// Panics if a component of type T is already registered.
     pub fn register_component<T, F>(&mut self, component: ComponentKey<T>, cleanup: F)
     where
         T: 'static,

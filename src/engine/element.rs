@@ -64,7 +64,7 @@ impl<T> Element<T> {
     ) -> Result<(), Box<dyn Error>> {
         self.has_subscribers.store(true, SeqCst);
         let mut lock = self.subscribers.lock().expect("failed to lock subscribers");
-        lock.notif_queue.try_init(notif_queue)?;
+        lock.notif_queue.try_init_with_clone(notif_queue)?;
         lock.list.subscribe(subscriber)?;
         Ok(())
     }

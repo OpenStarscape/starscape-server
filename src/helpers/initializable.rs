@@ -13,7 +13,7 @@ impl<T: PartialEq + Clone> Initializable<T> {
     /// Initializes with a clone of the given value. If already initialized with equal value does
     /// nothing and returns success. If alreaded initialized with differnt value does nothing and
     /// returns error.
-    pub fn try_init(&mut self, value: &T) -> Result<(), Box<dyn Error>> {
+    pub fn try_init_with_clone(&mut self, value: &T) -> Result<(), Box<dyn Error>> {
         if let Some(prev) = &self.value {
             if prev != value {
                 Err(format!(
@@ -45,7 +45,7 @@ mod tests {
     #[test]
     fn can_initialize() {
         let mut i = Initializable::new();
-        i.try_init(&7).unwrap();
+        i.try_init_with_clone(&7).unwrap();
         assert_eq!(i.get().unwrap(), &7);
     }
 
@@ -58,24 +58,24 @@ mod tests {
     #[test]
     fn can_initialize_multiple_times_with_same() {
         let mut i = Initializable::new();
-        i.try_init(&7).unwrap();
-        i.try_init(&7).unwrap();
+        i.try_init_with_clone(&7).unwrap();
+        i.try_init_with_clone(&7).unwrap();
         i.get().unwrap();
-        i.try_init(&7).unwrap();
+        i.try_init_with_clone(&7).unwrap();
     }
 
     #[test]
     fn errors_when_initialized_with_different() {
         let mut i = Initializable::new();
-        i.try_init(&7).unwrap();
-        assert!(i.try_init(&3).is_err());
+        i.try_init_with_clone(&7).unwrap();
+        assert!(i.try_init_with_clone(&3).is_err());
     }
 
     #[test]
     fn is_not_updated_after_err() {
         let mut i = Initializable::new();
-        i.try_init(&7).unwrap();
-        let _ = i.try_init(&3).is_err();
+        i.try_init_with_clone(&7).unwrap();
+        let _ = i.try_init_with_clone(&3).is_err();
         assert_eq!(i.get().unwrap(), &7);
     }
 }

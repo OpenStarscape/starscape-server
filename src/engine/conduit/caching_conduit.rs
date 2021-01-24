@@ -9,7 +9,7 @@ where
     weak_self: WeakSelf<CachingConduit<C, T>>,
     cached_value: Mutex<Option<T>>,
     conduit: C,
-    subscribers: ConduitSubscriberList,
+    subscribers: SyncSubscriberList,
 }
 
 impl<C, T> CachingConduit<C, T>
@@ -22,7 +22,7 @@ where
             weak_self: WeakSelf::new(),
             cached_value: Mutex::new(None),
             conduit,
-            subscribers: ConduitSubscriberList::new(),
+            subscribers: SyncSubscriberList::new(),
         });
         result.weak_self.init(&result);
         result

@@ -11,8 +11,10 @@ pub struct Subscription {
     is_unsubscribed: bool,
 }
 
-/// Type used to remember and unsubscribe from subscriptions
-/// TODO: wtf is this?
+/// This is the type casted to an Any and given to the connection to represent a subscription. It
+/// subscribes a null subscriber to the conduit, which causes the conduit to start spewing updates.
+/// This works ? for some reason? It's very jank and I don't completely understand it, but
+/// refactoring takes significant thought.
 impl Subscription {
     pub fn new(state: &State, conduit: Box<dyn Conduit<Value, Value>>) -> RequestResult<Self> {
         let subscriber: Arc<dyn Subscriber> = Arc::new(NullSubscriber);
