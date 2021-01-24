@@ -34,8 +34,6 @@ impl ConnectionImpl {
         self_key: ConnectionKey,
         root_entity: EntityKey,
         session_builder: Box<dyn SessionBuilder>,
-        encoder: Box<dyn Encoder>,
-        decoder: Box<dyn Decoder>,
     ) -> Result<Self, Box<dyn Error>> {
         let obj_map = Arc::new(ObjectMapImpl::new());
         let root_obj_id = obj_map.get_or_create_object(root_entity);
@@ -46,6 +44,8 @@ impl ConnectionImpl {
                 self_key, root_obj_id
             );
         }
+        // TODO: let the client choose the format in the first message
+        let (encoder, decoder) = json_protocol_impls();
         let (request_tx, request_rx) = channel();
         let handler = BundleHandler::new(self_key, decoder, obj_map.clone(), request_tx);
         let session = session_builder.build(Box::new(handler))?;
@@ -60,15 +60,6 @@ impl ConnectionImpl {
             subscriptions: HashMap::new(),
             should_close: AtomicBool::new(false),
         })
-    }
-
-    pub fn new_with_json(
-        self_key: ConnectionKey,
-        root_entity: EntityKey,
-        session_builder: Box<dyn SessionBuilder>,
-    ) -> Result<Self, Box<dyn Error>> {
-        let (encoder, decoder) = json_protocol_impls();
-        Self::new(self_key, root_entity, session_builder, encoder, decoder)
     }
 
     fn process_request_method(
