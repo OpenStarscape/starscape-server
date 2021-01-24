@@ -130,7 +130,7 @@ impl ConnectionImpl {
     ) -> Result<(), String> {
         use std::collections::hash_map::Entry;
         match method {
-            RequestMethod::Fire(value) => {
+            RequestMethod::Action(value) => {
                 handler.fire_action(self.self_key, entity, property, value)?;
             }
             RequestMethod::Set(value) => {
