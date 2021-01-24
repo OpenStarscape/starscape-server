@@ -5,10 +5,10 @@ Tip: `cargo doc --open` will get you nice looking docs in a browser
 
 ## Structure
 The project contains the following modules:
-- `game`: components (like ships), systems (like physics) and logix to support actual gameplay
+- `game`: components (like ships), systems (like physics) and logic to support actual game-play
 - `engine`: the core engine, which is basically an ECS fused with a reactive property system (see the next section for details)
-- `connection`: the high level logic for talking to clients, such as encoding, decoding and dispatching messages
-- `server`: lower level network code including the session implementation for WebRTC and other network protocols
+- `connection`: the high level logic for talking to clients. Includes encoding, decoding and dispatching messages
+- `server`: lower level network code including the Warp-based HTTP server and the session implementations
 - `helpers`: general helpers that may be useful anywhere
 
 ## Enhanced ECS
@@ -21,19 +21,19 @@ The `State` owns all entities and components. Most code that uses the state will
 An entity is a collection of components. It's referred to by an `EntityKey`. Not every entity is exposed to every client, but every client-facing object maps to exactly one entity. Zero or one components of each component type may be attached to an entity.
 
 ### Object
-An object (represented on the server by an `ObjectID`) is a client's view onto an entity. different clients may know the same entity by different object IDs, and be given a different set of properties or property values.
+An object (represented by a number) is a client's view onto an entity. different clients may know the same entity by different object IDs.
 
 ### Component
 A component is a strongly typed piece of state attached to an entity. It's generally a struct that contains elements. It usually represents something about an entity. For example entities that are attached to a `Body` component, have a size and position in 3D space, entities that don't represent non-physical concepts.
 
 ### Element
-`Element<T>` is an atomic unit of state. Components are generally made out of elements. An element can be subscribed to, in which case it will notify the subscriber when it is changed. These notifications are __not__ dispatched immediately. Instead, they are queued and processed later in the main game loop.
+`Element<T>` is an atomic unit of state. Components generally contain elements. An element can be subscribed to, in which case it will notify the subscriber when it is changed. These notifications are __not__ dispatched immediately. Instead, they are queued and processed later in the main game loop.
 
-### Property
-A property is a client's view onto some piece of state. It has a name and is attached to an object. A client can get, set, subscribe and unsubscribe from a property. A property *often* maps 1:1 with an element, but may calculate it's value based on an element, or based on multiple elements. It might even be calculated from information from multiple entities.
+### Signal
+`Signal<T>` is much like an element. It can also be subscribed to, but instead of having a value it can be "fired". Unlike element update's repeatedly firing a signal with the same value is not filtered out. They are useful for things like chat messages or object creation notifications. Like elements/properties, the signal the client sees may be some filtered or adapted version of the one in the server State.
 
 ### Conduit
-Conduits are what connect properties to elements. The way they are constructed and used by the game module hasn't been fully fleshed out yet.
+Conduits connect `Element<T>`s, `Signal<T>`s and action closures to the client connections. They are composable, and do a number of things. For example, they can map input and output so the values the client deals with can be different from the ones stored in the server state. The main ones which game code uses directly are `ActionConduit` which exposes an action a client can take and `RWConduit` which exposes a property that can be set (read-write). There are many more for various purposes.
 
 ## Code Style
 ### Documentation
