@@ -24,7 +24,7 @@ impl<T> Dispatcher<T> {
 }
 
 impl<T> Subscriber for Dispatcher<T> {
-    fn notify(&self, state: &State, handler: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, handler: &dyn EventHandler) {
         self.subscribers.send_notifications(state, handler);
         // now that the notifications have been processed we clear the pending signals
         let mut signals = self.signals.lock().unwrap();
@@ -34,7 +34,6 @@ impl<T> Subscriber for Dispatcher<T> {
         if signals.signals.capacity() > 10 {
             signals.signals.shrink_to_fit();
         }
-        Ok(())
     }
 }
 
@@ -137,8 +136,7 @@ mod tests {
             notification
                 .upgrade()
                 .expect("dead subscriber in notification queue")
-                .notify(&state, &handler)
-                .expect("notify failed");
+                .notify(&state, &handler);
         }
     }
 

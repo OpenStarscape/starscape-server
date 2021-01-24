@@ -3,9 +3,7 @@ use super::*;
 struct NullSubscriber;
 
 impl Subscriber for NullSubscriber {
-    fn notify(&self, _: &State, _: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
-        Err("NullSubscriber::notify() should not have been called".into())
-    }
+    fn notify(&self, _: &State, _: &dyn EventHandler) {}
 }
 
 pub struct Subscription {
@@ -14,6 +12,7 @@ pub struct Subscription {
 }
 
 /// Type used to remember and unsubscribe from subscriptions
+/// TODO: wtf is this?
 impl Subscription {
     pub fn new(state: &State, conduit: Box<dyn Conduit<Value, Value>>) -> RequestResult<Self> {
         let subscriber: Arc<dyn Subscriber> = Arc::new(NullSubscriber);

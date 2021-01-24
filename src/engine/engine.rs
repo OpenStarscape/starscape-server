@@ -48,10 +48,8 @@ impl Engine {
             .notif_queue
             .swap_buffer(&mut self.back_notif_buffer);
         for notification in &self.back_notif_buffer {
-            if let Some(sink) = notification.upgrade() {
-                if let Err(e) = sink.notify(&self.state, &self.connections) {
-                    error!("failed to process notification: {}", e);
-                }
+            if let Some(notif) = notification.upgrade() {
+                notif.notify(&self.state, &self.connections);
             }
         }
         // this does not deallocate, so we don't need to reallocate every cycle

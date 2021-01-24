@@ -125,10 +125,9 @@ impl MockSubscriber {
 }
 
 impl Subscriber for MockSubscriberInner {
-    fn notify(&self, state: &State, _: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, _: &dyn EventHandler) {
         *self.count.borrow_mut() += 1;
         (self.f)(state);
-        Ok(())
     }
 }
 

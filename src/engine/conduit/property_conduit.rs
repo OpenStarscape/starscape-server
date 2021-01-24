@@ -34,13 +34,18 @@ impl<C> Subscriber for PropertyConduit<C>
 where
     C: Conduit<Value, Value> + 'static,
 {
-    fn notify(&self, state: &State, handler: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
-        let value = self.inner.output(state)?;
+    fn notify(&self, state: &State, handler: &dyn EventHandler) {
+        let value = match self.inner.output(state) {
+            Ok(value) => value,
+            Err(e) => {
+                error!("handling property update: {}", e);
+                return;
+            }
+        };
         handler.event(
             self.connection,
             Event::update(self.entity, self.name.to_string(), value),
         );
-        Ok(())
     }
 }
 

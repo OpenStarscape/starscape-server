@@ -34,17 +34,22 @@ where
     C: Conduit<T, T>,
     T: PartialEq,
 {
-    fn notify(&self, state: &State, sink: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
-        let value = self.conduit.output(state)?;
+    fn notify(&self, state: &State, sink: &dyn EventHandler) {
+        let value = match self.conduit.output(state) {
+            Ok(value) => value,
+            Err(e) => {
+                error!("getting value in CachingConduit: {}", e);
+                return;
+            }
+        };
         let mut cached = self
             .cached_value
             .lock()
-            .expect("failed to lock cached Value mutex");
+            .expect("failed to lock cached value mutex");
         if cached.as_ref() != Some(&value) {
             *cached = Some(value);
             self.subscribers.send_notifications(state, sink);
         }
-        Ok(())
     }
 }
 
@@ -265,9 +270,7 @@ mod tests {
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
         inner.borrow_mut().value_to_get = Ok(42);
-        caching
-            .notify(&state, &prop_update_sink)
-            .expect("failed to send updates");
+        caching.notify(&state, &prop_update_sink);
         assert_eq!(mock_sinks[0].notify_count(), 1);
     }
 
@@ -279,13 +282,9 @@ mod tests {
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
         inner.borrow_mut().value_to_get = Ok(42);
-        caching
-            .notify(&state, &prop_update_sink)
-            .expect("failed to send updates");
+        caching.notify(&state, &prop_update_sink);
         inner.borrow_mut().value_to_get = Ok(69);
-        caching
-            .notify(&state, &prop_update_sink)
-            .expect("failed to send updates");
+        caching.notify(&state, &prop_update_sink);
         assert_eq!(mock_sinks[0].notify_count(), 2);
     }
 
@@ -297,12 +296,8 @@ mod tests {
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
         inner.borrow_mut().value_to_get = Ok(42);
-        caching
-            .notify(&state, &prop_update_sink)
-            .expect("failed to send updates");
-        caching
-            .notify(&state, &prop_update_sink)
-            .expect("failed to send updates");
+        caching.notify(&state, &prop_update_sink);
+        caching.notify(&state, &prop_update_sink);
         assert_eq!(mock_sinks[0].notify_count(), 1);
     }
 }

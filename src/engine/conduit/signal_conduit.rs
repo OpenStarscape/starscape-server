@@ -34,15 +34,20 @@ impl<C> Subscriber for SignalConduit<C>
 where
     C: Conduit<Vec<Value>, SignalsDontTakeInputSilly> + 'static,
 {
-    fn notify(&self, state: &State, handler: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
-        let values = self.inner.output(state)?;
+    fn notify(&self, state: &State, handler: &dyn EventHandler) {
+        let values = match self.inner.output(state) {
+            Ok(values) => values,
+            Err(e) => {
+                error!("dispatching signals: {}", e);
+                return;
+            }
+        };
         for value in values {
             handler.event(
                 self.connection,
                 Event::signal(self.entity, self.name.to_string(), value),
             );
         }
-        Ok(())
     }
 }
 
