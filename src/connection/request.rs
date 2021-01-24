@@ -1,8 +1,8 @@
 use super::*;
 
-/// An action on a property, signal or action of an object
+/// The data for a method request. That is, a request on an object memeber.
 #[derive(Debug, PartialEq, Clone)]
-pub enum ObjectRequest {
+pub enum RequestMethod {
     Fire(Decoded),
     Set(Decoded),
     Get,
@@ -13,8 +13,31 @@ pub enum ObjectRequest {
 /// Represents a message from a client to the server
 #[derive(Debug, PartialEq, Clone)]
 pub enum Request {
-    /// A request on an object (represented by an entity). The String is the member name.
-    Object(EntityKey, String, ObjectRequest),
+    /// A method on an object member (property/action/signal). The member is represented by it's
+    /// entity and name).
+    Method(EntityKey, String, RequestMethod),
     /// Indicates the session should close.
     Close,
+}
+
+impl Request {
+    pub fn fire(entity: EntityKey, name: String, value: Decoded) -> Self {
+        Self::Method(entity, name, RequestMethod::Fire(value))
+    }
+
+    pub fn set(entity: EntityKey, name: String, value: Decoded) -> Self {
+        Self::Method(entity, name, RequestMethod::Set(value))
+    }
+
+    pub fn get(entity: EntityKey, name: String) -> Self {
+        Self::Method(entity, name, RequestMethod::Get)
+    }
+
+    pub fn subscribe(entity: EntityKey, name: String) -> Self {
+        Self::Method(entity, name, RequestMethod::Subscribe)
+    }
+
+    pub fn unsubscribe(entity: EntityKey, name: String) -> Self {
+        Self::Method(entity, name, RequestMethod::Unsubscribe)
+    }
 }

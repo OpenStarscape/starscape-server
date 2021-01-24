@@ -119,44 +119,37 @@ impl JsonDecoder {
             .as_str()
             .ok_or("request type is not a string")?;
         Ok(match mtype {
-            "fire" => Request::Object(
+            "fire" => Request::fire(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
-                ObjectRequest::Fire(
-                    self.decode_value(
-                        ctx,
-                        datagram
-                            .get("value")
-                            .ok_or("fire request does not have a value")?,
-                    )?,
-                ),
+                self.decode_value(
+                    ctx,
+                    datagram
+                        .get("value")
+                        .ok_or("fire request does not have a value")?,
+                )?,
             ),
-            "set" => Request::Object(
+            "set" => Request::set(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
-                ObjectRequest::Set(
-                    self.decode_value(
-                        ctx,
-                        datagram
-                            .get("value")
-                            .ok_or("set request does not have a value")?,
-                    )?,
-                ),
+                self.decode_value(
+                    ctx,
+                    datagram
+                        .get("value")
+                        .ok_or("set request does not have a value")?,
+                )?,
             ),
-            "get" => Request::Object(
+            "get" => Request::get(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
-                ObjectRequest::Get,
             ),
-            "subscribe" => Request::Object(
+            "subscribe" => Request::subscribe(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
-                ObjectRequest::Subscribe,
             ),
-            "unsubscribe" => Request::Object(
+            "unsubscribe" => Request::unsubscribe(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
-                ObjectRequest::Unsubscribe,
             ),
             _ => return Err("request has invalid mtype".into()),
         })
@@ -344,8 +337,6 @@ mod decode_tests {
 #[cfg(test)]
 mod message_tests {
     use super::*;
-    use ObjectRequest::*;
-    use Request::*;
 
     fn assert_results_in_request(ctx: &dyn DecodeCtx, json: &str, request: Request) {
         let mut decoder = JsonDecoder::new();
@@ -377,7 +368,7 @@ mod message_tests {
                 \"object\": 6, \
                 \"property\": \"foobar\" \
             }\n",
-            Object(e[6], "foobar".to_owned(), Get),
+            Request::get(e[6], "foobar".to_owned()),
         );
     }
 
@@ -392,7 +383,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": null \
             }\n",
-            Object(e[9], "xyz".to_owned(), Set(Decoded::Null)),
+            Request::set(e[9], "xyz".to_owned(), Decoded::Null),
         );
     }
 
@@ -407,7 +398,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": 12 \
             }\n",
-            Object(e[9], "xyz".to_owned(), Fire(Decoded::Integer(12))),
+            Request::fire(e[9], "xyz".to_owned(), Decoded::Integer(12)),
         );
     }
 
@@ -421,7 +412,7 @@ mod message_tests {
                 \"object\": 2, \
                 \"property\": \"abc\" \
             }\n",
-            Object(e[2], "abc".to_owned(), Subscribe),
+            Request::subscribe(e[2], "abc".to_owned()),
         );
     }
 
@@ -435,7 +426,7 @@ mod message_tests {
                 \"object\": 11, \
                 \"property\": \"abc\" \
             }\n",
-            Object(e[11], "abc".to_owned(), Unsubscribe),
+            Request::unsubscribe(e[11], "abc".to_owned()),
         );
     }
 
@@ -472,9 +463,9 @@ mod message_tests {
         assert_eq!(
             result,
             vec![
-                Object(e[2], "foobar".to_owned(), Get),
-                Object(e[8], "abc".to_owned(), Set(Decoded::Integer(12))),
-                Object(e[11], "xyz".to_owned(), Subscribe)
+                Request::get(e[2], "foobar".to_owned()),
+                Request::set(e[8], "abc".to_owned(), Decoded::Integer(12)),
+                Request::subscribe(e[11], "xyz".to_owned())
             ]
         );
     }
@@ -505,9 +496,9 @@ mod message_tests {
         assert_eq!(
             result,
             vec![
-                Object(e[3], "foobar".to_owned(), Get),
-                Object(e[5], "abc".to_owned(), Set(Decoded::Integer(12))),
-                Object(e[7], "xyz".to_owned(), Subscribe)
+                Request::get(e[3], "foobar".to_owned()),
+                Request::set(e[5], "abc".to_owned(), Decoded::Integer(12)),
+                Request::subscribe(e[7], "xyz".to_owned())
             ]
         );
     }
@@ -546,9 +537,9 @@ mod message_tests {
         assert_eq!(
             result,
             vec![
-                Object(e[9], "foobar".to_owned(), Get),
-                Object(e[2], "abc".to_owned(), Set(Decoded::Integer(12))),
-                Object(e[1], "xyz".to_owned(), Subscribe)
+                Request::get(e[9], "foobar".to_owned()),
+                Request::set(e[2], "abc".to_owned(), Decoded::Integer(12)),
+                Request::subscribe(e[1], "xyz".to_owned())
             ]
         );
     }

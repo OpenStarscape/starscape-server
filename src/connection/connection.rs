@@ -121,27 +121,27 @@ impl ConnectionImpl {
         Self::new(self_key, root_entity, session_builder, encoder, decoder)
     }
 
-    fn process_request(
+    fn process_request_method(
         &mut self,
         handler: &mut dyn InboundMessageHandler,
         entity: EntityKey,
         property: &str,
-        data: ObjectRequest,
+        method: RequestMethod,
     ) -> Result<(), String> {
         use std::collections::hash_map::Entry;
-        match data {
-            ObjectRequest::Fire(value) => {
+        match method {
+            RequestMethod::Fire(value) => {
                 handler.fire_action(self.self_key, entity, property, value)?;
             }
-            ObjectRequest::Set(value) => {
+            RequestMethod::Set(value) => {
                 handler.set_property(self.self_key, entity, property, value)?;
             }
-            ObjectRequest::Get => {
+            RequestMethod::Get => {
                 // it doesn't matter if it's already there or not, it's not an error to make two
                 // get requests but it will only result in one response.
                 self.pending_get_requests.insert((entity, property.into()));
             }
-            ObjectRequest::Subscribe => {
+            RequestMethod::Subscribe => {
                 match self.subscriptions.entry((entity, property.to_string())) {
                     Entry::Occupied(_) => return Err("tried to subscribe multiple times".into()),
                     Entry::Vacant(entry) => {
@@ -151,7 +151,7 @@ impl ConnectionImpl {
                     }
                 }
             }
-            ObjectRequest::Unsubscribe => {
+            RequestMethod::Unsubscribe => {
                 let key = (entity, property.to_string());
                 match self.subscriptions.remove(&key) {
                     Some(entry) => handler.unsubscribe(entry)?,
@@ -182,11 +182,13 @@ impl Connection for ConnectionImpl {
         use std::sync::mpsc::TryRecvError;
         loop {
             match self.request_rx.try_recv() {
-                Ok(Request::Object(entity, property, data)) => {
-                    if let Err(e) = self.process_request(handler, entity, &property, data.clone()) {
+                Ok(Request::Method(entity, property, method)) => {
+                    if let Err(e) =
+                        self.process_request_method(handler, entity, &property, method.clone())
+                    {
                         error!(
-                            "failed to process {:?}::{:?}.{} {:?}: {}",
-                            self.self_key, entity, property, data, e
+                            "failed to process {:?} on {:?}::{:?}.{}: {}",
+                            method, self.self_key, entity, property, e
                         );
                         // TODO: send error to client
                     }
