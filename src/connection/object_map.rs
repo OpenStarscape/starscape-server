@@ -31,9 +31,8 @@ impl<T: ObjectMap> EncodeCtx for T {
 }
 
 impl<T: ObjectMap> DecodeCtx for T {
-    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, String> {
-        self.get_entity(object)
-            .ok_or_else(|| format!("unknwon object #{}", object))
+    fn entity_for(&self, object: ObjectId) -> RequestResult<EntityKey> {
+        self.get_entity(object).ok_or(BadObject(object))
     }
 }
 

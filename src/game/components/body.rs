@@ -183,7 +183,7 @@ impl Body {
             } else if radius > 0.0 {
                 Ok(Shape::Sphere { radius })
             } else {
-                Err("size must be >= 0".to_string())
+                Err(BadRequest("size must be >= 0".into()))
             }
         })
         .install_property(state, entity, "size");

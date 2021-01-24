@@ -3,7 +3,7 @@ use super::*;
 pub struct MapInputConduit<C, O, InnerI, OuterI, F>
 where
     C: Conduit<O, InnerI>,
-    F: Fn(OuterI) -> Result<InnerI, String>,
+    F: Fn(OuterI) -> RequestResult<InnerI>,
 {
     conduit: C,
     f: F,
@@ -15,7 +15,7 @@ where
 impl<C, F, O, InnerI, OuterI> MapInputConduit<C, O, InnerI, OuterI, F>
 where
     C: Conduit<O, InnerI>,
-    F: Fn(OuterI) -> Result<InnerI, String>,
+    F: Fn(OuterI) -> RequestResult<InnerI>,
 {
     pub fn new(conduit: C, f: F) -> Self {
         Self {
@@ -32,21 +32,21 @@ impl<C, F, Get, SetInner, SetOuter> Conduit<Get, SetOuter>
     for MapInputConduit<C, Get, SetInner, SetOuter, F>
 where
     C: Conduit<Get, SetInner>,
-    F: Fn(SetOuter) -> Result<SetInner, String>,
+    F: Fn(SetOuter) -> RequestResult<SetInner>,
 {
-    fn output(&self, state: &State) -> Result<Get, String> {
+    fn output(&self, state: &State) -> RequestResult<Get> {
         self.conduit.output(state)
     }
 
-    fn input(&self, state: &mut State, value: SetOuter) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: SetOuter) -> RequestResult<()> {
         self.conduit.input(state, (self.f)(value)?)
     }
 
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.conduit.subscribe(state, subscriber)
     }
 
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         self.conduit.unsubscribe(state, subscriber)
     }
 }

@@ -17,8 +17,7 @@ pub enum Value {
     // (for each JSON encoding, JSON decoding and Value getting needs to be tested)
 }
 
-pub type DecodeError = String;
-pub type DecodeResult<T> = Result<T, DecodeError>;
+pub type DecodeResult<T> = RequestResult<T>;
 
 impl From<String> for Value {
     fn from(text: String) -> Self {
@@ -201,7 +200,7 @@ impl From<Value> for DecodeResult<Vector3<f64>> {
     fn from(value: Value) -> Self {
         match value {
             Value::Vector(v) => Ok(v),
-            _ => Err(format!("{:?} is not a 3D vector", value)),
+            _ => Err(BadRequest(format!("{:?} is not a 3D vector", value))),
         }
     }
 }
@@ -217,7 +216,7 @@ impl From<Value> for DecodeResult<f64> {
         match value {
             Value::Scalar(value) => Ok(value),
             Value::Integer(value) => Ok(value as f64),
-            _ => Err(format!("{:?} is not a number", value)),
+            _ => Err(BadRequest(format!("{:?} is not a number", value))),
         }
     }
 }
@@ -226,8 +225,10 @@ impl From<Value> for DecodeResult<i64> {
     fn from(value: Value) -> Self {
         match value {
             Value::Integer(value) => Ok(value),
-            Value::Scalar(value) => Err(format!("{} is a scalar, not an integer", value)),
-            _ => Err(format!("{:?} is not a number", value)),
+            Value::Scalar(value) => {
+                Err(BadRequest(format!("{} is a scalar, not an integer", value)))
+            }
+            _ => Err(BadRequest(format!("{:?} is not a number", value))),
         }
     }
 }
@@ -237,7 +238,7 @@ impl From<Value> for DecodeResult<u64> {
         use std::convert::TryInto;
         match DecodeResult::<i64>::from(value)?.try_into() {
             Ok(i) => Ok(i),
-            Err(e) => Err(format!("{}", e)),
+            Err(e) => Err(BadRequest(format!("{}", e))),
         }
     }
 }
@@ -246,7 +247,7 @@ impl From<Value> for DecodeResult<String> {
     fn from(value: Value) -> Self {
         match value {
             Value::Text(value) => Ok(value),
-            _ => Err(format!("{:?} is not a string", value)),
+            _ => Err(BadRequest(format!("{:?} is not a string", value))),
         }
     }
 }
@@ -256,7 +257,7 @@ impl From<Value> for DecodeResult<EntityKey> {
         match value {
             Value::Entity(value) => Ok(value),
             Value::Null => Ok(EntityKey::null()),
-            _ => Err(format!("{:?} is not an object", value)),
+            _ => Err(BadRequest(format!("{:?} is not an object", value))),
         }
     }
 }
@@ -265,11 +266,12 @@ impl From<Value> for DecodeResult<ColorRGB> {
     fn from(value: Value) -> Self {
         let s: String = Into::<DecodeResult<String>>::into(value)?;
         if !s.starts_with("0x") {
-            return Err("color does not start with 0x".to_string());
+            return Err(BadRequest("color does not start with 0x".to_string()));
         }
-        let u = u32::from_str_radix(&s[2..], 16).map_err(|e| format!("{}", e))?;
+        let u = u32::from_str_radix(&s[2..], 16)
+            .map_err(|e| BadRequest(format!("could not parse color: {}", e)))?;
         if u >> 24 != 0 {
-            return Err("color has too many digits".to_string());
+            return Err(BadRequest("color has too many digits".to_string()));
         }
         Ok(ColorRGB::from_u32(u))
     }
@@ -282,7 +284,7 @@ where
     fn from(value: Value) -> Self {
         match value {
             Value::Array(vec) => vec.into_iter().map(Into::into).collect(),
-            _ => Err(format!("{:?} is not an array", value)),
+            _ => Err(BadRequest(format!("{:?} is not an array", value))),
         }
     }
 }
@@ -292,7 +294,7 @@ impl From<Value> for DecodeResult<()> {
         if value.is_null() {
             Ok(())
         } else {
-            Err(format!("{:?} is not null", value))
+            Err(BadRequest(format!("{:?} is not null", value)))
         }
     }
 }
@@ -321,19 +323,19 @@ where
         let vec = match value {
             Value::Array(vec) => vec,
             _ => {
-                return Err(format!(
+                return Err(BadRequest(format!(
                     "can not decode {:?} as a tuple because it is not an array",
                     value
-                ))
+                )))
             }
         };
         if vec.len() != LEN {
-            return Err(format!(
+            return Err(BadRequest(format!(
                 "{:?} has {} elements instead of {}",
                 vec,
                 vec.len(),
                 LEN
-            ));
+            )));
         }
         let mut iter = vec.into_iter();
         Ok((Into::<DecodeResult<A>>::into(iter.next().unwrap())?,))
@@ -350,19 +352,19 @@ where
         let vec = match value {
             Value::Array(vec) => vec,
             _ => {
-                return Err(format!(
+                return Err(BadRequest(format!(
                     "can not decode {:?} as a tuple because it is not an array",
                     value
-                ))
+                )))
             }
         };
         if vec.len() != LEN {
-            return Err(format!(
+            return Err(BadRequest(format!(
                 "{:?} has {} elements instead of {}",
                 vec,
                 vec.len(),
                 LEN
-            ));
+            )));
         }
         let mut iter = vec.into_iter();
         Ok((
@@ -383,19 +385,19 @@ where
         let vec = match value {
             Value::Array(vec) => vec,
             _ => {
-                return Err(format!(
+                return Err(BadRequest(format!(
                     "can not decode {:?} as a tuple because it is not an array",
                     value
-                ))
+                )))
             }
         };
         if vec.len() != LEN {
-            return Err(format!(
+            return Err(BadRequest(format!(
                 "{:?} has {} elements instead of {}",
                 vec,
                 vec.len(),
                 LEN
-            ));
+            )));
         }
         let mut iter = vec.into_iter();
         Ok((
@@ -418,19 +420,19 @@ where
         let vec = match value {
             Value::Array(vec) => vec,
             _ => {
-                return Err(format!(
+                return Err(BadRequest(format!(
                     "can not decode {:?} as a tuple because it is not an array",
                     value
-                ))
+                )))
             }
         };
         if vec.len() != LEN {
-            return Err(format!(
+            return Err(BadRequest(format!(
                 "{:?} has {} elements instead of {}",
                 vec,
                 vec.len(),
                 LEN
-            ));
+            )));
         }
         let mut iter = vec.into_iter();
         Ok((
@@ -455,19 +457,19 @@ where
         let vec = match value {
             Value::Array(vec) => vec,
             _ => {
-                return Err(format!(
+                return Err(BadRequest(format!(
                     "can not decode {:?} as a tuple because it is not an array",
                     value
-                ))
+                )))
             }
         };
         if vec.len() != LEN {
-            return Err(format!(
+            return Err(BadRequest(format!(
                 "{:?} has {} elements instead of {}",
                 vec,
                 vec.len(),
                 LEN
-            ));
+            )));
         }
         let mut iter = vec.into_iter();
         Ok((

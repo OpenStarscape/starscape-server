@@ -17,13 +17,13 @@ impl JsonDecoder {
         &self,
         ctx: &dyn DecodeCtx,
         array: &[serde_json::Value],
-    ) -> Result<Value, String> {
+    ) -> RequestResult<Value> {
         match array.len() {
             3 => {
                 let component = |serde_val: &serde_json::Value| {
-                    serde_val
-                        .as_f64()
-                        .ok_or_else(|| format!("{} is an invalid vector component", serde_val))
+                    serde_val.as_f64().ok_or_else(|| {
+                        BadMessage(format!("{} is an invalid vector component", serde_val))
+                    })
                 };
                 Ok(Value::Vector(Vector3::new(
                     component(&array[0])?,
@@ -43,16 +43,16 @@ impl JsonDecoder {
                         .collect();
                     Ok(Value::Array(result?))
                 } else {
-                    Err(format!(
+                    Err(BadMessage(format!(
                         "{} is an array-wrapped value, but not an object ID",
                         array[0]
-                    ))
+                    )))
                 }
             }
-            len => Err(format!(
+            len => Err(BadMessage(format!(
                 "non-wrapped array with length {} is not valid",
                 len
-            )),
+            ))),
         }
     }
 
@@ -62,67 +62,68 @@ impl JsonDecoder {
         &self,
         ctx: &dyn DecodeCtx,
         serde_val: &serde_json::Value,
-    ) -> Result<Value, String> {
+    ) -> RequestResult<Value> {
         match serde_val {
             serde_json::Value::Null => Ok(Value::Null),
-            serde_json::Value::Bool(_) => Err("decoding bool not implemented".to_string()),
+            serde_json::Value::Bool(_) => {
+                Err(InternalError("decoding bool not implemented".to_string()))
+            }
             serde_json::Value::Number(n) => {
                 if let Some(i) = n.as_i64() {
                     Ok(Value::Integer(i))
                 } else if let Some(f) = n.as_f64() {
                     Ok(Value::Scalar(f))
                 } else {
-                    Err(format!("{} is an invalid number", serde_val))
+                    Err(BadMessage(format!("{} is an invalid number", serde_val)))
                 }
             }
             serde_json::Value::String(text) => Ok(Value::Text(text.to_string())),
             serde_json::Value::Array(array) => self.decode_wrapper_array(ctx, array),
-            serde_json::Value::Object(_) => Err("decoding map not implemented".to_string()),
+            serde_json::Value::Object(_) => {
+                Err(InternalError("decoding map not implemented".to_string()))
+            }
         }
     }
 
     fn decode_obj(
         ctx: &dyn DecodeCtx,
         datagram: &serde_json::map::Map<String, serde_json::Value>,
-    ) -> Result<EntityKey, Box<dyn Error>> {
+    ) -> RequestResult<EntityKey> {
         let obj = datagram
             .get("object")
-            .ok_or("request does not have an object ID")?
+            .ok_or_else(|| BadMessage("request does not have an object ID".into()))?
             .as_u64()
-            .ok_or("object ID not an unsigned int")?;
+            .ok_or_else(|| BadMessage("object ID not an unsigned int".into()))?;
         ctx.entity_for(obj).map_err(Into::into)
     }
 
     fn decode_name(
         datagram: &serde_json::map::Map<String, serde_json::Value>,
-    ) -> Result<String, Box<dyn Error>> {
+    ) -> RequestResult<String> {
         Ok(datagram
             .get("property")
-            .ok_or("request does not have a property")?
+            .ok_or_else(|| BadMessage("request does not have a property".into()))?
             .as_str()
-            .ok_or("property not a string")?
+            .ok_or_else(|| BadMessage("property not a string".into()))?
             .to_string())
     }
 
-    fn decode_datagram(
-        &self,
-        ctx: &dyn DecodeCtx,
-        bytes: &[u8],
-    ) -> Result<Request, Box<dyn Error>> {
+    fn decode_datagram(&self, ctx: &dyn DecodeCtx, bytes: &[u8]) -> RequestResult<Request> {
         // serde doesn't handle internally tagged enums terribly well
         // (https://github.com/serde-rs/serde/issues/1495)
         // and this is unlikely to be a bottleneck so easier to just deserialize into a Value
         // rather than implementing complicated visitor shit
         let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-        let serde_val = serde_json::Value::deserialize(&mut deserializer)?;
+        let serde_val = serde_json::Value::deserialize(&mut deserializer)
+            .map_err(|e| BadMessage(e.to_string()))?;
         let datagram = serde_val
             .as_object()
-            .ok_or("request is not a JSON object")?;
+            .ok_or_else(|| BadMessage("request is not a JSON object".into()))?;
         let mtype = datagram
             .get("mtype")
-            .ok_or("request does not have an mtype field")?
+            .ok_or_else(|| BadMessage("request does not have an mtype field".into()))?
             .as_str()
-            .ok_or("request type is not a string")?;
+            .ok_or_else(|| BadMessage("request type is not a string".into()))?;
         Ok(match mtype {
             "fire" => Request::action(
                 Self::decode_obj(ctx, &datagram)?,
@@ -131,7 +132,7 @@ impl JsonDecoder {
                     ctx,
                     datagram
                         .get("value")
-                        .ok_or("fire request does not have a value")?,
+                        .ok_or_else(|| BadMessage("fire request does not have a value".into()))?,
                 )?,
             ),
             "set" => Request::set(
@@ -141,7 +142,7 @@ impl JsonDecoder {
                     ctx,
                     datagram
                         .get("value")
-                        .ok_or("set request does not have a value")?,
+                        .ok_or_else(|| BadMessage("set request does not have a value".into()))?,
                 )?,
             ),
             "get" => Request::get(
@@ -156,17 +157,13 @@ impl JsonDecoder {
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
             ),
-            _ => return Err("request has invalid mtype".into()),
+            _ => return Err(BadMessage(format!("invalid mtype {:?}", mtype))),
         })
     }
 }
 
 impl Decoder for JsonDecoder {
-    fn decode(
-        &mut self,
-        ctx: &dyn DecodeCtx,
-        bytes: Vec<u8>,
-    ) -> Result<Vec<Request>, Box<dyn Error>> {
+    fn decode(&mut self, ctx: &dyn DecodeCtx, bytes: Vec<u8>) -> RequestResult<Vec<Request>> {
         let mut requests = Vec::new();
         for datagram in self.splitter.data(bytes) {
             requests.push(self.decode_datagram(ctx, &datagram)?);
@@ -199,11 +196,8 @@ impl std::ops::Index<usize> for MockDecodeCtx {
 
 #[cfg(test)]
 impl DecodeCtx for MockDecodeCtx {
-    fn entity_for(&self, obj: ObjectId) -> Result<EntityKey, String> {
-        self.e
-            .get(obj as usize)
-            .cloned()
-            .ok_or_else(|| "invalid obj".to_string())
+    fn entity_for(&self, obj: ObjectId) -> RequestResult<EntityKey> {
+        self.e.get(obj as usize).cloned().ok_or(BadObject(obj))
     }
 }
 
@@ -215,7 +209,7 @@ mod decode_tests {
     struct TerrifiedDecodeCtx;
 
     impl DecodeCtx for TerrifiedDecodeCtx {
-        fn entity_for(&self, _obj: ObjectId) -> Result<EntityKey, String> {
+        fn entity_for(&self, _obj: ObjectId) -> RequestResult<EntityKey> {
             panic!("should not have been called")
         }
     }
@@ -240,10 +234,12 @@ mod decode_tests {
     fn assert_results_in_error_with_ctx(ctx: &dyn DecodeCtx, json: &str, msg: &str) {
         match decode(ctx, json) {
             Ok(output) => panic!("should have errored, instead gave: {:?}", output),
-            Err(e) if !format!("{}", e).contains(msg) => {
-                panic!("{:?} does not contain {:?}", e, msg)
+            Err(e) => {
+                let e = format!("{}", e);
+                if !e.contains(msg) {
+                    panic!("{:?} does not contain {:?}", e, msg)
+                }
             }
-            _ => (),
         }
     }
 
@@ -336,7 +332,7 @@ mod decode_tests {
 
     #[test]
     fn unknown_object_is_error() {
-        assert_results_in_error_with_ctx(&MockDecodeCtx::new(12), "[88]", "invalid obj");
+        assert_results_in_error_with_ctx(&MockDecodeCtx::new(12), "[88]", "object #88");
     }
 }
 

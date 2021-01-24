@@ -40,15 +40,15 @@ impl Ship {
         }
     }
 
-    fn set_thrust(&mut self, thrust: Vector3<f64>) -> Result<(), String> {
+    fn set_thrust(&mut self, thrust: Vector3<f64>) -> RequestResult<()> {
         let magnitude = thrust.magnitude();
         if magnitude > *self.max_acceleration + EPSILON {
             let fixed = thrust.normalize() * *self.max_acceleration;
             self.acceleration.set(fixed);
-            Err(format!(
+            Err(BadRequest(format!(
                 "{:?} has a magnitude of {}, which is greater than the maximum allowed thrust {}",
                 thrust, magnitude, *self.max_acceleration
-            ))
+            )))
         } else {
             self.acceleration.set(thrust);
             Ok(())
@@ -119,7 +119,10 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
     .map_input(|scheme: String| match &scheme[..] {
         "off" => Ok(AutopilotScheme::Off),
         "orbit" => Ok(AutopilotScheme::Orbit),
-        _ => Err(format!("{:?} is an invalid autopilot scheme", scheme)),
+        _ => Err(BadRequest(format!(
+            "{:?} is an invalid autopilot scheme",
+            scheme
+        ))),
     })
     .install_property(state, entity, "ap_scheme");
 

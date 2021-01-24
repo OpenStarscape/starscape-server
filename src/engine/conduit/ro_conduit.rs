@@ -7,7 +7,7 @@ pub struct ROConduit<OFn> {
 
 impl<T, OFn> ROConduit<OFn>
 where
-    for<'a> OFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
+    for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
     OFn: 'static,
 {
     #[must_use]
@@ -19,33 +19,39 @@ where
 impl<T, OFn> Conduit<T, ReadOnlyPropSetType> for ROConduit<OFn>
 where
     T: Clone,
-    for<'a> OFn: Fn(&'a State) -> Result<&'a Element<T>, String>,
+    for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
     OFn: 'static,
 {
-    fn output(&self, state: &State) -> Result<T, String> {
+    fn output(&self, state: &State) -> RequestResult<T> {
         Ok((*(self.output_fn)(state)?).clone())
     }
 
-    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
+    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> RequestResult<()> {
         // ReadOnlyPropSetType can't be instantiated, so this can't be called
         std::unreachable!()
     }
 
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         (self.output_fn)(state)?
             .subscribe(subscriber, &state.notif_queue)
             .map_err(|e| {
-                error!("subscribing to Element<{}>: {}", type_name::<T>(), e);
-                "server_error".into()
+                InternalError(format!(
+                    "failed to subscribe to to Element<{}>: {}",
+                    type_name::<T>(),
+                    e
+                ))
             })
     }
 
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         (self.output_fn)(state)?
             .unsubscribe(subscriber)
             .map_err(|e| {
-                error!("unsubscribing from Element<{}>: {}", type_name::<T>(), e);
-                "server_error".into()
+                InternalError(format!(
+                    "failed to unsubscribe from Element<{}>: {}",
+                    type_name::<T>(),
+                    e
+                ))
             })
     }
 }

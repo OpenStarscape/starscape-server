@@ -83,60 +83,51 @@ impl State {
 
     /// Returns the component of type T attached to the given entity
     /// or None if no such component is found
-    pub fn component<T: 'static>(&self, entity: EntityKey) -> Result<&T, String> {
-        let e = self.entities.get(entity).ok_or_else(|| {
-            format!(
-                "failed to get component on {} entity {:?}",
-                if entity.is_null() { "null" } else { "invalid" },
-                entity
-            )
-        })?;
+    pub fn component<T: 'static>(&self, entity: EntityKey) -> RequestResult<&T> {
+        let e = self.entities.get(entity).ok_or(BadEntity(entity))?;
         let component = *e.component_key().ok_or_else(|| {
-            format!(
+            InternalError(format!(
                 "failed to get invalid component {} on entity {:?}",
                 type_name::<T>(),
                 entity
-            )
+            ))
         })?;
         let map: &ComponentMap<T> = self
             .components
             .get()
-            .ok_or_else(|| format!("no components of type {}", type_name::<T>()))?;
+            .ok_or_else(|| InternalError(format!("no components of type {}", type_name::<T>())))?;
         match map.get(component) {
             Some(v) => Ok(&v.1),
-            None => Err(format!(
+            None => Err(InternalError(format!(
                 "invalid component {} ID {:?}",
                 type_name::<T>(),
                 component
-            )),
+            ))),
         }
     }
 
     /// Returns a mutable reference to the given component
     /// or None if no such component is found
-    pub fn component_mut<T: 'static>(&mut self, entity: EntityKey) -> Result<&mut T, String> {
-        let e = self
-            .entities
-            .get(entity)
-            .ok_or_else(|| format!("failed to get component on invalid entity {:?}", entity))?;
+    pub fn component_mut<T: 'static>(&mut self, entity: EntityKey) -> RequestResult<&mut T> {
+        let e = self.entities.get(entity).ok_or(BadEntity(entity))?;
         let component = *e.component_key().ok_or_else(|| {
-            format!(
+            InternalError(format!(
                 "failed to get invalid component {} on entity {:?}",
                 type_name::<T>(),
                 entity
-            )
+            ))
         })?;
         let map: &mut ComponentMap<T> = self
             .components
             .get_mut()
-            .ok_or_else(|| format!("no components of type {}", type_name::<T>()))?;
+            .ok_or_else(|| InternalError(format!("no components of type {}", type_name::<T>())))?;
         match map.get_mut(component) {
             Some(v) => Ok(&mut v.1),
-            None => Err(format!(
+            None => Err(InternalError(format!(
                 "invalid component {} ID {:?}",
                 type_name::<T>(),
                 component
-            )),
+            ))),
         }
     }
 
@@ -282,12 +273,11 @@ impl State {
         connection: ConnectionKey,
         entity_key: EntityKey,
         name: &str,
-    ) -> Result<Box<dyn Conduit<Value, Value>>, String> {
-        let entity = self
-            .entities
-            .get(entity_key)
-            .ok_or(format!("invalid entity {:?}", entity_key))?;
-        let conduit = entity.conduit(connection, name)?;
+    ) -> RequestResult<Box<dyn Conduit<Value, Value>>> {
+        let entity = self.entities.get(entity_key).ok_or(BadEntity(entity_key))?;
+        let conduit = entity
+            .conduit(connection, name)
+            .ok_or_else(|| BadName(entity_key, name.into()))??;
         Ok(conduit)
     }
 
@@ -337,7 +327,7 @@ impl RequestHandler for State {
         entity: EntityKey,
         name: &str,
         value: Value,
-    ) -> Result<(), String> {
+    ) -> RequestResult<()> {
         let conduit = self.conduit(connection, entity, name)?;
         // TODO: check if this is actually an action (currently "fireing" a property sets it)
         conduit.input(self, value)
@@ -349,7 +339,7 @@ impl RequestHandler for State {
         entity: EntityKey,
         name: &str,
         value: Value,
-    ) -> Result<(), String> {
+    ) -> RequestResult<()> {
         let conduit = self.conduit(connection, entity, name)?;
         // TODO: check if this is actually a property (currently "setting" an action fires it)
         conduit.input(self, value)
@@ -360,7 +350,7 @@ impl RequestHandler for State {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-    ) -> Result<Value, String> {
+    ) -> RequestResult<Value> {
         let conduit = self.conduit(connection, entity, name)?;
         conduit.output(self)
     }
@@ -370,16 +360,16 @@ impl RequestHandler for State {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-    ) -> Result<Box<dyn Any>, String> {
+    ) -> RequestResult<Box<dyn Any>> {
         let conduit = self.conduit(connection, entity, name)?;
         let subscription = Subscription::new(self, conduit)?;
         Ok(Box::new(subscription))
     }
 
-    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String> {
+    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()> {
         let subscription: Box<Subscription> = subscription
             .downcast()
-            .map_err(|_| "downcast to Subscription failed")?;
+            .map_err(|_| InternalError("downcast to Subscription failed".into()))?;
         subscription.unsubscribe(self)
     }
 }
