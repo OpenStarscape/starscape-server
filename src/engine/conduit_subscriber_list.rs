@@ -31,7 +31,7 @@ impl ConduitSubscriberList {
         }
     }
 
-    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> Result<SubscribeReport, String> {
+    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> RequestResult<SubscribeReport> {
         self.has_subscribers.store(true, SeqCst);
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
         inner.subscribe(subscriber)
@@ -40,7 +40,7 @@ impl ConduitSubscriberList {
     pub fn unsubscribe(
         &self,
         subscriber: &Weak<dyn Subscriber>,
-    ) -> Result<UnsubscribeReport, String> {
+    ) -> RequestResult<UnsubscribeReport> {
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
         let result = inner.unsubscribe(subscriber);
         if let Ok(report) = &result {

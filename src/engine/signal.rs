@@ -42,32 +42,38 @@ impl<T> Subscriber for Dispatcher<T> {
 pub enum SignalsDontTakeInputSilly {}
 
 /// Installing signals breaks without this. Why? Who fucking knows.
-impl From<SignalsDontTakeInputSilly> for Result<SignalsDontTakeInputSilly, String> {
+impl From<SignalsDontTakeInputSilly> for RequestResult<SignalsDontTakeInputSilly> {
     fn from(value: SignalsDontTakeInputSilly) -> Self {
         Ok(value)
     }
 }
 
 impl<T: Clone> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak<Dispatcher<T>> {
-    fn output(&self, _: &State) -> Result<Vec<T>, String> {
-        let dispatcher = self.upgrade().ok_or("signal no longer exists")?;
+    fn output(&self, _: &State) -> RequestResult<Vec<T>> {
+        let dispatcher = self
+            .upgrade()
+            .ok_or_else(|| InternalError("signal no longer exists".into()))?;
         let signals = dispatcher.signals.lock().unwrap();
         // We have to clone because there might be mutliple subscribers
         Ok(signals.signals.clone())
     }
 
-    fn input(&self, _: &mut State, _: SignalsDontTakeInputSilly) -> Result<(), String> {
+    fn input(&self, _: &mut State, _: SignalsDontTakeInputSilly) -> RequestResult<()> {
         unreachable!();
     }
 
-    fn subscribe(&self, _: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
-        let dispatcher = self.upgrade().ok_or("signal no longer exists")?;
+    fn subscribe(&self, _: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
+        let dispatcher = self
+            .upgrade()
+            .ok_or_else(|| InternalError("signal no longer exists".into()))?;
         dispatcher.subscribers.subscribe(subscriber)?;
         Ok(())
     }
 
-    fn unsubscribe(&self, _: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
-        let dispatcher = self.upgrade().ok_or("signal no longer exists")?;
+    fn unsubscribe(&self, _: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
+        let dispatcher = self
+            .upgrade()
+            .ok_or_else(|| InternalError("signal no longer exists".into()))?;
         dispatcher.subscribers.unsubscribe(subscriber)?;
         Ok(())
     }

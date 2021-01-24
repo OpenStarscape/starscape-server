@@ -53,44 +53,37 @@ where
     C: Conduit<T, T> + 'static,
     T: PartialEq,
 {
-    fn output(&self, state: &State) -> Result<T, String> {
+    fn output(&self, state: &State) -> RequestResult<T> {
         // TODO: use cache if it is up to date
         self.conduit.output(state)
     }
 
-    fn input(&self, state: &mut State, value: T) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: T) -> RequestResult<()> {
         // TODO: don't set if same as cache
         self.conduit.input(state, value)
     }
 
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         if self.subscribers.subscribe(subscriber)?.was_empty {
-            if let Err(e) = self.conduit.subscribe(
-                state,
-                &self.weak_self.get().upgrade().ok_or_else(|| {
-                    "self.self_subscriber is null (this should never happen)".to_string()
-                })?,
-            ) {
-                error!("subscribing caching conduit: {}", e);
-            }
-            Ok(())
-        } else {
-            Ok(())
+            let weak_self: Arc<dyn Subscriber> = self
+                .weak_self
+                .get()
+                .upgrade()
+                .ok_or_else(|| InternalError("CachingConduit::weak_self is null".into()))?;
+            self.conduit
+                .subscribe(state, &weak_self)
+                .map_err(|e| InternalError(format!("subscribing caching conduit: {}", e)))?;
         }
+        Ok(())
     }
 
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         if self.subscribers.unsubscribe(subscriber)?.is_now_empty {
-            if let Err(e) = self
-                .conduit
+            self.conduit
                 .unsubscribe(state, &(self.weak_self.get() as Weak<dyn Subscriber>))
-            {
-                error!("unsubscribing caching conduit: {}", e);
-            }
-            Ok(())
-        } else {
-            Ok(())
+                .map_err(|e| InternalError(format!("unsubscribing caching conduit: {}", e)))?;
         }
+        Ok(())
     }
 }
 
@@ -101,33 +94,29 @@ mod tests {
     use std::{cell::RefCell, rc::Rc};
 
     struct MockConduit {
-        value_to_get: Result<i32, String>,
+        value_to_get: RequestResult<i32>,
         subscribed: Option<Weak<dyn Subscriber>>,
     }
 
     impl MockConduit {
         fn new() -> Rc<RefCell<Self>> {
             Rc::new(RefCell::new(Self {
-                value_to_get: Err("no Value yet".to_owned()),
+                value_to_get: Err(InternalError("no Value yet".to_owned())),
                 subscribed: None,
             }))
         }
     }
 
     impl Conduit<i32, i32> for Rc<RefCell<MockConduit>> {
-        fn output(&self, _sate: &State) -> Result<i32, String> {
+        fn output(&self, _sate: &State) -> RequestResult<i32> {
             self.borrow().value_to_get.clone()
         }
 
-        fn input(&self, _state: &mut State, _value: i32) -> Result<(), String> {
+        fn input(&self, _state: &mut State, _value: i32) -> RequestResult<()> {
             panic!("unexpected call");
         }
 
-        fn subscribe(
-            &self,
-            _state: &State,
-            subscriber: &Arc<dyn Subscriber>,
-        ) -> Result<(), String> {
+        fn subscribe(&self, _state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
             assert!(self.borrow().subscribed.is_none());
             self.borrow_mut().subscribed = Some(Arc::downgrade(subscriber));
             Ok(())
@@ -137,7 +126,7 @@ mod tests {
             &self,
             _state: &State,
             subscriber: &Weak<dyn Subscriber>,
-        ) -> Result<(), String> {
+        ) -> RequestResult<()> {
             if let Some(s) = &self.borrow().subscribed {
                 assert_eq!(s.thin_ptr(), subscriber.thin_ptr());
             } else {

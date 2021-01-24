@@ -14,29 +14,29 @@ where
     C: Conduit<InnerO, InnerI> + 'static,
     InnerO: Into<OuterO> + 'static,
     InnerI: 'static,
-    OuterI: Into<Result<InnerI, String>>,
+    OuterI: Into<RequestResult<InnerI>>,
 {
-    fn output(&self, state: &State) -> Result<OuterO, String> {
+    fn output(&self, state: &State) -> RequestResult<OuterO> {
         self.0.output(state).map(Into::into)
     }
 
-    fn input(&self, state: &mut State, value: OuterI) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: OuterI) -> RequestResult<()> {
         match value.into() {
             Ok(value) => self.0.input(state, value),
-            Err(e) => Err(format!(
+            Err(e) => Err(BadRequest(format!(
                 "failed to convert {} -> {}: {}",
                 type_name::<OuterI>(),
                 type_name::<InnerI>(),
                 e
-            )),
+            ))),
         }
     }
 
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.0.subscribe(state, subscriber)
     }
 
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         self.0.unsubscribe(state, subscriber)
     }
 }

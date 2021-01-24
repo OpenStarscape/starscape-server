@@ -10,7 +10,7 @@ impl<T: 'static> ComponentListConduit<T> {
 }
 
 impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T> {
-    fn output(&self, state: &State) -> Result<Value, String> {
+    fn output(&self, state: &State) -> RequestResult<Value> {
         let entities: Vec<Value> = state
             .components_iter::<T>()
             .map(|(entity, _)| entity.into())
@@ -18,30 +18,32 @@ impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T>
         Ok(entities.into())
     }
 
-    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> Result<(), String> {
+    fn input(&self, _state: &mut State, _value: ReadOnlyPropSetType) -> RequestResult<()> {
         // ReadOnlyPropSetType can't be instantiated, so this can't be called
         std::unreachable!()
     }
 
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         state
             .subscribe_to_component_list::<T>(subscriber)
             .map_err(|e| {
-                error!("subscribing to all {} components: {}", type_name::<T>(), e);
-                "server_error".into()
+                InternalError(format!(
+                    "failed to subscribe to {} component list: {}",
+                    type_name::<T>(),
+                    e
+                ))
             })
     }
 
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         state
             .unsubscribe_from_component_list::<T>(subscriber)
             .map_err(|e| {
-                error!(
-                    "unsubscribing from all {} components: {}",
+                InternalError(format!(
+                    "failed to unsubscribe from {} component list: {}",
                     type_name::<T>(),
                     e
-                );
-                "server_error".into()
+                ))
             })
     }
 }

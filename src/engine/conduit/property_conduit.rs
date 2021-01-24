@@ -48,22 +48,22 @@ impl<C> Conduit<Value, Value> for Arc<PropertyConduit<C>>
 where
     C: Conduit<Value, Value> + 'static,
 {
-    fn output(&self, state: &State) -> Result<Value, String> {
+    fn output(&self, state: &State) -> RequestResult<Value> {
         self.inner.output(state)
     }
 
-    fn input(&self, state: &mut State, value: Value) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: Value) -> RequestResult<()> {
         self.inner.input(state, value)
     }
 
     /// Uses this as a signal to subscribe, but ignores the given subscriber.
-    fn subscribe(&self, state: &State, _: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, _: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.inner
             .subscribe(state, &(self.clone() as Arc<dyn Subscriber>))
     }
 
     /// Uses this as a signal to unsubscribe, but ignores the given subscriber.
-    fn unsubscribe(&self, state: &State, _: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, _: &Weak<dyn Subscriber>) -> RequestResult<()> {
         self.inner
             .unsubscribe(state, &(Arc::downgrade(self) as Weak<dyn Subscriber>))
     }

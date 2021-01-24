@@ -18,6 +18,7 @@ pub trait Connection {
     fn finalize(&mut self, handler: &mut dyn RequestHandler);
 }
 
+/// The main Connection implementation
 pub struct ConnectionImpl {
     self_key: ConnectionKey,
     encoder: Box<dyn Encoder>,
@@ -68,7 +69,7 @@ impl ConnectionImpl {
         entity: EntityKey,
         property: &str,
         method: RequestMethod,
-    ) -> Result<(), String> {
+    ) -> RequestResult<()> {
         use std::collections::hash_map::Entry;
         match method {
             RequestMethod::Action(value) => {
@@ -84,7 +85,9 @@ impl ConnectionImpl {
             }
             RequestMethod::Subscribe => {
                 match self.subscriptions.entry((entity, property.to_string())) {
-                    Entry::Occupied(_) => return Err("tried to subscribe multiple times".into()),
+                    Entry::Occupied(_) => {
+                        return Err(BadRequest("tried to subscribe multiple times".into()))
+                    }
                     Entry::Vacant(entry) => {
                         let sub = handler.subscribe(self.self_key, entity, property)?;
                         entry.insert(sub);
@@ -96,7 +99,11 @@ impl ConnectionImpl {
                 let key = (entity, property.to_string());
                 match self.subscriptions.remove(&key) {
                     Some(entry) => handler.unsubscribe(entry)?,
-                    None => return Err("tried to unsubscribe when not subscribed".into()),
+                    None => {
+                        return Err(BadRequest(
+                            "tried to unsubscribe when not subscribed".into(),
+                        ))
+                    }
                 }
             }
         };

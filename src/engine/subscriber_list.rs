@@ -24,7 +24,7 @@ impl SubscriberList {
     pub fn subscribe(
         &mut self,
         subscriber: &Arc<dyn Subscriber>,
-    ) -> Result<SubscribeReport, String> {
+    ) -> RequestResult<SubscribeReport> {
         let subscriber_ptr = subscriber.thin_ptr();
         let subscriber = Arc::downgrade(subscriber);
         if self
@@ -32,7 +32,7 @@ impl SubscriberList {
             .iter()
             .any(|(ptr, _subscriber)| *ptr == subscriber_ptr)
         {
-            Err("subscriber subscribed multiple times".into())
+            Err(InternalError("subscriber subscribed multiple times".into()))
         } else {
             let was_empty = self.0.is_empty();
             self.0.push((subscriber_ptr, subscriber));
@@ -43,14 +43,16 @@ impl SubscriberList {
     pub fn unsubscribe(
         &mut self,
         subscriber: &Weak<dyn Subscriber>,
-    ) -> Result<UnsubscribeReport, String> {
+    ) -> RequestResult<UnsubscribeReport> {
         let subscriber_ptr = subscriber.thin_ptr();
         match self
             .0
             .iter()
             .position(|(ptr, _subscriber)| *ptr == subscriber_ptr)
         {
-            None => Err("unsubscribed subscriber not already subscribed".into()),
+            None => Err(InternalError(
+                "unsubscribed subscriber not already subscribed".into(),
+            )),
             Some(i) => {
                 self.0.swap_remove(i);
                 let is_now_empty = self.0.is_empty();

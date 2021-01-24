@@ -26,8 +26,8 @@ impl RequestHandler for NullRequestHandler {
         _: EntityKey,
         _: &str,
         _: Value,
-    ) -> Result<(), String> {
-        Err("connection failed".into())
+    ) -> RequestResult<()> {
+        Ok(())
     }
     fn set_property(
         &mut self,
@@ -35,22 +35,22 @@ impl RequestHandler for NullRequestHandler {
         _: EntityKey,
         _: &str,
         _: Value,
-    ) -> Result<(), String> {
-        Err("connection failed".into())
+    ) -> RequestResult<()> {
+        Ok(())
     }
-    fn get_property(&self, _: ConnectionKey, _: EntityKey, _: &str) -> Result<Value, String> {
-        Err("connection failed".into())
+    fn get_property(&self, _: ConnectionKey, _: EntityKey, _: &str) -> RequestResult<Value> {
+        Ok(Value::Null)
     }
     fn subscribe(
         &mut self,
         _: ConnectionKey,
         _: EntityKey,
         _: &str,
-    ) -> Result<Box<dyn Any>, String> {
-        Err("connection failed".into())
+    ) -> RequestResult<Box<dyn Any>> {
+        Ok(Box::new(()))
     }
-    fn unsubscribe(&mut self, _: Box<dyn Any>) -> Result<(), String> {
-        Err("connection failed".into())
+    fn unsubscribe(&mut self, _: Box<dyn Any>) -> RequestResult<()> {
+        Ok(())
     }
 }
 
@@ -263,7 +263,7 @@ mod tests {
             entity: EntityKey,
             name: &str,
             _: Value,
-        ) -> Result<(), String> {
+        ) -> RequestResult<()> {
             self.0
                 .borrow_mut()
                 .push(("fire".into(), entity, name.into()));
@@ -275,7 +275,7 @@ mod tests {
             entity: EntityKey,
             name: &str,
             _: Value,
-        ) -> Result<(), String> {
+        ) -> RequestResult<()> {
             self.0
                 .borrow_mut()
                 .push(("set".into(), entity, name.into()));
@@ -286,7 +286,7 @@ mod tests {
             _: ConnectionKey,
             entity: EntityKey,
             name: &str,
-        ) -> Result<Value, String> {
+        ) -> RequestResult<Value> {
             self.0
                 .borrow_mut()
                 .push(("get".into(), entity, name.into()));
@@ -297,14 +297,14 @@ mod tests {
             _: ConnectionKey,
             entity: EntityKey,
             name: &str,
-        ) -> Result<Box<dyn Any>, String> {
+        ) -> RequestResult<Box<dyn Any>> {
             self.0
                 .borrow_mut()
                 .push(("subscribe".into(), entity, name.into()));
             let subscription: (EntityKey, String) = (entity, name.into());
             Ok(Box::new(subscription))
         }
-        fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String> {
+        fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()> {
             let subscription: Box<(EntityKey, String)> =
                 subscription.downcast().expect("subscription of wrong type");
             self.0

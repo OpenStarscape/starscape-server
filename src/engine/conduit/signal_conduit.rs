@@ -50,22 +50,22 @@ impl<C> Conduit<Value, Value> for Arc<SignalConduit<C>>
 where
     C: Conduit<Vec<Value>, SignalsDontTakeInputSilly> + 'static,
 {
-    fn output(&self, _: &State) -> Result<Value, String> {
-        Err("can not get value from signal".into())
+    fn output(&self, _: &State) -> RequestResult<Value> {
+        Err(BadRequest("can not get value from signal".into()))
     }
 
-    fn input(&self, _: &mut State, _: Value) -> Result<(), String> {
-        Err("signals do not take input".into())
+    fn input(&self, _: &mut State, _: Value) -> RequestResult<()> {
+        Err(BadRequest("signals do not take input".into()))
     }
 
     /// Uses this as a signal to subscribe, but ignores the given subscriber.
-    fn subscribe(&self, state: &State, _: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, _: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.inner
             .subscribe(state, &(self.clone() as Arc<dyn Subscriber>))
     }
 
     /// Uses this as a signal to unsubscribe, but ignores the given subscriber.
-    fn unsubscribe(&self, state: &State, _: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, _: &Weak<dyn Subscriber>) -> RequestResult<()> {
         self.inner
             .unsubscribe(state, &(Arc::downgrade(self) as Weak<dyn Subscriber>))
     }

@@ -3,16 +3,16 @@ use super::*;
 /// A chain of conduits composes the interface between properties, actions and signals and the state.
 /// `O` is the output/get type and `I` is the input/set type
 pub trait Conduit<O, I> {
-    fn output(&self, state: &State) -> Result<O, String>;
-    fn input(&self, state: &mut State, value: I) -> Result<(), String>;
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String>;
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String>;
+    fn output(&self, state: &State) -> RequestResult<O>;
+    fn input(&self, state: &mut State, value: I) -> RequestResult<()>;
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()>;
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()>;
 
     #[must_use]
     fn map_output<F, OuterO>(self, f: F) -> MapOutputConduit<Self, O, I, F>
     where
         Self: Sized,
-        F: Fn(O) -> Result<OuterO, String>,
+        F: Fn(O) -> RequestResult<OuterO>,
     {
         MapOutputConduit::new(self, f)
     }
@@ -21,7 +21,7 @@ pub trait Conduit<O, I> {
     fn map_input<F, OuterI>(self, f: F) -> MapInputConduit<Self, O, I, OuterI, F>
     where
         Self: Sized,
-        F: Fn(OuterI) -> Result<I, String>,
+        F: Fn(OuterI) -> RequestResult<I>,
     {
         MapInputConduit::new(self, f)
     }
@@ -39,7 +39,7 @@ pub trait Conduit<O, I> {
         Self: Sized + 'static,
         O: Into<Value> + 'static,
         I: 'static,
-        Value: Into<Result<I, String>>,
+        Value: Into<RequestResult<I>>,
     {
         state.install_property(entity, name, self.map_into::<Value, Value>());
     }
@@ -50,7 +50,7 @@ pub trait Conduit<O, I> {
         T: Into<Value>,
         O: IntoIterator<Item = T> + 'static,
         I: 'static,
-        SignalsDontTakeInputSilly: Into<Result<I, String>>,
+        SignalsDontTakeInputSilly: Into<RequestResult<I>>,
     {
         let conduit = self
             .map_output(|iter| Ok(iter.into_iter().map(Into::into).collect()))
@@ -63,7 +63,7 @@ pub trait Conduit<O, I> {
         Self: Sized + 'static,
         O: Into<ActionsDontProduceOutputSilly> + 'static,
         I: 'static,
-        Value: Into<Result<I, String>>,
+        Value: Into<RequestResult<I>>,
     {
         state.install_action(
             entity,
@@ -75,27 +75,27 @@ pub trait Conduit<O, I> {
 
 pub enum ReadOnlyPropSetType {}
 
-impl From<Value> for Result<ReadOnlyPropSetType, String> {
-    fn from(_value: Value) -> Result<ReadOnlyPropSetType, String> {
-        Err("read_only_property".to_string())
+impl From<Value> for RequestResult<ReadOnlyPropSetType> {
+    fn from(_value: Value) -> RequestResult<ReadOnlyPropSetType> {
+        Err(BadRequest("read only property".into()))
     }
 }
 
 /// Allows for making a conduit clonable
 impl<O, I> Conduit<O, I> for Arc<dyn Conduit<O, I>> {
-    fn output(&self, state: &State) -> Result<O, String> {
+    fn output(&self, state: &State) -> RequestResult<O> {
         (**self).output(state)
     }
 
-    fn input(&self, state: &mut State, value: I) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: I) -> RequestResult<()> {
         (**self).input(state, value)
     }
 
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> Result<(), String> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         (**self).subscribe(state, subscriber)
     }
 
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> Result<(), String> {
+    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         (**self).unsubscribe(state, subscriber)
     }
 }

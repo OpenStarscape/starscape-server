@@ -9,20 +9,20 @@ pub trait RequestHandler {
         entity: EntityKey,
         name: &str,
         value: Value,
-    ) -> Result<(), String>;
+    ) -> RequestResult<()>;
     fn set_property(
         &mut self,
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
         value: Value,
-    ) -> Result<(), String>;
+    ) -> RequestResult<()>;
     fn get_property(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-    ) -> Result<Value, String>;
+    ) -> RequestResult<Value>;
     /// If Ok, the returned Any should later be sent to unsubscribe(). The name may refer to either
     /// a property or a signal.
     fn subscribe(
@@ -30,9 +30,9 @@ pub trait RequestHandler {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-    ) -> Result<Box<dyn Any>, String>;
+    ) -> RequestResult<Box<dyn Any>>;
     /// Takes a subscription that was previously returned from subscribe()
-    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> Result<(), String>;
+    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()>;
 }
 
 /// Allows sending property updates and other messages to clients. Implemented by

@@ -13,12 +13,14 @@ mod json;
 mod message_handlers;
 mod object_map;
 mod request;
+mod request_error;
 
 pub use connection::{Connection, ConnectionImpl, ConnectionKey};
 pub use connection_collection::ConnectionCollection;
 pub use event::Event;
 pub use message_handlers::{EventHandler, RequestHandler};
 pub use object_map::{ObjectId, ObjectMap};
+pub use request_error::{RequestError, RequestError::*, RequestResult};
 
 use bundle_handler::BundleHandler;
 use event::EventMethod;

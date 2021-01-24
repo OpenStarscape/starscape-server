@@ -17,14 +17,10 @@ pub trait Encoder {
 /// The context required for decoding a Value. The normal implementation is ObjectMapImpl.
 pub trait DecodeCtx: Send + Sync {
     /// Returns the entity for the given object ID, or Err if it does not exist
-    fn entity_for(&self, object: ObjectId) -> Result<EntityKey, String>;
+    fn entity_for(&self, object: ObjectId) -> RequestResult<EntityKey>;
 }
 
 /// Decodes a stream of bytes from the session into requests
 pub trait Decoder: Send {
-    fn decode(
-        &mut self,
-        ctx: &dyn DecodeCtx,
-        bytes: Vec<u8>,
-    ) -> Result<Vec<Request>, Box<dyn Error>>;
+    fn decode(&mut self, ctx: &dyn DecodeCtx, bytes: Vec<u8>) -> RequestResult<Vec<Request>>;
 }

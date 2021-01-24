@@ -15,7 +15,7 @@ pub struct Subscription {
 
 /// Type used to remember and unsubscribe from subscriptions
 impl Subscription {
-    pub fn new(state: &State, conduit: Box<dyn Conduit<Value, Value>>) -> Result<Self, String> {
+    pub fn new(state: &State, conduit: Box<dyn Conduit<Value, Value>>) -> RequestResult<Self> {
         let subscriber: Arc<dyn Subscriber> = Arc::new(NullSubscriber);
         conduit.subscribe(state, &subscriber)?;
         Ok(Self {
@@ -24,7 +24,7 @@ impl Subscription {
         })
     }
 
-    pub fn unsubscribe(mut self, state: &State) -> Result<(), String> {
+    pub fn unsubscribe(mut self, state: &State) -> RequestResult<()> {
         self.is_unsubscribed = true;
         let subscriber: Weak<dyn Subscriber> = Weak::<NullSubscriber>::new();
         self.conduit.unsubscribe(state, &subscriber)
