@@ -195,7 +195,6 @@ impl EventHandler for ConnectionCollection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::cell::RefCell;
 
     #[derive(Debug)]
     struct MockSession;
@@ -248,72 +247,6 @@ mod tests {
         fn finalize(&mut self, _: &mut dyn RequestHandler) {}
     }
 
-    struct MockInboundHandler(RefCell<Vec<(String, EntityKey, String)>>);
-
-    impl MockInboundHandler {
-        fn new() -> Self {
-            Self(RefCell::new(Vec::new()))
-        }
-    }
-
-    impl RequestHandler for MockInboundHandler {
-        fn fire_action(
-            &mut self,
-            _: ConnectionKey,
-            entity: EntityKey,
-            name: &str,
-            _: Value,
-        ) -> RequestResult<()> {
-            self.0
-                .borrow_mut()
-                .push(("fire".into(), entity, name.into()));
-            Ok(())
-        }
-        fn set_property(
-            &mut self,
-            _: ConnectionKey,
-            entity: EntityKey,
-            name: &str,
-            _: Value,
-        ) -> RequestResult<()> {
-            self.0
-                .borrow_mut()
-                .push(("set".into(), entity, name.into()));
-            Ok(())
-        }
-        fn get_property(
-            &self,
-            _: ConnectionKey,
-            entity: EntityKey,
-            name: &str,
-        ) -> RequestResult<Value> {
-            self.0
-                .borrow_mut()
-                .push(("get".into(), entity, name.into()));
-            Ok(Value::Null)
-        }
-        fn subscribe(
-            &mut self,
-            _: ConnectionKey,
-            entity: EntityKey,
-            name: &str,
-        ) -> RequestResult<Box<dyn Any>> {
-            self.0
-                .borrow_mut()
-                .push(("subscribe".into(), entity, name.into()));
-            let subscription: (EntityKey, String) = (entity, name.into());
-            Ok(Box::new(subscription))
-        }
-        fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()> {
-            let subscription: Box<(EntityKey, String)> =
-                subscription.downcast().expect("subscription of wrong type");
-            self.0
-                .borrow_mut()
-                .push(("unsubscribe".into(), subscription.0, subscription.1));
-            Ok(())
-        }
-    }
-
     #[test]
     fn can_create_connection_from_session_builder() {
         let e = mock_keys(1);
@@ -323,7 +256,7 @@ mod tests {
         session_tx
             .send(builder)
             .expect("failed to send connection builder");
-        let mut handler = MockInboundHandler::new();
+        let mut handler = MockRequestHandler::new(Ok(()));
         assert_eq!(cc.connections.len(), 0);
         cc.process_inbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 1);
@@ -339,7 +272,7 @@ mod tests {
         session_tx
             .send(builder)
             .expect("failed to send connection builder");
-        let mut handler = MockInboundHandler::new();
+        let mut handler = MockRequestHandler::new(Ok(()));
         cc.process_inbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 0);
     }
@@ -358,7 +291,7 @@ mod tests {
         session_tx
             .send(Box::new(MockSessionBuilder(true)))
             .expect("failed to send connection builder");
-        let mut handler = MockInboundHandler::new();
+        let mut handler = MockRequestHandler::new(Ok(()));
         cc.process_inbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 2);
         session_tx
@@ -377,7 +310,7 @@ mod tests {
             flush_succeeds: true,
         }));
         assert_eq!(cc.connections.len(), 1);
-        let mut handler = MockInboundHandler::new();
+        let mut handler = MockRequestHandler::new(Ok(()));
         cc.flush_outbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 1);
     }
@@ -391,7 +324,7 @@ mod tests {
             flush_succeeds: false,
         }));
         assert_eq!(cc.connections.len(), 1);
-        let mut handler = MockInboundHandler::new();
+        let mut handler = MockRequestHandler::new(Ok(()));
         cc.flush_outbound_messages(&mut handler);
         assert_eq!(cc.connections.len(), 0);
     }
