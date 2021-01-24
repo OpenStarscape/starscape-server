@@ -19,3 +19,5 @@ pub use or_log::OrLog;
 #[cfg(test)]
 pub use test_helpers::*;
 pub use thin_ptr::ThinPtr;
+
+pub trait AssertIsSync: Sync {}

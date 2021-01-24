@@ -20,7 +20,7 @@ impl<T, OFn> Conduit<T, ReadOnlyPropSetType> for ROConduit<OFn>
 where
     T: Clone,
     for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
-    OFn: 'static,
+    OFn: Send + Sync + 'static,
 {
     fn output(&self, state: &State) -> RequestResult<T> {
         Ok((*(self.output_fn)(state)?).clone())

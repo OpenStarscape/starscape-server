@@ -12,8 +12,8 @@ impl<C, InnerO, InnerI, OuterO, OuterI> Conduit<OuterO, OuterI>
     for TryIntoConduit<C, InnerO, InnerI>
 where
     C: Conduit<InnerO, InnerI> + 'static,
-    InnerO: Into<OuterO> + 'static,
-    InnerI: 'static,
+    InnerO: Into<OuterO> + Send + Sync + 'static,
+    InnerI: Send + Sync + 'static,
     OuterI: Into<RequestResult<InnerI>>,
 {
     fn output(&self, state: &State) -> RequestResult<OuterO> {

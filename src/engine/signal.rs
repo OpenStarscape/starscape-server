@@ -37,7 +37,7 @@ impl<T> Dispatcher<T> {
     }
 }
 
-impl<T> Subscriber for Dispatcher<T> {
+impl<T: Send + Sync> Subscriber for Dispatcher<T> {
     fn notify(&self, state: &State, handler: &dyn EventHandler) {
         // this notifies our subscribers,
         self.subscribers.send_notifications(state, handler);
@@ -62,7 +62,7 @@ impl From<SignalsDontTakeInputSilly> for RequestResult<SignalsDontTakeInputSilly
     }
 }
 
-impl<T: Clone> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak<Dispatcher<T>> {
+impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak<Dispatcher<T>> {
     fn output(&self, _: &State) -> RequestResult<Vec<T>> {
         let dispatcher = self
             .upgrade()
@@ -98,7 +98,7 @@ pub struct Signal<T> {
     dispatcher: Option<Arc<Dispatcher<T>>>,
 }
 
-impl<T: Clone + 'static> Signal<T> {
+impl<T: Clone + Send + Sync + 'static> Signal<T> {
     pub fn new() -> Self {
         Self { dispatcher: None }
     }

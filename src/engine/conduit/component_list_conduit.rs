@@ -1,11 +1,18 @@
 use super::*;
 
-/// Useful for creating properties that are a list of all entities with a given component
-pub struct ComponentListConduit<T: 'static>(PhantomData<T>);
+/// Useful for creating properties that are a list of all entities with a given component.
+pub struct ComponentListConduit<T: 'static> {
+    /// This incantation is based on https://stackoverflow.com/a/50201389. It allows this struct to
+    /// be associated with the type T while being Sync without owning a T or requiring T be Sync.
+    /// Get rid of it if you can lol.
+    phantom: PhantomData<dyn Fn() -> T + Send + Sync>,
+}
 
 impl<T: 'static> ComponentListConduit<T> {
     pub fn new() -> Self {
-        Self(PhantomData)
+        Self {
+            phantom: PhantomData,
+        }
     }
 }
 

@@ -90,8 +90,8 @@ impl EventHandler for MockEventHandler {
 }
 
 struct MockSubscriberInner {
-    count: RefCell<u32>,
-    f: Box<dyn Fn(&State)>,
+    count: Mutex<u32>,
+    f: Box<dyn Fn(&State) + Send + Sync>,
 }
 
 pub struct MockSubscriber(Arc<MockSubscriberInner>);
@@ -107,10 +107,10 @@ impl MockSubscriber {
 
     pub fn new_with_fn<F>(f: F) -> Self
     where
-        F: Fn(&State) + 'static,
+        F: Fn(&State) + Send + Sync + 'static,
     {
         Self(Arc::new(MockSubscriberInner {
-            count: RefCell::new(0),
+            count: Mutex::new(0),
             f: Box::new(f),
         }))
     }
@@ -120,13 +120,13 @@ impl MockSubscriber {
     }
 
     pub fn notify_count(&self) -> u32 {
-        *self.0.count.borrow()
+        *self.0.count.lock().unwrap()
     }
 }
 
 impl Subscriber for MockSubscriberInner {
     fn notify(&self, state: &State, _: &dyn EventHandler) {
-        *self.count.borrow_mut() += 1;
+        *self.count.lock().unwrap() += 1;
         (self.f)(state);
     }
 }

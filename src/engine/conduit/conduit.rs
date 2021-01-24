@@ -2,7 +2,7 @@ use super::*;
 
 /// A chain of conduits composes the interface between properties, actions and signals and the state.
 /// `O` is the output/get type and `I` is the input/set type
-pub trait Conduit<O, I> {
+pub trait Conduit<O, I>: Send + Sync {
     fn output(&self, state: &State) -> RequestResult<O>;
     fn input(&self, state: &mut State, value: I) -> RequestResult<()>;
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()>;
@@ -37,8 +37,8 @@ pub trait Conduit<O, I> {
     fn install_property(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
-        O: Into<Value> + 'static,
-        I: 'static,
+        O: Into<Value> + Send + Sync + 'static,
+        I: Send + Sync + 'static,
         Value: Into<RequestResult<I>>,
     {
         state.install_property(entity, name, self.map_into::<Value, Value>());
@@ -48,8 +48,8 @@ pub trait Conduit<O, I> {
     where
         Self: Sized + 'static,
         T: Into<Value>,
-        O: IntoIterator<Item = T> + 'static,
-        I: 'static,
+        O: IntoIterator<Item = T> + Send + Sync + 'static,
+        I: Send + Sync + 'static,
         SignalsDontTakeInputSilly: Into<RequestResult<I>>,
     {
         let conduit = self
@@ -61,8 +61,8 @@ pub trait Conduit<O, I> {
     fn install_action(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
-        O: Into<ActionsDontProduceOutputSilly> + 'static,
-        I: 'static,
+        O: Into<ActionsDontProduceOutputSilly> + Send + Sync + 'static,
+        I: Send + Sync + 'static,
         Value: Into<RequestResult<I>>,
     {
         state.install_action(

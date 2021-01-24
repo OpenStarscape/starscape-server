@@ -25,7 +25,9 @@ where
 impl<C, F, InnerO, OuterO, I> Conduit<OuterO, I> for MapOutputConduit<C, InnerO, I, F>
 where
     C: Conduit<InnerO, I>,
-    F: Fn(InnerO) -> RequestResult<OuterO>,
+    F: Fn(InnerO) -> RequestResult<OuterO> + Send + Sync,
+    InnerO: Send + Sync,
+    I: Send + Sync,
 {
     fn output(&self, state: &State) -> RequestResult<OuterO> {
         (self.f)(self.conduit.output(state)?)
