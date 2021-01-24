@@ -3,6 +3,7 @@
 
 use super::*;
 
+mod bundle_handler;
 #[allow(clippy::module_inception)]
 mod connection;
 mod connection_collection;
@@ -19,6 +20,7 @@ pub use event::Event;
 pub use message_handlers::{EventHandler, RequestHandler};
 pub use object_map::{ObjectId, ObjectMap};
 
+use bundle_handler::BundleHandler;
 use event::EventMethod;
 use format::{DecodeCtx, Decoder, EncodeCtx, Encoder};
 use json::json_protocol_impls;
