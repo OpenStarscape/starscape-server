@@ -119,7 +119,7 @@ impl JsonDecoder {
             .as_str()
             .ok_or("request type is not a string")?;
         Ok(match mtype {
-            "fire" => Request::fire(
+            "fire" => Request::action(
                 Self::decode_obj(ctx, &datagram)?,
                 Self::decode_name(&datagram)?,
                 self.decode_value(
@@ -398,7 +398,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": 12 \
             }\n",
-            Request::fire(e[9], "xyz".to_owned(), Decoded::Integer(12)),
+            Request::action(e[9], "xyz".to_owned(), Decoded::Integer(12)),
         );
     }
 
