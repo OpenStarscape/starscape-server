@@ -1,5 +1,7 @@
 [Unit]
 Description=Run the OpenStarscape server
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
