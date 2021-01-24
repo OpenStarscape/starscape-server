@@ -331,25 +331,37 @@ impl State {
 }
 
 impl InboundMessageHandler for State {
-    fn set(
+    fn fire_action(
         &mut self,
         connection: ConnectionKey,
         entity: EntityKey,
-        property: &str,
+        name: &str,
         value: Decoded,
     ) -> Result<(), String> {
-        let conduit = self.conduit(connection, entity, property)?;
-        // TODO: eliminate value.clone() if possible
+        let conduit = self.conduit(connection, entity, name)?;
+        // TODO: check if this is actually an action (currently "fireing" a property sets it)
         conduit.input(self, value)
     }
 
-    fn get(
+    fn set_property(
+        &mut self,
+        connection: ConnectionKey,
+        entity: EntityKey,
+        name: &str,
+        value: Decoded,
+    ) -> Result<(), String> {
+        let conduit = self.conduit(connection, entity, name)?;
+        // TODO: check if this is actually a property (currently "setting" an action fires it)
+        conduit.input(self, value)
+    }
+
+    fn get_property(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,
-        property: &str,
+        name: &str,
     ) -> Result<Encodable, String> {
-        let conduit = self.conduit(connection, entity, property)?;
+        let conduit = self.conduit(connection, entity, name)?;
         conduit.output(self)
     }
 
@@ -357,9 +369,9 @@ impl InboundMessageHandler for State {
         &mut self,
         connection: ConnectionKey,
         entity: EntityKey,
-        property: &str,
+        name: &str,
     ) -> Result<Box<dyn Any>, String> {
-        let conduit = self.conduit(connection, entity, property)?;
+        let conduit = self.conduit(connection, entity, name)?;
         let subscription = Subscription::new(self, conduit)?;
         Ok(Box::new(subscription))
     }
