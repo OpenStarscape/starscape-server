@@ -99,6 +99,7 @@ impl ConnectionImpl {
             request_tx,
         };
         let session = session_builder.build(Box::new(handler))?;
+        info!("created connection {:?} on {:?}", self_key, session);
         Ok(Self {
             self_key,
             encoder,
@@ -157,6 +158,11 @@ impl ConnectionImpl {
     }
 
     fn queue_message(&self, data: Vec<u8>) {
+        // Drop data if we are closing. This looks not threadsafe and def needs a refactor but the
+        // worst that can happen is the session logs a warning and ignores so who cares.
+        if self.should_close.load(SeqCst) {
+            return;
+        }
         let mut session = self.session.lock().unwrap();
         if let Err(e) = session.yeet_bundle(&data) {
             warn!("closing session due to problem sending bundle: {}", e);
@@ -305,6 +311,11 @@ impl Connection for ConnectionImpl {
     }
 
     fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
+        info!(
+            "finalized connection {:?} on {:?}",
+            self.self_key,
+            self.session.lock().unwrap()
+        );
         for ((entity, prop), subscription) in self.subscriptions.drain() {
             if let Err(e) = handler.unsubscribe(subscription) {
                 warn!(

@@ -144,8 +144,6 @@ impl ConnectionCollection {
             return;
         }
 
-        info!("new session: {:?}", builder);
-
         // DenseSlotMap::insert_with_key() lets us create a connection with a key. Unfortanitely
         // the given function can not fail. Connection building can fail, so we have to return a
         // stub connection in that case (and then immediately remove it). A mess, I know.
