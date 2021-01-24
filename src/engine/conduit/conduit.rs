@@ -1,6 +1,6 @@
 use super::*;
 
-/// A chain of conduits composes the interface between properties, actions and events and the state.
+/// A chain of conduits composes the interface between properties, actions and signals and the state.
 /// `O` is the output/get type and `I` is the input/set type
 pub trait Conduit<O, I> {
     fn output(&self, state: &State) -> Result<O, String>;
@@ -44,18 +44,18 @@ pub trait Conduit<O, I> {
         state.install_property(entity, name, self.map_into::<Encodable, Decoded>());
     }
 
-    fn install_event<T>(self, state: &mut State, entity: EntityKey, name: &'static str)
+    fn install_signal<T>(self, state: &mut State, entity: EntityKey, name: &'static str)
     where
         Self: Sized + 'static,
         T: Into<Encodable>,
         O: IntoIterator<Item = T> + 'static,
         I: 'static,
-        EventsDontTakeInputSilly: Into<Result<I, String>>,
+        SignalsDontTakeInputSilly: Into<Result<I, String>>,
     {
         let conduit = self
             .map_output(|iter| Ok(iter.into_iter().map(Into::into).collect()))
             .map_input(Into::into);
-        state.install_event(entity, name, conduit);
+        state.install_signal(entity, name, conduit);
     }
 
     fn install_action(self, state: &mut State, entity: EntityKey, name: &'static str)

@@ -10,7 +10,7 @@ pub trait OutboundMessageHandler {
         property: &str,
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>>;
-    fn event(
+    fn signal(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,

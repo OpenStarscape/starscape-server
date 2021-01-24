@@ -11,8 +11,8 @@ pub trait Connection {
     /// Send a property's value to a client. If is_update is true this is a response to a change in
     /// a subscribed property. If false, this is a response to a get request.
     fn property_value(&self, entity: EntityKey, property: &str, value: &Encodable, is_update: bool);
-    /// Inform the client an event has fired.
-    fn event(&self, entity: EntityKey, property: &str, value: &Encodable);
+    /// Inform the client a signal has fired.
+    fn signal(&self, entity: EntityKey, property: &str, value: &Encodable);
     /// Inform the client of an error
     fn error(&self, message: &str);
     /// Inform a client that an entity no longer exists on the server.
@@ -197,11 +197,11 @@ impl Connection for ConnectionImpl {
         self.queue_message(buffer);
     }
 
-    fn event(&self, entity: EntityKey, property: &str, value: &Encodable) {
+    fn signal(&self, entity: EntityKey, property: &str, value: &Encodable) {
         let object = match self.obj_map.get_object(entity) {
             Some(o) => o,
             None => {
-                error!("failed to send event, {:?} not in object map", entity);
+                error!("failed to send signal, {:?} not in object map", entity);
                 return;
             }
         };
@@ -215,12 +215,12 @@ impl Connection for ConnectionImpl {
         let buffer =
             match self
                 .encoder
-                .encode_event(object, property, self.obj_map.as_encode_ctx(), value)
+                .encode_signal(object, property, self.obj_map.as_encode_ctx(), value)
             {
                 Ok(buffer) => buffer,
                 Err(e) => {
                     error!(
-                        "failed to encode event {:?}.{} -> {:?}: {}",
+                        "failed to encode signal {:?}.{} -> {:?}: {}",
                         entity, property, value, e
                     );
                     self.has_failed.store(true, SeqCst);
@@ -297,7 +297,7 @@ impl Connection for ConnectionImpl {
         let pending_get_requests =
             std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in pending_get_requests.iter() {
-            // When a client subscribes to an event, we have no way of knowing it's an event and
+            // When a client subscribes to a signal, we have no way of knowing it's a signal and
             // not a property, so it goes in the pending get requests list and is processed here.
             // That fails, and so we simply ignore errors here. There's probably a better way.
             if let Ok(value) = handler.get(self.self_key, *entity, property) {
@@ -364,7 +364,7 @@ mod tests {
                 .push((object, property.to_owned(), (*value).clone()));
             Ok(vec![])
         }
-        fn encode_event(
+        fn encode_signal(
             &self,
             object: ObjectId,
             property: &str,

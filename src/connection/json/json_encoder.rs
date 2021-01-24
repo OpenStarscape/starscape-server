@@ -102,7 +102,7 @@ impl Encoder for JsonEncoder {
         Ok(serializer.into_inner())
     }
 
-    fn encode_event(
+    fn encode_signal(
         &self,
         object: ObjectId,
         property: &str,

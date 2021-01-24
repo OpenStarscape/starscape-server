@@ -26,8 +26,8 @@ pub trait Encoder {
         ctx: &dyn EncodeCtx,
         value: &Encodable,
     ) -> Result<Vec<u8>, Box<dyn Error>>;
-    /// An event sent from the server to clients
-    fn encode_event(
+    /// A signal sent from the server to clients
+    fn encode_signal(
         &self,
         object: ObjectId,
         property: &str,

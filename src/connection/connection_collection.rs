@@ -6,8 +6,8 @@ impl Connection for StubConnection {
     fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {
         error!("StubConnection::property_value() called");
     }
-    fn event(&self, _: EntityKey, _: &str, _: &Encodable) {
-        error!("event() called on StubConnection");
+    fn signal(&self, _: EntityKey, _: &str, _: &Encodable) {
+        error!("signal() called on StubConnection");
     }
     fn error(&self, _: &str) {
         error!("error() called on StubConnection");
@@ -228,7 +228,7 @@ impl OutboundMessageHandler for ConnectionCollection {
             Err(format!("connection {:?} has died", connection).into())
         }
     }
-    fn event(
+    fn signal(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,
@@ -236,7 +236,7 @@ impl OutboundMessageHandler for ConnectionCollection {
         value: &Encodable,
     ) -> Result<(), Box<dyn Error>> {
         if let Some(connection) = self.connections.get(connection) {
-            connection.event(entity, property, &value);
+            connection.signal(entity, property, &value);
             Ok(())
         } else {
             Err(format!("connection {:?} has died", connection).into())
@@ -289,7 +289,7 @@ mod tests {
 
     impl Connection for MockConnection {
         fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {}
-        fn event(&self, _: EntityKey, _: &str, _: &Encodable) {}
+        fn signal(&self, _: EntityKey, _: &str, _: &Encodable) {}
         fn error(&self, _: &str) {}
         fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
         fn handle_request(

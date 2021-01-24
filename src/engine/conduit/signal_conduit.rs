@@ -1,19 +1,19 @@
 use super::*;
 
-/// The top-most conduit of an event, automatically created by State. Note that this conduit
-/// does not use the given subscriber (it handles dispatching events itself). It uses .subscribe()
+/// The top-most conduit of a signal, automatically created by State. Note that this conduit
+/// does not use the given subscriber (it handles dispatching signals itself). It uses .subscribe()
 /// and .unsubscribe() to know when to start and stop dispatching updates, but it does not care
 /// what subscriber is sent.
-pub struct EventConduit<C> {
+pub struct SignalConduit<C> {
     connection: ConnectionKey,
     entity: EntityKey,
     name: &'static str,
     inner: C,
 }
 
-impl<C> EventConduit<C>
+impl<C> SignalConduit<C>
 where
-    C: Conduit<Vec<Encodable>, EventsDontTakeInputSilly> + 'static,
+    C: Conduit<Vec<Encodable>, SignalsDontTakeInputSilly> + 'static,
 {
     pub fn new(
         connection: ConnectionKey,
@@ -30,35 +30,35 @@ where
     }
 }
 
-impl<C> Subscriber for EventConduit<C>
+impl<C> Subscriber for SignalConduit<C>
 where
-    C: Conduit<Vec<Encodable>, EventsDontTakeInputSilly> + 'static,
+    C: Conduit<Vec<Encodable>, SignalsDontTakeInputSilly> + 'static,
 {
     fn notify(
         &self,
         state: &State,
         handler: &dyn OutboundMessageHandler,
     ) -> Result<(), Box<dyn Error>> {
-        let events = self.inner.output(state)?;
-        for event in events {
-            if let Err(e) = handler.event(self.connection, self.entity, self.name, &event) {
-                error!("dispatching event: {}", e);
+        let values = self.inner.output(state)?;
+        for value in values {
+            if let Err(e) = handler.signal(self.connection, self.entity, self.name, &value) {
+                error!("dispatching signal: {}", e);
             }
         }
         Ok(())
     }
 }
 
-impl<C> Conduit<Encodable, Decoded> for Arc<EventConduit<C>>
+impl<C> Conduit<Encodable, Decoded> for Arc<SignalConduit<C>>
 where
-    C: Conduit<Vec<Encodable>, EventsDontTakeInputSilly> + 'static,
+    C: Conduit<Vec<Encodable>, SignalsDontTakeInputSilly> + 'static,
 {
     fn output(&self, _: &State) -> Result<Encodable, String> {
-        Err("can not get value from event".into())
+        Err("can not get value from signal".into())
     }
 
     fn input(&self, _: &mut State, _: Decoded) -> Result<(), String> {
-        Err("can not set value on event".into())
+        Err("signals do not take input".into())
     }
 
     /// Uses this as a signal to subscribe, but ignores the given subscriber.
