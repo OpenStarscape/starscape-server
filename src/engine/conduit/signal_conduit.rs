@@ -41,9 +41,10 @@ where
     ) -> Result<(), Box<dyn Error>> {
         let values = self.inner.output(state)?;
         for value in values {
-            if let Err(e) = handler.signal(self.connection, self.entity, self.name, &value) {
-                error!("dispatching signal: {}", e);
-            }
+            handler.event(
+                self.connection,
+                Event::signal(self.entity, self.name.to_string(), value),
+            );
         }
         Ok(())
     }

@@ -40,9 +40,10 @@ where
         handler: &dyn OutboundMessageHandler,
     ) -> Result<(), Box<dyn Error>> {
         let value = self.inner.output(state)?;
-        if let Err(e) = handler.property_update(self.connection, self.entity, self.name, &value) {
-            error!("dispatching property update: {}", e);
-        }
+        handler.event(
+            self.connection,
+            Event::update(self.entity, self.name.to_string(), value),
+        );
         Ok(())
     }
 }

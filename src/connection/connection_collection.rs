@@ -6,17 +6,8 @@ impl Connection for StubConnection {
     fn process_requests(&mut self, _: &mut dyn InboundMessageHandler) {
         error!("StubConnection::process_requests() called");
     }
-    fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {
-        error!("StubConnection::property_value() called");
-    }
-    fn signal(&self, _: EntityKey, _: &str, _: &Encodable) {
-        error!("signal() called on StubConnection");
-    }
-    fn error(&self, _: &str) {
-        error!("error() called on StubConnection");
-    }
-    fn entity_destroyed(&self, _: &State, _: EntityKey) {
-        error!("StubConnection::entity_destroyed() called");
+    fn send_event(&self, _: Event) {
+        error!("StubConnection::send_event() called");
     }
     fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
         error!("StubConnection::flush() called");
@@ -148,10 +139,10 @@ impl ConnectionCollection {
             // Build a temporary connection in order to report the error to the client
             match ConnectionImpl::new_with_json(ConnectionKey::null(), self.root_entity, builder) {
                 Ok(mut conn) => {
-                    conn.error(&format!(
+                    conn.send_event(Event::FatalError(format!(
                         "server full (max {} connections)",
                         self.max_connections
-                    ));
+                    )));
                     conn.finalize(&mut NullInboundMessageHandler);
                 }
                 Err(e) => error!("failed to build connection: {}", e),
@@ -181,7 +172,7 @@ impl ConnectionCollection {
 
     pub fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
         for (_, mut connection) in self.connections.drain() {
-            connection.error("server has shut down");
+            connection.send_event(Event::FatalError("server has shut down".to_string()));
             let _ = connection.flush(handler);
             connection.finalize(handler);
         }
@@ -189,32 +180,14 @@ impl ConnectionCollection {
 }
 
 impl OutboundMessageHandler for ConnectionCollection {
-    fn property_update(
-        &self,
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>> {
+    fn event(&self, connection: ConnectionKey, event: Event) {
         if let Some(connection) = self.connections.get(connection) {
-            connection.property_value(entity, property, &value, true);
-            Ok(())
+            connection.send_event(event);
         } else {
-            Err(format!("connection {:?} has died", connection).into())
-        }
-    }
-    fn signal(
-        &self,
-        connection: ConnectionKey,
-        entity: EntityKey,
-        property: &str,
-        value: &Encodable,
-    ) -> Result<(), Box<dyn Error>> {
-        if let Some(connection) = self.connections.get(connection) {
-            connection.signal(entity, property, &value);
-            Ok(())
-        } else {
-            Err(format!("connection {:?} has died", connection).into())
+            error!(
+                "{:?} does not exist, could not send {:?}",
+                connection, event
+            );
         }
     }
 }
@@ -264,10 +237,7 @@ mod tests {
 
     impl Connection for MockConnection {
         fn process_requests(&mut self, _: &mut dyn InboundMessageHandler) {}
-        fn property_value(&self, _: EntityKey, _: &str, _: &Encodable, _: bool) {}
-        fn signal(&self, _: EntityKey, _: &str, _: &Encodable) {}
-        fn error(&self, _: &str) {}
-        fn entity_destroyed(&self, _state: &crate::State, _entity: EntityKey) {}
+        fn send_event(&self, _: Event) {}
         fn flush(&mut self, _: &mut dyn InboundMessageHandler) -> Result<(), ()> {
             if self.flush_succeeds {
                 Ok(())
