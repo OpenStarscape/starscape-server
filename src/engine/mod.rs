@@ -16,6 +16,7 @@ mod state;
 mod subscriber;
 mod subscriber_list;
 mod subscription;
+mod value;
 
 pub use conduit::{ActionConduit, ComponentListConduit, Conduit, ROConduit, RWConduit};
 pub use element::Element;
@@ -24,6 +25,7 @@ pub use notif_queue::{NotifQueue, Notification};
 pub use signal::Signal;
 pub use state::{EntityKey, State};
 pub use subscriber::Subscriber;
+pub use value::{Decoded, Encodable};
 
 use component_key::ComponentKey;
 use conduit::*;
