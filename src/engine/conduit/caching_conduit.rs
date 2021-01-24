@@ -34,11 +34,7 @@ where
     C: Conduit<T, T>,
     T: PartialEq,
 {
-    fn notify(
-        &self,
-        state: &State,
-        sink: &dyn OutboundMessageHandler,
-    ) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, sink: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
         let value = self.conduit.output(state)?;
         let mut cached = self
             .cached_value
@@ -275,7 +271,7 @@ mod tests {
     #[test]
     fn notifies_subscribers_when_updated() {
         let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockOutboundMessageHandler::new();
+        let prop_update_sink = MockEventHandler::new();
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
@@ -289,7 +285,7 @@ mod tests {
     #[test]
     fn notified_subscribers_when_updated_multiple_times() {
         let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockOutboundMessageHandler::new();
+        let prop_update_sink = MockEventHandler::new();
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
@@ -307,7 +303,7 @@ mod tests {
     #[test]
     fn does_not_notify_property_update_sink_when_same_data_sent_twice() {
         let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockOutboundMessageHandler::new();
+        let prop_update_sink = MockEventHandler::new();
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");

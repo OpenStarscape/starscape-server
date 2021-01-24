@@ -9,13 +9,13 @@ new_key_type! {
 /// (JSON, etc) are abstracted.
 pub trait Connection {
     /// Called at the start of the tick, process all inbound messages
-    fn process_requests(&mut self, handler: &mut dyn InboundMessageHandler);
+    fn process_requests(&mut self, handler: &mut dyn RequestHandler);
     /// Send an event to the client, may not go through until flush()
     fn send_event(&self, event: Event);
     /// Called at the end of each network tick to send any pending bundles. If it returns
-    fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()>;
+    fn flush(&mut self, handler: &mut dyn RequestHandler) -> Result<(), ()>;
     /// Called just after connection is removed from the connection map before it is dropped
-    fn finalize(&mut self, handler: &mut dyn InboundMessageHandler);
+    fn finalize(&mut self, handler: &mut dyn RequestHandler);
 }
 
 /// Receives data from the session layer (on the session's thread), decodes it into requests and
@@ -116,7 +116,7 @@ impl ConnectionImpl {
 
     fn process_request_method(
         &mut self,
-        handler: &mut dyn InboundMessageHandler,
+        handler: &mut dyn RequestHandler,
         entity: EntityKey,
         property: &str,
         method: RequestMethod,
@@ -171,7 +171,7 @@ impl ConnectionImpl {
 }
 
 impl Connection for ConnectionImpl {
-    fn process_requests(&mut self, handler: &mut dyn InboundMessageHandler) {
+    fn process_requests(&mut self, handler: &mut dyn RequestHandler) {
         use std::sync::mpsc::TryRecvError;
         loop {
             match self.request_rx.try_recv() {
@@ -214,7 +214,7 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn flush(&mut self, handler: &mut dyn InboundMessageHandler) -> Result<(), ()> {
+    fn flush(&mut self, handler: &mut dyn RequestHandler) -> Result<(), ()> {
         let get_requests = std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in get_requests.into_iter() {
             // When a client subscribes to a signal, we have no way of knowing it's a signal and
@@ -231,7 +231,7 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn finalize(&mut self, handler: &mut dyn InboundMessageHandler) {
+    fn finalize(&mut self, handler: &mut dyn RequestHandler) {
         info!(
             "finalized connection {:?} on {:?}",
             self.self_key,

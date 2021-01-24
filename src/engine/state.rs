@@ -330,7 +330,7 @@ impl State {
     }
 }
 
-impl InboundMessageHandler for State {
+impl RequestHandler for State {
     fn fire_action(
         &mut self,
         connection: ConnectionKey,

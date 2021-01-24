@@ -34,11 +34,7 @@ impl<C> Subscriber for SignalConduit<C>
 where
     C: Conduit<Vec<Encodable>, SignalsDontTakeInputSilly> + 'static,
 {
-    fn notify(
-        &self,
-        state: &State,
-        handler: &dyn OutboundMessageHandler,
-    ) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, state: &State, handler: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
         let values = self.inner.output(state)?;
         for value in values {
             handler.event(

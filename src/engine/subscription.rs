@@ -3,7 +3,7 @@ use super::*;
 struct NullSubscriber;
 
 impl Subscriber for NullSubscriber {
-    fn notify(&self, _: &State, _: &dyn OutboundMessageHandler) -> Result<(), Box<dyn Error>> {
+    fn notify(&self, _: &State, _: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
         Err("NullSubscriber::notify() should not have been called".into())
     }
 }

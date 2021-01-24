@@ -10,10 +10,9 @@ mod decoded;
 mod encodable;
 mod event;
 mod format;
-mod inbound_message_handler;
 mod json;
+mod message_handlers;
 mod object_map;
-mod outbound_message_handler;
 mod request;
 
 pub use connection::{Connection, ConnectionImpl, ConnectionKey};
@@ -21,9 +20,8 @@ pub use connection_collection::ConnectionCollection;
 pub use decoded::Decoded;
 pub use encodable::Encodable;
 pub use event::Event;
-pub use inbound_message_handler::InboundMessageHandler;
+pub use message_handlers::{EventHandler, RequestHandler};
 pub use object_map::{ObjectId, ObjectMap};
-pub use outbound_message_handler::OutboundMessageHandler;
 
 use event::EventMethod;
 use format::{DecodeCtx, Decoder, EncodeCtx, Encoder};

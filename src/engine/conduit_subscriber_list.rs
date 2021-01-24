@@ -14,11 +14,7 @@ impl ConduitSubscriberList {
         }
     }
 
-    pub fn send_notifications(
-        &self,
-        state: &State,
-        prop_update_subscriber: &dyn OutboundMessageHandler,
-    ) {
+    pub fn send_notifications(&self, state: &State, prop_update_subscriber: &dyn EventHandler) {
         if self.has_subscribers.load(SeqCst) {
             let lock = self.lock.lock().expect("failed to lock subscribers");
             for (_ptr, subscriber) in &lock.0 {
@@ -80,7 +76,7 @@ mod tests {
     fn can_send_with_no_subscribers() {
         let (tracker, _, _, _) = setup();
         let state = State::new();
-        let update_subscriber = MockOutboundMessageHandler::new();
+        let update_subscriber = MockEventHandler::new();
         tracker.send_notifications(&state, &update_subscriber);
     }
 
@@ -91,7 +87,7 @@ mod tests {
             .subscribe(&subscribers[0])
             .expect("subscribing failed");
         let state = State::new();
-        let update_subscriber = MockOutboundMessageHandler::new();
+        let update_subscriber = MockEventHandler::new();
         tracker.send_notifications(&state, &update_subscriber);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
     }
@@ -106,7 +102,7 @@ mod tests {
             .subscribe(&subscribers[1])
             .expect("subscribing failed");
         let state = State::new();
-        let update_subscriber = MockOutboundMessageHandler::new();
+        let update_subscriber = MockEventHandler::new();
         tracker.send_notifications(&state, &update_subscriber);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
         assert_eq!(mock_subscribers[1].notify_count(), 1);
@@ -122,7 +118,7 @@ mod tests {
             .unsubscribe(&Arc::downgrade(&subscribers[1]))
             .expect("unsubscribing failed");
         let state = State::new();
-        let update_subscriber = MockOutboundMessageHandler::new();
+        let update_subscriber = MockEventHandler::new();
         tracker.send_notifications(&state, &update_subscriber);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
         assert_eq!(mock_subscribers[1].notify_count(), 0);
