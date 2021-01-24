@@ -25,7 +25,7 @@ pub use notif_queue::{NotifQueue, Notification};
 pub use signal::Signal;
 pub use state::{EntityKey, State};
 pub use subscriber::Subscriber;
-pub use value::{Decoded, Encodable};
+pub use value::Value;
 
 use component_key::ComponentKey;
 use conduit::*;

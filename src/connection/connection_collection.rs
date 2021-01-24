@@ -25,7 +25,7 @@ impl RequestHandler for NullRequestHandler {
         _: ConnectionKey,
         _: EntityKey,
         _: &str,
-        _: Decoded,
+        _: Value,
     ) -> Result<(), String> {
         Err("connection failed".into())
     }
@@ -34,11 +34,11 @@ impl RequestHandler for NullRequestHandler {
         _: ConnectionKey,
         _: EntityKey,
         _: &str,
-        _: Decoded,
+        _: Value,
     ) -> Result<(), String> {
         Err("connection failed".into())
     }
-    fn get_property(&self, _: ConnectionKey, _: EntityKey, _: &str) -> Result<Encodable, String> {
+    fn get_property(&self, _: ConnectionKey, _: EntityKey, _: &str) -> Result<Value, String> {
         Err("connection failed".into())
     }
     fn subscribe(
@@ -89,7 +89,7 @@ impl ConnectionCollection {
                     ConnectionKey::null(),
                     self.root_entity,
                     "max_conn_count",
-                    Decoded::Integer(self.max_connections as i64),
+                    Value::Integer(self.max_connections as i64),
                 )
                 .or_log_error("setting max connection count property");
             self.set_max_connections = false;
@@ -102,7 +102,7 @@ impl ConnectionCollection {
                     ConnectionKey::null(),
                     self.root_entity,
                     "conn_count",
-                    Decoded::Integer(self.connections.len() as i64),
+                    Value::Integer(self.connections.len() as i64),
                 )
                 .or_log_error("setting connection count property");
         }
@@ -262,7 +262,7 @@ mod tests {
             _: ConnectionKey,
             entity: EntityKey,
             name: &str,
-            _: Decoded,
+            _: Value,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()
@@ -274,7 +274,7 @@ mod tests {
             _: ConnectionKey,
             entity: EntityKey,
             name: &str,
-            _: Decoded,
+            _: Value,
         ) -> Result<(), String> {
             self.0
                 .borrow_mut()
@@ -286,11 +286,11 @@ mod tests {
             _: ConnectionKey,
             entity: EntityKey,
             name: &str,
-        ) -> Result<Encodable, String> {
+        ) -> Result<Value, String> {
             self.0
                 .borrow_mut()
                 .push(("get".into(), entity, name.into()));
-            Ok(Encodable::Null)
+            Ok(Value::Null)
         }
         fn subscribe(
             &mut self,

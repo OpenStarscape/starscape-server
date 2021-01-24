@@ -253,10 +253,10 @@ impl Connection for ConnectionImpl {
 mod tests {
     use super::*;
     use std::{cell::RefCell, rc::Rc};
-    use Encodable::*;
+    use Value::*;
 
     struct MockEncoder {
-        log: Vec<(ObjectId, String, Encodable)>,
+        log: Vec<(ObjectId, String, Value)>,
     }
 
     impl MockEncoder {
@@ -271,7 +271,7 @@ mod tests {
             object: ObjectId,
             property: &str,
             _ctx: &dyn EncodeCtx,
-            value: &Encodable,
+            value: &Value,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()
                 .log
@@ -283,7 +283,7 @@ mod tests {
             object: ObjectId,
             property: &str,
             _ctx: &dyn EncodeCtx,
-            value: &Encodable,
+            value: &Value,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()
                 .log
@@ -295,7 +295,7 @@ mod tests {
             object: ObjectId,
             property: &str,
             _ctx: &dyn EncodeCtx,
-            value: &Encodable,
+            value: &Value,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
             self.borrow_mut()
                 .log

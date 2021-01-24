@@ -1,6 +1,5 @@
 use super::*;
 use serde::de::Deserialize;
-use serde_json::Value;
 
 pub struct JsonDecoder {
     splitter: DatagramSplitter,
@@ -17,16 +16,16 @@ impl JsonDecoder {
     fn decode_wrapper_array(
         &self,
         ctx: &dyn DecodeCtx,
-        array: &[Value],
-    ) -> Result<Decoded, String> {
+        array: &[serde_json::Value],
+    ) -> Result<Value, String> {
         match array.len() {
             3 => {
-                let component = |value: &Value| {
-                    value
+                let component = |serde_val: &serde_json::Value| {
+                    serde_val
                         .as_f64()
-                        .ok_or_else(|| format!("{} is an invalid vector component", value))
+                        .ok_or_else(|| format!("{} is an invalid vector component", serde_val))
                 };
-                Ok(Decoded::Vector(Vector3::new(
+                Ok(Value::Vector(Vector3::new(
                     component(&array[0])?,
                     component(&array[1])?,
                     component(&array[2])?,
@@ -35,14 +34,14 @@ impl JsonDecoder {
             1 => {
                 if let Some(obj_id) = array[0].as_i64() {
                     // An array-wrapped int is an object ID
-                    ctx.entity_for(obj_id as u64).map(Decoded::Entity)
+                    ctx.entity_for(obj_id as u64).map(Value::Entity)
                 } else if let Some(array) = array[0].as_array() {
                     // An array-wrapped array is an actual array
                     let result: Result<Vec<_>, _> = array
                         .iter()
                         .map(|value| self.decode_value(ctx, value))
                         .collect();
-                    Ok(Decoded::Array(result?))
+                    Ok(Value::Array(result?))
                 } else {
                     Err(format!(
                         "{} is an array-wrapped value, but not an object ID",
@@ -59,28 +58,32 @@ impl JsonDecoder {
 
     /// Ideally we would implement some strange Deserialize trait for minimal copying, but aint
     /// nobody got time for that.
-    fn decode_value(&self, ctx: &dyn DecodeCtx, value: &Value) -> Result<Decoded, String> {
-        match value {
-            Value::Null => Ok(Decoded::Null),
-            Value::Bool(_) => Err("decoding bool not implemented".to_string()),
-            Value::Number(n) => {
+    fn decode_value(
+        &self,
+        ctx: &dyn DecodeCtx,
+        serde_val: &serde_json::Value,
+    ) -> Result<Value, String> {
+        match serde_val {
+            serde_json::Value::Null => Ok(Value::Null),
+            serde_json::Value::Bool(_) => Err("decoding bool not implemented".to_string()),
+            serde_json::Value::Number(n) => {
                 if let Some(i) = n.as_i64() {
-                    Ok(Decoded::Integer(i))
+                    Ok(Value::Integer(i))
                 } else if let Some(f) = n.as_f64() {
-                    Ok(Decoded::Scalar(f))
+                    Ok(Value::Scalar(f))
                 } else {
-                    Err(format!("{} is an invalid number", value))
+                    Err(format!("{} is an invalid number", serde_val))
                 }
             }
-            Value::String(text) => Ok(Decoded::Text(text.to_string())),
-            Value::Array(array) => self.decode_wrapper_array(ctx, array),
-            Value::Object(_) => Err("decoding map not implemented".to_string()),
+            serde_json::Value::String(text) => Ok(Value::Text(text.to_string())),
+            serde_json::Value::Array(array) => self.decode_wrapper_array(ctx, array),
+            serde_json::Value::Object(_) => Err("decoding map not implemented".to_string()),
         }
     }
 
     fn decode_obj(
         ctx: &dyn DecodeCtx,
-        datagram: &serde_json::map::Map<String, Value>,
+        datagram: &serde_json::map::Map<String, serde_json::Value>,
     ) -> Result<EntityKey, Box<dyn Error>> {
         let obj = datagram
             .get("object")
@@ -91,7 +94,7 @@ impl JsonDecoder {
     }
 
     fn decode_name(
-        datagram: &serde_json::map::Map<String, Value>,
+        datagram: &serde_json::map::Map<String, serde_json::Value>,
     ) -> Result<String, Box<dyn Error>> {
         Ok(datagram
             .get("property")
@@ -111,8 +114,10 @@ impl JsonDecoder {
         // and this is unlikely to be a bottleneck so easier to just deserialize into a Value
         // rather than implementing complicated visitor shit
         let mut deserializer = serde_json::Deserializer::from_slice(bytes);
-        let value = Value::deserialize(&mut deserializer)?;
-        let datagram = value.as_object().ok_or("request is not a JSON object")?;
+        let serde_val = serde_json::Value::deserialize(&mut deserializer)?;
+        let datagram = serde_val
+            .as_object()
+            .ok_or("request is not a JSON object")?;
         let mtype = datagram
             .get("mtype")
             .ok_or("request does not have an mtype field")?
@@ -205,7 +210,7 @@ impl DecodeCtx for MockDecodeCtx {
 #[cfg(test)]
 mod decode_tests {
     use super::*;
-    use Encodable::*;
+    use Value::*;
 
     struct TerrifiedDecodeCtx;
 
@@ -215,19 +220,20 @@ mod decode_tests {
         }
     }
 
-    fn decode(ctx: &dyn DecodeCtx, json: &str) -> Result<Decoded, Box<dyn Error>> {
+    fn decode(ctx: &dyn DecodeCtx, json: &str) -> Result<Value, Box<dyn Error>> {
         let decoder = JsonDecoder::new();
         let mut deserializer = serde_json::Deserializer::from_slice(json.as_bytes());
-        let value = Value::deserialize(&mut deserializer).expect("failed to deserialize");
+        let value =
+            serde_json::Value::deserialize(&mut deserializer).expect("failed to deserialize");
         Ok(decoder.decode_value(ctx, &value)?)
     }
 
-    fn assert_decodes_to_with_ctx(ctx: &dyn DecodeCtx, json: &str, expected: Decoded) {
+    fn assert_decodes_to_with_ctx(ctx: &dyn DecodeCtx, json: &str, expected: Value) {
         let actual = decode(ctx, json).expect("failed to turn into decodable");
         assert_eq!(actual, expected);
     }
 
-    fn assert_decodes_to(json: &str, expected: Decoded) {
+    fn assert_decodes_to(json: &str, expected: Value) {
         assert_decodes_to_with_ctx(&TerrifiedDecodeCtx, json, expected)
     }
 
@@ -383,7 +389,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": null \
             }\n",
-            Request::set(e[9], "xyz".to_owned(), Decoded::Null),
+            Request::set(e[9], "xyz".to_owned(), Value::Null),
         );
     }
 
@@ -398,7 +404,7 @@ mod message_tests {
                 \"property\": \"xyz\", \
 				\"value\": 12 \
             }\n",
-            Request::action(e[9], "xyz".to_owned(), Decoded::Integer(12)),
+            Request::action(e[9], "xyz".to_owned(), Value::Integer(12)),
         );
     }
 
@@ -464,7 +470,7 @@ mod message_tests {
             result,
             vec![
                 Request::get(e[2], "foobar".to_owned()),
-                Request::set(e[8], "abc".to_owned(), Decoded::Integer(12)),
+                Request::set(e[8], "abc".to_owned(), Value::Integer(12)),
                 Request::subscribe(e[11], "xyz".to_owned())
             ]
         );
@@ -497,7 +503,7 @@ mod message_tests {
             result,
             vec![
                 Request::get(e[3], "foobar".to_owned()),
-                Request::set(e[5], "abc".to_owned(), Decoded::Integer(12)),
+                Request::set(e[5], "abc".to_owned(), Value::Integer(12)),
                 Request::subscribe(e[7], "xyz".to_owned())
             ]
         );
@@ -538,7 +544,7 @@ mod message_tests {
             result,
             vec![
                 Request::get(e[9], "foobar".to_owned()),
-                Request::set(e[2], "abc".to_owned(), Decoded::Integer(12)),
+                Request::set(e[2], "abc".to_owned(), Value::Integer(12)),
                 Request::subscribe(e[1], "xyz".to_owned())
             ]
         );

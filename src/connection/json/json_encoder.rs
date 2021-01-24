@@ -13,10 +13,10 @@ impl<'a, T> Contextualized<'a, T> {
     }
 }
 
-impl<'a> Serialize for Contextualized<'a, Encodable> {
+impl<'a> Serialize for Contextualized<'a, Value> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self.value {
-            Encodable::Vector(vector) => {
+            Value::Vector(vector) => {
                 use serde::ser::SerializeTuple;
                 let mut tuple = serializer.serialize_tuple(3)?;
                 tuple.serialize_element(&vector.x)?;
@@ -24,28 +24,28 @@ impl<'a> Serialize for Contextualized<'a, Encodable> {
                 tuple.serialize_element(&vector.z)?;
                 tuple.end()
             }
-            Encodable::Scalar(value) => serializer.serialize_f64(*value),
-            Encodable::Integer(value) => serializer.serialize_i64(*value),
-            Encodable::Text(value) => serializer.serialize_str(value),
-            Encodable::Entity(entity) => {
+            Value::Scalar(value) => serializer.serialize_f64(*value),
+            Value::Integer(value) => serializer.serialize_i64(*value),
+            Value::Text(value) => serializer.serialize_str(value),
+            Value::Entity(entity) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;
                 outer.serialize_element(&self.ctx.object_for(*entity))?;
                 outer.end()
             }
-            Encodable::Array(list) => {
+            Value::Array(list) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;
                 outer.serialize_element(&Contextualized::new(list, self.ctx))?;
                 outer.end()
             }
-            Encodable::Null => serializer.serialize_none(),
+            Value::Null => serializer.serialize_none(),
         }
     }
 }
 
 /// serde is so annoying
-impl<'a> Serialize for Contextualized<'a, Vec<Encodable>> {
+impl<'a> Serialize for Contextualized<'a, Vec<Value>> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeSeq;
         let mut seq = serializer.serialize_seq(Some(self.value.len()))?;
@@ -112,7 +112,7 @@ mod encodable_tests {
         }
     }
 
-    fn assert_json_eq(value: Encodable, json: &str) {
+    fn assert_json_eq(value: Value, json: &str) {
         let expected: serde_json::Value =
             serde_json::from_str(json).expect("failed to parse test JSON");
         let actual: serde_json::Value = serde_json::from_str(
@@ -177,7 +177,6 @@ mod encodable_tests {
 #[cfg(test)]
 mod message_tests {
     use super::*;
-    use serde_json::Value;
 
     struct MockEncoderCtx;
 
@@ -188,8 +187,9 @@ mod message_tests {
     }
 
     fn assert_json_eq(message: &[u8], json: &str) {
-        let expected: Value = serde_json::from_str(json).expect("failed to parse test JSON");
-        let actual: Value =
+        let expected: serde_json::Value =
+            serde_json::from_str(json).expect("failed to parse test JSON");
+        let actual: serde_json::Value =
             serde_json::from_slice(message).expect("failed to parse the JSON we generated");
         assert_eq!(actual, expected);
     }
@@ -199,7 +199,7 @@ mod message_tests {
         let p = JsonEncoder::new();
         let e = mock_keys(1);
         let prop = "foobar".to_string();
-        let value = Encodable::Scalar(12.5);
+        let value = Value::Scalar(12.5);
         assert_json_eq(
             &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
                 .unwrap(),
@@ -217,7 +217,7 @@ mod message_tests {
         let p = JsonEncoder::new();
         let e = mock_keys(1);
         let prop = "foobar".to_string();
-        let value = Encodable::Entity(e[0]);
+        let value = Value::Entity(e[0]);
         assert_json_eq(
             &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
                 .unwrap(),
@@ -235,7 +235,7 @@ mod message_tests {
         let p = JsonEncoder::new();
         let e = mock_keys(1);
         let prop = "abc".to_string();
-        let value = Encodable::Integer(19);
+        let value = Value::Integer(19);
         assert_json_eq(
             &p.encode_event(&MockEncoderCtx, &Event::value(e[0], prop, value))
                 .unwrap(),
@@ -253,7 +253,7 @@ mod message_tests {
         let p = JsonEncoder::new();
         let e = mock_keys(1);
         let prop = "abc".to_string();
-        let value = Encodable::Text("hello".to_string());
+        let value = Value::Text("hello".to_string());
         assert_json_eq(
             &p.encode_event(&MockEncoderCtx, &Event::signal(e[0], prop, value))
                 .unwrap(),

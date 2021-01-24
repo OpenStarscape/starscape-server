@@ -13,14 +13,14 @@ pub struct PropertyConduit<C> {
 
 impl<C> PropertyConduit<C>
 where
-    C: Conduit<Encodable, Decoded> + 'static,
+    C: Conduit<Value, Value> + 'static,
 {
     pub fn new(
         connection: ConnectionKey,
         entity: EntityKey,
         name: &'static str,
         inner: C,
-    ) -> Box<dyn Conduit<Encodable, Decoded>> {
+    ) -> Box<dyn Conduit<Value, Value>> {
         Box::new(Arc::new(Self {
             connection,
             entity,
@@ -32,7 +32,7 @@ where
 
 impl<C> Subscriber for PropertyConduit<C>
 where
-    C: Conduit<Encodable, Decoded> + 'static,
+    C: Conduit<Value, Value> + 'static,
 {
     fn notify(&self, state: &State, handler: &dyn EventHandler) -> Result<(), Box<dyn Error>> {
         let value = self.inner.output(state)?;
@@ -44,15 +44,15 @@ where
     }
 }
 
-impl<C> Conduit<Encodable, Decoded> for Arc<PropertyConduit<C>>
+impl<C> Conduit<Value, Value> for Arc<PropertyConduit<C>>
 where
-    C: Conduit<Encodable, Decoded> + 'static,
+    C: Conduit<Value, Value> + 'static,
 {
-    fn output(&self, state: &State) -> Result<Encodable, String> {
+    fn output(&self, state: &State) -> Result<Value, String> {
         self.inner.output(state)
     }
 
-    fn input(&self, state: &mut State, value: Decoded) -> Result<(), String> {
+    fn input(&self, state: &mut State, value: Value) -> Result<(), String> {
         self.inner.input(state, value)
     }
 

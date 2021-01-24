@@ -9,16 +9,13 @@ impl Subscriber for NullSubscriber {
 }
 
 pub struct Subscription {
-    conduit: Box<dyn Conduit<Encodable, Decoded>>,
+    conduit: Box<dyn Conduit<Value, Value>>,
     is_unsubscribed: bool,
 }
 
 /// Type used to remember and unsubscribe from subscriptions
 impl Subscription {
-    pub fn new(
-        state: &State,
-        conduit: Box<dyn Conduit<Encodable, Decoded>>,
-    ) -> Result<Self, String> {
+    pub fn new(state: &State, conduit: Box<dyn Conduit<Value, Value>>) -> Result<Self, String> {
         let subscriber: Arc<dyn Subscriber> = Arc::new(NullSubscriber);
         conduit.subscribe(state, &subscriber)?;
         Ok(Self {

@@ -14,7 +14,7 @@ pub trait Encoder {
     fn encode_event(&self, ctx: &dyn EncodeCtx, event: &Event) -> Result<Vec<u8>, Box<dyn Error>>;
 }
 
-/// The context required for decoding a Decoded. The normal implementation is ObjectMapImpl.
+/// The context required for decoding a Value. The normal implementation is ObjectMapImpl.
 pub trait DecodeCtx: Send + Sync {
     /// Returns the entity for the given object ID, or Err if it does not exist
     fn entity_for(&self, object: ObjectId) -> Result<EntityKey, String>;

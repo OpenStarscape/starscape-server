@@ -197,7 +197,7 @@ impl State {
     /// TODO: perhaps this shouldn't panic
     pub fn install_property<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
-        C: Conduit<Encodable, Decoded> + 'static,
+        C: Conduit<Value, Value> + 'static,
     {
         if let Some(entity) = self.entities.get_mut(entity_key) {
             let conduit = CachingConduit::new(conduit);
@@ -221,11 +221,11 @@ impl State {
     /// this name.
     pub fn install_signal<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
-        C: Conduit<Vec<Encodable>, SignalsDontTakeInputSilly> + 'static,
+        C: Conduit<Vec<Value>, SignalsDontTakeInputSilly> + 'static,
     {
         if let Some(entity) = self.entities.get_mut(entity_key) {
             let conduit =
-                Arc::new(conduit) as Arc<dyn Conduit<Vec<Encodable>, SignalsDontTakeInputSilly>>;
+                Arc::new(conduit) as Arc<dyn Conduit<Vec<Value>, SignalsDontTakeInputSilly>>;
             entity.register_conduit(name, move |connection| {
                 Ok(SignalConduit::new(
                     connection,
@@ -247,11 +247,11 @@ impl State {
     /// TODO: perhaps this shouldn't panic
     pub fn install_action<C>(&mut self, entity_key: EntityKey, name: &'static str, conduit: C)
     where
-        C: Conduit<ActionsDontProduceOutputSilly, Decoded> + 'static,
+        C: Conduit<ActionsDontProduceOutputSilly, Value> + 'static,
     {
         if let Some(entity) = self.entities.get_mut(entity_key) {
-            let conduit = Arc::new(conduit.map_output(|_| unreachable!()))
-                as Arc<dyn Conduit<Encodable, Decoded>>;
+            let conduit =
+                Arc::new(conduit.map_output(|_| unreachable!())) as Arc<dyn Conduit<Value, Value>>;
             entity.register_conduit(name, move |connection| {
                 Ok(PropertyConduit::new(
                     connection,
@@ -282,7 +282,7 @@ impl State {
         connection: ConnectionKey,
         entity_key: EntityKey,
         name: &str,
-    ) -> Result<Box<dyn Conduit<Encodable, Decoded>>, String> {
+    ) -> Result<Box<dyn Conduit<Value, Value>>, String> {
         let entity = self
             .entities
             .get(entity_key)
@@ -336,7 +336,7 @@ impl RequestHandler for State {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-        value: Decoded,
+        value: Value,
     ) -> Result<(), String> {
         let conduit = self.conduit(connection, entity, name)?;
         // TODO: check if this is actually an action (currently "fireing" a property sets it)
@@ -348,7 +348,7 @@ impl RequestHandler for State {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-        value: Decoded,
+        value: Value,
     ) -> Result<(), String> {
         let conduit = self.conduit(connection, entity, name)?;
         // TODO: check if this is actually a property (currently "setting" an action fires it)
@@ -360,7 +360,7 @@ impl RequestHandler for State {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-    ) -> Result<Encodable, String> {
+    ) -> Result<Value, String> {
         let conduit = self.conduit(connection, entity, name)?;
         conduit.output(self)
     }

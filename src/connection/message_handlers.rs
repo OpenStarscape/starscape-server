@@ -8,21 +8,21 @@ pub trait RequestHandler {
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-        value: Decoded,
+        value: Value,
     ) -> Result<(), String>;
     fn set_property(
         &mut self,
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-        value: Decoded,
+        value: Value,
     ) -> Result<(), String>;
     fn get_property(
         &self,
         connection: ConnectionKey,
         entity: EntityKey,
         name: &str,
-    ) -> Result<Encodable, String>;
+    ) -> Result<Value, String>;
     /// If Ok, the returned Any should later be sent to unsubscribe(). The name may refer to either
     /// a property or a signal.
     fn subscribe(
