@@ -27,8 +27,8 @@ where
     T: Clone,
     for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
     IFn: Fn(&mut State, T) -> RequestResult<()>,
-    OFn: 'static,
-    IFn: 'static,
+    OFn: Send + Sync + 'static,
+    IFn: Send + Sync + 'static,
 {
     fn output(&self, state: &State) -> RequestResult<T> {
         Ok((*(self.output_fn)(state)?).clone())

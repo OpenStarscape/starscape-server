@@ -17,6 +17,8 @@ pub enum Value {
     // (for each JSON encoding, JSON decoding and Value getting needs to be tested)
 }
 
+impl AssertIsSync for Value {}
+
 pub type DecodeResult<T> = RequestResult<T>;
 
 impl From<String> for Value {

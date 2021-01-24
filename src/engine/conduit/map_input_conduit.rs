@@ -32,7 +32,10 @@ impl<C, F, Get, SetInner, SetOuter> Conduit<Get, SetOuter>
     for MapInputConduit<C, Get, SetInner, SetOuter, F>
 where
     C: Conduit<Get, SetInner>,
-    F: Fn(SetOuter) -> RequestResult<SetInner>,
+    F: Fn(SetOuter) -> RequestResult<SetInner> + Send + Sync,
+    Get: Send + Sync,
+    SetInner: Send + Sync,
+    SetOuter: Send + Sync,
 {
     fn output(&self, state: &State) -> RequestResult<Get> {
         self.conduit.output(state)

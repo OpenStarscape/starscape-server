@@ -26,7 +26,8 @@ pub enum ActionsDontProduceOutputSilly {}
 
 impl<T, IFn> Conduit<ActionsDontProduceOutputSilly, T> for ActionConduit<T, IFn>
 where
-    IFn: Fn(&mut State, T) -> RequestResult<()> + 'static,
+    T: Send + Sync,
+    IFn: Fn(&mut State, T) -> RequestResult<()> + Send + Sync + 'static,
 {
     fn output(&self, _: &State) -> RequestResult<ActionsDontProduceOutputSilly> {
         Err(BadRequest("can not get value from action".to_string()))

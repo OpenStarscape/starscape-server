@@ -4,7 +4,7 @@ use super::*;
 pub struct CachingConduit<C, T>
 where
     C: Conduit<T, T>,
-    T: PartialEq + 'static,
+    T: PartialEq + Send + Sync + 'static,
 {
     weak_self: WeakSelf<CachingConduit<C, T>>,
     cached_value: Mutex<Option<T>>,
@@ -15,7 +15,7 @@ where
 impl<C, T> CachingConduit<C, T>
 where
     C: Conduit<T, T> + 'static,
-    T: PartialEq + Clone + 'static,
+    T: PartialEq + Clone + Send + Sync + 'static,
 {
     pub fn new(conduit: C) -> Arc<Self> {
         let result = Arc::new(Self {
@@ -32,7 +32,7 @@ where
 impl<C, T> Subscriber for CachingConduit<C, T>
 where
     C: Conduit<T, T>,
-    T: PartialEq,
+    T: PartialEq + Send + Sync,
 {
     fn notify(&self, state: &State, sink: &dyn EventHandler) {
         let value = match self.conduit.output(state) {
@@ -56,7 +56,7 @@ where
 impl<C, T> Conduit<T, T> for Arc<CachingConduit<C, T>>
 where
     C: Conduit<T, T> + 'static,
-    T: PartialEq,
+    T: PartialEq + Send + Sync,
 {
     fn output(&self, state: &State) -> RequestResult<T> {
         // TODO: use cache if it is up to date
@@ -96,7 +96,6 @@ where
 #[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
-    use std::{cell::RefCell, rc::Rc};
 
     struct MockConduit {
         value_to_get: RequestResult<i32>,
@@ -104,17 +103,17 @@ mod tests {
     }
 
     impl MockConduit {
-        fn new() -> Rc<RefCell<Self>> {
-            Rc::new(RefCell::new(Self {
+        fn new() -> Arc<Mutex<Self>> {
+            Arc::new(Mutex::new(Self {
                 value_to_get: Err(InternalError("no Value yet".to_owned())),
                 subscribed: None,
             }))
         }
     }
 
-    impl Conduit<i32, i32> for Rc<RefCell<MockConduit>> {
+    impl Conduit<i32, i32> for Arc<Mutex<MockConduit>> {
         fn output(&self, _sate: &State) -> RequestResult<i32> {
-            self.borrow().value_to_get.clone()
+            self.lock().unwrap().value_to_get.clone()
         }
 
         fn input(&self, _state: &mut State, _value: i32) -> RequestResult<()> {
@@ -122,8 +121,8 @@ mod tests {
         }
 
         fn subscribe(&self, _state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
-            assert!(self.borrow().subscribed.is_none());
-            self.borrow_mut().subscribed = Some(Arc::downgrade(subscriber));
+            assert!(self.lock().unwrap().subscribed.is_none());
+            self.lock().unwrap().subscribed = Some(Arc::downgrade(subscriber));
             Ok(())
         }
 
@@ -132,20 +131,20 @@ mod tests {
             _state: &State,
             subscriber: &Weak<dyn Subscriber>,
         ) -> RequestResult<()> {
-            if let Some(s) = &self.borrow().subscribed {
+            if let Some(s) = &self.lock().unwrap().subscribed {
                 assert_eq!(s.thin_ptr(), subscriber.thin_ptr());
             } else {
                 panic!();
             }
-            self.borrow_mut().subscribed = None;
+            self.lock().unwrap().subscribed = None;
             Ok(())
         }
     }
 
     fn setup() -> (
         State,
-        Arc<CachingConduit<Rc<RefCell<MockConduit>>, i32>>,
-        Rc<RefCell<MockConduit>>,
+        Arc<CachingConduit<Arc<Mutex<MockConduit>>, i32>>,
+        Arc<Mutex<MockConduit>>,
         Vec<Arc<dyn Subscriber>>,
         Vec<MockSubscriber>,
     ) {
@@ -164,11 +163,11 @@ mod tests {
     #[test]
     fn first_subscription_connects_conduit() {
         let (state, caching, inner, sinks, _) = setup();
-        assert!(inner.borrow().subscribed.is_none());
+        assert!(inner.lock().unwrap().subscribed.is_none());
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        assert!(inner.borrow().subscribed.is_some());
+        assert!(inner.lock().unwrap().subscribed.is_some());
     }
 
     #[test]
@@ -177,7 +176,7 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        if let Some(subscribed_to) = inner.borrow().subscribed.clone() {
+        if let Some(subscribed_to) = inner.lock().unwrap().subscribed.clone() {
             let subscribed_to = subscribed_to.thin_ptr();
             let caching = caching.thin_ptr();
             let sink = sinks[0].thin_ptr();
@@ -197,7 +196,7 @@ mod tests {
                 .subscribe(&state, &sink)
                 .expect("failed to subscribe");
         }
-        assert!(inner.borrow().subscribed.is_some());
+        assert!(inner.lock().unwrap().subscribed.is_some());
     }
 
     #[test]
@@ -212,7 +211,7 @@ mod tests {
         caching
             .unsubscribe(&state, &Arc::downgrade(&sinks[0]))
             .expect("failed to unsubscribe");
-        assert!(inner.borrow().subscribed.is_some());
+        assert!(inner.lock().unwrap().subscribed.is_some());
     }
 
     #[test]
@@ -224,7 +223,7 @@ mod tests {
         caching
             .unsubscribe(&state, &Arc::downgrade(&sinks[0]))
             .expect("failed to unsubscribe");
-        assert!(inner.borrow().subscribed.is_none());
+        assert!(inner.lock().unwrap().subscribed.is_none());
     }
 
     #[test]
@@ -242,7 +241,7 @@ mod tests {
                 .unsubscribe(&state, &Arc::downgrade(sink))
                 .expect("failed to subscribe");
         }
-        assert!(inner.borrow().subscribed.is_none());
+        assert!(inner.lock().unwrap().subscribed.is_none());
     }
 
     #[test]
@@ -269,7 +268,7 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        inner.borrow_mut().value_to_get = Ok(42);
+        inner.lock().unwrap().value_to_get = Ok(42);
         caching.notify(&state, &prop_update_sink);
         assert_eq!(mock_sinks[0].notify_count(), 1);
     }
@@ -281,9 +280,9 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        inner.borrow_mut().value_to_get = Ok(42);
+        inner.lock().unwrap().value_to_get = Ok(42);
         caching.notify(&state, &prop_update_sink);
-        inner.borrow_mut().value_to_get = Ok(69);
+        inner.lock().unwrap().value_to_get = Ok(69);
         caching.notify(&state, &prop_update_sink);
         assert_eq!(mock_sinks[0].notify_count(), 2);
     }
@@ -295,7 +294,7 @@ mod tests {
         caching
             .subscribe(&state, &sinks[0])
             .expect("failed to subscribe");
-        inner.borrow_mut().value_to_get = Ok(42);
+        inner.lock().unwrap().value_to_get = Ok(42);
         caching.notify(&state, &prop_update_sink);
         caching.notify(&state, &prop_update_sink);
         assert_eq!(mock_sinks[0].notify_count(), 1);

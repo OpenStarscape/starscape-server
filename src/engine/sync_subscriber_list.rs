@@ -12,8 +12,7 @@ pub struct SyncSubscriberList {
     has_subscribers: AtomicBool,
 }
 
-// TODO: make this actually sync
-// impl AssertIsSync for ConduitSubscriberList {}
+impl AssertIsSync for SyncSubscriberList {}
 
 impl SyncSubscriberList {
     pub fn new() -> Self {
