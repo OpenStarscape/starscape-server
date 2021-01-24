@@ -17,14 +17,13 @@ mod request_error;
 
 pub use connection::{Connection, ConnectionImpl, ConnectionKey};
 pub use connection_collection::ConnectionCollection;
-pub use event::Event;
+pub use event::{Event, EventMethod};
 pub use message_handlers::{EventHandler, RequestHandler};
 pub use object_map::{ObjectId, ObjectMap};
+pub use request::{Request, RequestMethod};
 pub use request_error::{RequestError, RequestError::*, RequestResult};
 
 use bundle_handler::BundleHandler;
-use event::EventMethod;
 use format::{DecodeCtx, Decoder, EncodeCtx, Encoder};
 use json::json_protocol_impls;
 use object_map::ObjectMapImpl;
-use request::{Request, RequestMethod};
