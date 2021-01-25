@@ -19,7 +19,7 @@ impl MockRequestHandler {
         })))
     }
 
-    fn assert_requests_eq(&self, expected: Vec<Request>) {
+    pub fn assert_requests_eq(&self, expected: Vec<Request>) {
         assert_eq!(self.0.lock().unwrap().requests, expected);
     }
 }

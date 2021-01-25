@@ -203,106 +203,51 @@ impl Connection for ConnectionImpl {
     }
 }
 
-/*
 #[cfg(test)]
-mod tests {
+mod test_common {
     use super::*;
-    use std::{cell::RefCell, rc::Rc};
-    use Value::*;
 
-    struct MockEncoder {
-        log: Vec<(ObjectId, String, Value)>,
+    pub struct MockEncoder {
+        should_error: bool,
     }
 
     impl MockEncoder {
-        fn new() -> Rc<RefCell<Self>> {
-            Rc::new(RefCell::new(Self { log: Vec::new() }))
+        pub fn new(should_error: bool) -> Self {
+            Self { should_error }
         }
     }
 
-    impl Encoder for Rc<RefCell<MockEncoder>> {
-        fn encode_property_update(
+    impl Encoder for MockEncoder {
+        /// Encode an event
+        fn encode_event(
             &self,
-            object: ObjectId,
-            property: &str,
-            _ctx: &dyn EncodeCtx,
-            value: &Value,
+            _: &dyn EncodeCtx,
+            event: &Event,
         ) -> Result<Vec<u8>, Box<dyn Error>> {
-            self.borrow_mut()
-                .log
-                .push((object, property.to_owned(), (*value).clone()));
-            Ok(vec![])
-        }
-        fn encode_get_response(
-            &self,
-            object: ObjectId,
-            property: &str,
-            _ctx: &dyn EncodeCtx,
-            value: &Value,
-        ) -> Result<Vec<u8>, Box<dyn Error>> {
-            self.borrow_mut()
-                .log
-                .push((object, property.to_owned(), (*value).clone()));
-            Ok(vec![])
-        }
-        fn encode_signal(
-            &self,
-            object: ObjectId,
-            property: &str,
-            _ctx: &dyn EncodeCtx,
-            value: &Value,
-        ) -> Result<Vec<u8>, Box<dyn Error>> {
-            self.borrow_mut()
-                .log
-                .push((object, property.to_owned(), (*value).clone()));
-            Ok(vec![])
-        }
-        fn encode_error(&self, _: &str) -> Result<Vec<u8>, Box<dyn Error>> {
-            Ok(vec![])
+            if self.should_error {
+                Err("MockEncoder error".into())
+            } else {
+                Ok(format!("{:?}", event).as_bytes().into())
+            }
         }
     }
 
-    #[derive(Debug)]
-    struct MockSession;
-
-    impl Session for MockSession {
-        fn yeet_bundle(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
-            Ok(())
-        }
-
-        fn max_packet_len(&self) -> usize {
-            panic!("unecpected call");
-        }
-
-        fn close(&mut self) {
-            panic!("unexpected call");
-        }
-    }
-
-    struct MockObjectMap(EntityKey, ObjectId);
+    pub struct MockObjectMap;
 
     impl ObjectMap for MockObjectMap {
-        fn get_object(&self, entity: EntityKey) -> Option<ObjectId> {
-            if self.0 == entity {
-                Some(self.1)
-            } else {
-                None
-            }
-        }
-
-        fn get_or_create_object(&self, _entity: EntityKey) -> ObjectId {
+        fn get_object(&self, _: EntityKey) -> Option<ObjectId> {
             panic!("unexpected call");
         }
 
-        fn get_entity(&self, object: ObjectId) -> Option<EntityKey> {
-            if self.1 == object {
-                Some(self.0)
-            } else {
-                None
-            }
+        fn get_or_create_object(&self, _: EntityKey) -> ObjectId {
+            panic!("unexpected call");
         }
 
-        fn remove_entity(&self, _entity: EntityKey) -> Option<ObjectId> {
+        fn get_entity(&self, _: ObjectId) -> Option<EntityKey> {
+            panic!("unexpected call");
+        }
+
+        fn remove_entity(&self, _: EntityKey) -> Option<ObjectId> {
             panic!("unexpected call");
         }
 
@@ -315,48 +260,233 @@ mod tests {
         }
     }
 
-    struct Test {
-        encoder: Rc<RefCell<MockEncoder>>,
-        conn: ConnectionImpl,
-        entity: EntityKey,
-        obj_id: ObjectId,
+    pub fn setup(
+        encoder_error: bool,
+        session_error: bool,
+    ) -> (ConnectionImpl, MockSession, Sender<Request>) {
+        let encoder = MockEncoder::new(encoder_error);
+        let session = MockSession::new(session_error);
+        let (request_tx, request_rx) = channel();
+        let conn = ConnectionImpl {
+            self_key: ConnectionKey::null(),
+            encoder: Box::new(encoder),
+            obj_map: Arc::new(MockObjectMap),
+            session: Mutex::new(Box::new(session.clone())),
+            request_rx,
+            pending_get_requests: HashSet::new(),
+            subscriptions: HashMap::new(),
+            should_close: AtomicBool::new(false),
+        };
+        (conn, session, request_tx)
     }
+}
 
-    impl Test {
-        fn new() -> Self {
-            let encoder = MockEncoder::new();
-            let entities = mock_keys(1);
-            let entity = entities[0];
-            let obj_id = 1;
-            let (_, request_rx) = channel();
-            let conn = ConnectionImpl {
-                self_key: ConnectionKey::null(),
-                encoder: Box::new(encoder.clone()),
-                obj_map: Arc::new(MockObjectMap(entity, obj_id)),
-                session: Mutex::new(Box::new(MockSession)),
-                request_rx,
-                pending_get_requests: HashSet::new(),
-                subscriptions: HashMap::new(),
-                should_close: AtomicBool::new(false),
-            };
-            Self {
-                encoder,
-                conn,
-                entity,
-                obj_id,
-            }
-        }
+#[cfg(test)]
+mod event_tests {
+    use super::*;
+    use test_common::*;
+
+    #[test]
+    fn sends_signal_event() {
+        let (mut conn, sesh, _tx) = setup(false, false);
+        let e = mock_keys(1);
+        let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
+        let mut handler = MockRequestHandler::new(Ok(()));
+        conn.process_requests(&mut handler);
+        conn.send_event(ev.clone());
+        conn.flush(&mut handler).unwrap();
+        // MockEncoder encodes the bundle using format!() as well, so this should pass as long as
+        // everything's wired up correctly.
+        sesh.assert_bundles_eq(vec![format!("{:?}", ev)]);
     }
 
     #[test]
-    fn serializes_normal_property_update() {
-        let test = Test::new();
-        test.conn
-            .property_value(test.entity, "foo", &Scalar(12.5), true);
-        assert_eq!(
-            test.encoder.borrow().log,
-            vec![(test.obj_id, "foo".to_owned(), Scalar(12.5))]
-        );
+    fn is_closed_when_encoding_fails() {
+        let (mut conn, _, _tx) = setup(true, false);
+        let e = mock_keys(1);
+        let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
+        let mut handler = MockRequestHandler::new(Ok(()));
+        conn.process_requests(&mut handler);
+        conn.send_event(ev);
+        assert!(conn.flush(&mut handler).is_err());
+    }
+
+    #[test]
+    fn is_closed_when_sending_fails() {
+        let (mut conn, _, _tx) = setup(false, true);
+        let e = mock_keys(1);
+        let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
+        let mut handler = MockRequestHandler::new(Ok(()));
+        conn.process_requests(&mut handler);
+        conn.send_event(ev);
+        assert!(conn.flush(&mut handler).is_err());
+    }
+
+    #[test]
+    fn does_not_keep_sending_events_after_sending_fails() {
+        let (mut conn, sesh, _tx) = setup(false, true);
+        let e = mock_keys(2);
+        let ev0 = Event::value(e[0], "foo".to_string(), 12.5.into());
+        let ev1 = Event::update(e[1], "bar".to_string(), 8.into());
+        let ev2 = Event::signal(e[0], "baz".to_string(), ().into());
+        let mut handler = MockRequestHandler::new(Ok(()));
+        conn.process_requests(&mut handler);
+        conn.send_event(ev0.clone());
+        conn.send_event(ev1);
+        conn.send_event(ev2);
+        assert!(conn.flush(&mut handler).is_err());
+        // should only have the first request
+        sesh.assert_bundles_eq(vec![format!("{:?}", ev0)]);
     }
 }
-*/
+
+#[cfg(test)]
+mod request_tests {
+    use super::*;
+    use test_common::*;
+
+    #[test]
+    fn action_request_makes_it_to_handler() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let rq = Request::action(e[0], "act".to_string(), 7.into());
+        tx.send(rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![rq]);
+    }
+
+    #[test]
+    fn sub_request_results_in_get() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let sub_rq = Request::subscribe(e[0], "prop".to_string());
+        tx.send(sub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![sub_rq, Request::get(e[0], "prop".to_string())]);
+    }
+
+    #[test]
+    fn get_request_works() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let rq = Request::get(e[0], "prop".to_string());
+        tx.send(rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![rq]);
+    }
+
+    #[test]
+    fn does_not_sub_multiple_times_in_one_tick() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let sub_rq = Request::subscribe(e[0], "prop".to_string());
+        tx.send(sub_rq.clone()).unwrap();
+        tx.send(sub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![sub_rq, Request::get(e[0], "prop".to_string())]);
+    }
+
+    #[test]
+    fn does_not_sub_multiple_times_in_multiple_ticks() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let sub_rq = Request::subscribe(e[0], "prop".to_string());
+        tx.send(sub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        tx.send(sub_rq.clone()).unwrap();
+        tx.send(sub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![sub_rq, Request::get(e[0], "prop".to_string())]);
+    }
+
+    #[test]
+    fn sub_unsub_in_one_tick_works() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let sub_rq = Request::subscribe(e[0], "prop".to_string());
+        let unsub_rq = Request::unsubscribe(e[0], "prop".to_string());
+        tx.send(sub_rq.clone()).unwrap();
+        tx.send(unsub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![
+            sub_rq,
+            unsub_rq,
+            Request::get(e[0], "prop".to_string()),
+        ]);
+    }
+
+    #[test]
+    fn sub_unsub_in_multiple_ticks_works() {
+        let (mut conn, _, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        let sub_rq = Request::subscribe(e[0], "prop".to_string());
+        let unsub_rq = Request::unsubscribe(e[0], "prop".to_string());
+        tx.send(sub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        tx.send(unsub_rq.clone()).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+        handler.assert_requests_eq(vec![
+            sub_rq,
+            Request::get(e[0], "prop".to_string()),
+            unsub_rq,
+        ]);
+    }
+
+    #[test]
+    fn close_request_results_in_flush_returning_err() {
+        let (mut conn, _, tx) = setup(false, false);
+        let mut handler = MockRequestHandler::new(Ok(()));
+        tx.send(Request::Close).unwrap();
+        conn.process_requests(&mut handler);
+        assert!(conn.flush(&mut handler).is_err());
+    }
+
+    #[test]
+    fn closed_when_request_tx_dropped() {
+        let (mut conn, _sesh, _) = setup(false, false);
+        //                    ^ tx is dropped here
+        let mut handler = MockRequestHandler::new(Ok(()));
+        conn.process_requests(&mut handler);
+        assert!(conn.flush(&mut handler).is_err());
+    }
+
+    #[test]
+    fn not_closed_on_request_internal_error() {
+        let (mut conn, _sesh, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler =
+            MockRequestHandler::new(Err(InternalError("mock internal error".to_string())));
+        let rq = Request::action(e[0], "act".to_string(), 7.into());
+        tx.send(rq).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+    }
+
+    #[test]
+    fn not_closed_on_bad_request_error() {
+        let (mut conn, _sesh, tx) = setup(false, false);
+        let e = mock_keys(1);
+        let mut handler =
+            MockRequestHandler::new(Err(BadRequest("mock internal error".to_string())));
+        let rq = Request::action(e[0], "act".to_string(), 7.into());
+        tx.send(rq).unwrap();
+        conn.process_requests(&mut handler);
+        conn.flush(&mut handler).unwrap();
+    }
+}

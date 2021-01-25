@@ -329,37 +329,5 @@ mod tests {
         assert_eq!(cc.connections.len(), 0);
     }
 
-    /*
-    #[test]
-    fn sends_requests_to_handler() {
-        let e = mock_keys(1);
-        let mut cc = ConnectionCollection::new(e[0]);
-        let entities = mock_keys(2);
-        let connections = mock_keys(1); // cc.connections.insert(Box::new(MockConnection(entities[0])));
-        for request in vec![
-            Request::new(
-                connections[0],
-                RequestType::Property((entities[0], "foo".into()), PropertyRequest::Subscribe),
-            ),
-            Request::new(
-                connections[0],
-                RequestType::Property((entities[1], "bar".into()), PropertyRequest::Get),
-            ),
-        ] {
-            cc.request_tx.send(request).unwrap();
-        }
-        let mut handler = MockInboundHandler::new();
-        cc.process_inbound_messages(&mut handler);
-        cc.flush_outbound_messages(&mut handler);
-        assert_eq!(
-            *handler.0.borrow(),
-            vec![
-                ("subscribe".into(), entities[0], "foo".into()),
-                ("get".into(), entities[1], "bar".into()),
-            ]
-        );
-    }
-    */
-
     // TODO: test connections are finalized
 }
