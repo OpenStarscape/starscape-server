@@ -1,6 +1,6 @@
 extern crate config;
 
-use config::{File, Environment, Config};
+use config::{Config, Environment, File};
 
 /// Get the current configuration.
 pub fn get() -> Config {
@@ -11,6 +11,9 @@ pub fn get() -> Config {
     conf.set_default("https", true).unwrap();
     conf.set_default("http_content", "../web/dist").unwrap();
     conf.set_default("max_game_time", 1200.0).unwrap();
-    conf.merge(File::with_name("starscape")).unwrap().merge(Environment::with_prefix("STARSCAPE")).unwrap();
-    return conf;
+    conf.merge(File::with_name("starscape"))
+        .unwrap()
+        .merge(Environment::with_prefix("STARSCAPE"))
+        .unwrap();
+    conf
 }
