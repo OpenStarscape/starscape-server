@@ -3,6 +3,7 @@
 use super::*;
 
 mod color_rgb;
+pub mod config;
 mod datagram_splitter;
 mod initializable;
 mod metronome;
