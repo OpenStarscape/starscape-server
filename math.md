@@ -17,7 +17,8 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
 - v: relative velocity (unit: km/s)
 - r: distance between the two bodies (radius?? this would be very incorrect, but r does seem to be the convention) (unit: km)
 - rₚ: radius at the periapsis (closest point to gravity well)
-- rₐ: radius at the apoapsis (farthest point from gravity well
+- rₐ: radius at the apoapsis (farthest point from gravity well)
+- rSOI: radius of the [sphere of influence](https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics))
 - m: mass of the body in question (like a ship or a planet) (unit: t)
 - M: mass of the gravity well in question (like a planet or the sun) (unit: t)
 - E: energy (unit: t⋅km²⋅s⁻²)
@@ -26,10 +27,11 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
 - a: semi-major axis (long radius) of the orbit (unit: km)
 - b: semi-minor axis (short radius) of the orbit (unit: km)
 - e: eccentricity of the orbit
+- θₘ: angle between relative velocity and direction towards the central body
 
 ## Equations
-- E = ½mv² - (GmM)/d
-- L = mrv
+- E = ½mv² - (GmM)/r
+- L = mrv⋅sin(θₘ)
 - rₚ + rₐ = 2a _(obvious)_
 - rₚrₐ = b² _(less obvious)_
 - b = a√(1 - e²)
@@ -46,6 +48,7 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
   - ellipse: e > 0, e < 1
   - hyperbola: e > 1
   - parabola: e = 1
+- rSOI ≈ a(m/M)^(2/5)
 
 ## Laws
 - Conservation of angular momentum: in free orbit L stays the same (as does h assuming mass doesn't change)
