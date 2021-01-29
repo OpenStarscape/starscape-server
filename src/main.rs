@@ -81,6 +81,7 @@ fn init_ctrlc_handler() -> Receiver<()> {
 #[tokio::main]
 async fn main() {
     init_logger();
+    let conf = config::get();
     let ctrlc_rx = init_ctrlc_handler();
 
     info!("initializing game…");
@@ -98,7 +99,7 @@ async fn main() {
     let mut engine = Engine::new(
         new_session_rx,
         TICK_TIME,
-        GAME_TIME,
+        conf.get_float("max_game_time").unwrap(),
         game::init,
         game::physics_tick,
     );
