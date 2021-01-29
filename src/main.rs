@@ -81,10 +81,7 @@ fn init_ctrlc_handler() -> Receiver<()> {
 #[tokio::main]
 async fn main() {
     init_logger();
-    let conf = match config::get() {
-        Err(e) => panic!("config: {}", e),
-        Ok(v) => v,
-    };
+    let conf = config::get().expect("config");
     let ctrlc_rx = init_ctrlc_handler();
 
     info!("initializing game…");
