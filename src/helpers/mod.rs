@@ -10,6 +10,7 @@ mod or_log;
 #[cfg(test)]
 mod test_helpers;
 mod thin_ptr;
+pub mod config;
 
 pub use color_rgb::ColorRGB;
 pub use datagram_splitter::DatagramSplitter;
