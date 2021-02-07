@@ -53,7 +53,11 @@ impl ServerComponent for TcpListener {}
 mod tests {
     use super::*;
     use ::mio::net::TcpStream;
-    use std::{thread, time::Duration};
+    use std::{
+        io::{Read, Write},
+        thread,
+        time::Duration,
+    };
 
     const SHORT_TIME: Duration = Duration::from_millis(20);
 
@@ -124,5 +128,68 @@ mod tests {
         });
         let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
         assert_eq!(sessions.len(), 4);
+    }
+
+    #[test]
+    fn can_build_session() {
+        run_with_timeout(|| {
+            let (tx, rx) = channel();
+            let listener = build(tx);
+            let _client = TcpStream::connect(&listener.address).expect("failed to connect");
+            thread::sleep(SHORT_TIME);
+            let builder = rx.try_recv().unwrap();
+            let handler = MockInboundHandler::new();
+            let _session = builder.build(Box::new(handler)).unwrap();
+        });
+    }
+
+    #[test]
+    fn can_send_data_client_to_server() {
+        run_with_timeout(|| {
+            let (tx, rx) = channel();
+            let listener = build(tx);
+            let mut client = TcpStream::connect(&listener.address).expect("failed to connect");
+            thread::sleep(SHORT_TIME);
+            let builder = rx.try_recv().unwrap();
+            let handler = MockInboundHandler::new();
+            let _session = builder.build(Box::new(handler.clone())).unwrap();
+            client.write_all(&[75]).unwrap();
+            thread::sleep(SHORT_TIME);
+            assert_eq!(handler.get(), vec![MockInbound::Data(vec![75])]);
+        });
+    }
+
+    #[test]
+    fn can_send_data_server_to_client() {
+        run_with_timeout(|| {
+            let (tx, rx) = channel();
+            let listener = build(tx);
+            let mut client = TcpStream::connect(&listener.address).expect("failed to connect");
+            thread::sleep(SHORT_TIME);
+            let builder = rx.try_recv().unwrap();
+            let handler = MockInboundHandler::new();
+            let mut session = builder.build(Box::new(handler.clone())).unwrap();
+            session.yeet_bundle(&[82]).unwrap();
+            thread::sleep(SHORT_TIME);
+            let mut buffer = [0; 1];
+            client.read_exact(&mut buffer).unwrap();
+            assert_eq!(buffer, [82]);
+        });
+    }
+
+    #[test]
+    fn can_shut_down_while_client_still_active() {
+        run_with_timeout(move || {
+            let _client;
+            {
+                let (tx, rx) = channel();
+                let listener = build(tx);
+                _client = TcpStream::connect(&listener.address).expect("failed to connect");
+                thread::sleep(SHORT_TIME);
+                let builder = rx.try_recv().unwrap();
+                let handler = MockInboundHandler::new();
+                let _session = builder.build(Box::new(handler)).unwrap();
+            }
+        });
     }
 }
