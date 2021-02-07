@@ -187,11 +187,9 @@ impl Connection for ConnectionImpl {
     }
 
     fn finalize(&mut self, handler: &mut dyn RequestHandler) {
-        info!(
-            "finalized connection {:?} on {:?}",
-            self.self_key,
-            self.session.lock().unwrap()
-        );
+        let mut session = self.session.lock().unwrap();
+        info!("finalized connection {:?} on {:?}", self.self_key, session,);
+        session.close();
         for ((entity, prop), subscription) in self.subscriptions.drain() {
             if let Err(e) = handler.unsubscribe(subscription) {
                 warn!(
@@ -337,6 +335,15 @@ mod event_tests {
         assert!(conn.flush(&mut handler).is_err());
         // should only have the first request
         sesh.assert_bundles_eq(vec![format!("{:?}", ev0)]);
+    }
+
+    #[test]
+    fn finalize_closes_session() {
+        let (mut conn, session, _tx) = setup(false, true);
+        assert!(!session.is_closed());
+        let mut handler = MockRequestHandler::new(Ok(()));
+        conn.finalize(&mut handler);
+        assert!(session.is_closed());
     }
 }
 
