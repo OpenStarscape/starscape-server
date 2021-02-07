@@ -79,6 +79,9 @@ impl Session for TcpSession {
 
     fn close(&mut self) {
         self.mio_poll_thread = None;
+        self.stream
+            .shutdown(std::net::Shutdown::Both)
+            .or_log_warn("shutting down TCP stream");
         match self.handler.lock() {
             Ok(mut handler) => handler.close(),
             Err(e) => error!("failed to close connection, could not lock handler: {}", e),
