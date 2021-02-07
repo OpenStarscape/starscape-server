@@ -1,6 +1,9 @@
 use super::*;
 use serde::de::Deserialize;
 
+// Cap datagrams at 10MB
+const MAX_DATAGRAM_LEN: usize = 10_000_000;
+
 pub struct JsonDecoder {
     splitter: DatagramSplitter,
 }
@@ -8,7 +11,7 @@ pub struct JsonDecoder {
 impl JsonDecoder {
     pub fn new() -> Self {
         Self {
-            splitter: DatagramSplitter::new(b'\n'),
+            splitter: DatagramSplitter::new(b'\n', MAX_DATAGRAM_LEN), // Cap
         }
     }
 
@@ -165,7 +168,11 @@ impl JsonDecoder {
 impl Decoder for JsonDecoder {
     fn decode(&mut self, ctx: &dyn DecodeCtx, bytes: Vec<u8>) -> RequestResult<Vec<Request>> {
         let mut requests = Vec::new();
-        for datagram in self.splitter.data(bytes) {
+        let datagrams = self
+            .splitter
+            .data(bytes)
+            .map_err(|e| BadMessage(e.to_string()))?;
+        for datagram in datagrams {
             requests.push(self.decode_datagram(ctx, &datagram)?);
         }
         Ok(requests)
@@ -614,5 +621,14 @@ mod message_tests {
             }\n",
             "map not implemented",
         );
+    }
+
+    #[test]
+    fn message_20mb_long_is_error() {
+        let mut message = String::new();
+        for _ in 0..20_000_000 {
+            message.push('a');
+        }
+        assert_results_in_error(&message, "too long");
     }
 }
