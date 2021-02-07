@@ -205,12 +205,10 @@ mod tests {
         }
 
         fn max_packet_len(&self) -> usize {
-            panic!("unecpected call");
+            usize::MAX
         }
 
-        fn close(&mut self) {
-            panic!("unecpected call");
-        }
+        fn close(&mut self) {}
     }
 
     /// Contained value is if building session should succeed
