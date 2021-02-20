@@ -12,8 +12,8 @@ The layout I'm using is:
 - `/root/starscape/server/ssl/cert.pem`: SSL certificate
 - `/root/starscape/server/ssl/privkey.pem`: SSL private key
 
-## SSL
-- [useful guide](https://shirshak55.github.io/articles/deploying-warp-in-cloud/https://shirshak55.github.io/articles/deploying-warp-in-cloud/)
+## TLS
+- [useful guide](https://shirshak55.github.io/articles/deploying-warp-in-cloud/)
 
 ## Creating a Certificate
 - NOTE: certbot spins up a webserver on port 80, so the starscape server must be stopped.
