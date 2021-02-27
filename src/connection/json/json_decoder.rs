@@ -133,9 +133,15 @@ impl JsonDecoder {
                 Self::decode_name(&datagram)?,
                 self.decode_value(
                     ctx,
-                    datagram
-                        .get("value")
-                        .ok_or_else(|| BadMessage("fire request does not have a value".into()))?,
+                    datagram.get("value").ok_or_else(|| {
+                        BadMessage(
+                            format!(
+                                "fire request does not have a value: {}",
+                                String::from_utf8_lossy(bytes)
+                            )
+                            .into(),
+                        )
+                    })?,
                 )?,
             ),
             "set" => Request::set(
@@ -143,9 +149,15 @@ impl JsonDecoder {
                 Self::decode_name(&datagram)?,
                 self.decode_value(
                     ctx,
-                    datagram
-                        .get("value")
-                        .ok_or_else(|| BadMessage("set request does not have a value".into()))?,
+                    datagram.get("value").ok_or_else(|| {
+                        BadMessage(
+                            format!(
+                                "set request does not have a value: {}",
+                                String::from_utf8_lossy(bytes)
+                            )
+                            .into(),
+                        )
+                    })?,
                 )?,
             ),
             "get" => Request::get(
