@@ -390,7 +390,7 @@ mod message_tests {
                 \"mtype\": \"set\", \
                 \"object\": 9, \
                 \"property\": \"xyz\", \
-				\"value\": null \
+                \"value\": null \
             }\n",
             Request::set(e[9], "xyz".to_owned(), Value::Null),
         );
@@ -405,7 +405,7 @@ mod message_tests {
                 \"mtype\": \"fire\", \
                 \"object\": 9, \
                 \"property\": \"xyz\", \
-				\"value\": 12 \
+                \"value\": 12 \
             }\n",
             Request::action(e[9], "xyz".to_owned(), Value::Integer(12)),
         );
@@ -451,13 +451,13 @@ mod message_tests {
                 \"mtype\": \"set\", \
                 \"object\": 8, \
                 \"property\": \"abc\", \
-				\"value\": 12 \
+                \"value\": 12 \
             }\n",
             "{ \
-				\"mtype\": \"subscribe\", \
+                \"mtype\": \"subscribe\", \
                 \"object\": 11, \
                 \"property\": \"xyz\" \
-			}\n",
+            }\n",
         ];
         let mut decoder = JsonDecoder::new();
         let mut result = Vec::new();
@@ -486,17 +486,17 @@ mod message_tests {
                 \"object\": 3, \
                 \"property\": \"foobar\" \
             }\n \
-			{ \
+            { \
                 \"mtype\": \"set\", \
                 \"object\": 5, \
                 \"property\": \"abc\", \
-				\"value\": 12 \
+                \"value\": 12 \
             }\n \
-			{ \
-				\"mtype\": \"subscribe\", \
+            { \
+                \"mtype\": \"subscribe\", \
                 \"object\": 7, \
                 \"property\": \"xyz\" \
-			}\n";
+            }\n";
         let mut decoder = JsonDecoder::new();
         let e = MockDecodeCtx::new(12);
         let result = decoder
@@ -521,17 +521,17 @@ mod message_tests {
             "t\": 9, \
                 \"property\": \"foobar\" \
             }\n \
-			{ \
+            { \
                 \"mtype\": \"set\", \
                 \"object\": 2, \
                 \"property\": \"abc\", \
-				\"value\": 12 \
+                \"value\": 12 \
             }\n \
             { \
-				\"mtype\": \"subscribe\", \
+                \"mtype\": \"subscribe\", \
                 \"object\": 1,",
             "\"property\": \"xyz\" \
-			}\n",
+            }\n",
         ];
         let mut decoder = JsonDecoder::new();
         let mut result = Vec::new();
@@ -568,7 +568,7 @@ mod message_tests {
     fn errors_with_invalid_mtype() {
         assert_results_in_error(
             "{ \
-				\"mtype\": \"get_\", \
+                \"mtype\": \"get_\", \
                 \"object\": 3, \
                 \"property\": \"abc\" \
             }\n",
@@ -604,7 +604,7 @@ mod message_tests {
             "{ \
                 \"mtype\": \"set\", \
                 \"object\": 6, \
-				\"property\": \"foobar\" \
+                \"property\": \"foobar\" \
             }\n",
             "does not have a value",
         );
@@ -616,8 +616,8 @@ mod message_tests {
             "{ \
                 \"mtype\": \"set\", \
                 \"object\": 5, \
-				\"property\": \"foobar\", \
-				\"value\": {} \
+                \"property\": \"foobar\", \
+                \"value\": {} \
             }\n",
             "map not implemented",
         );
