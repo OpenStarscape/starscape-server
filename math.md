@@ -4,6 +4,7 @@ Mostly orbital mechanics related
 ## Resources
 - [Orbital Mechanics 101 video](https://www.youtube.com/watch?v=VGcQhgkXPx0&t=600s)
 - [Vis-viva equation](https://en.wikipedia.org/wiki/Vis-viva_equation)
+- [sphere of influence](https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics))
 
 ## Units
 These are the standard units assumed throughout the Starscape server and protocol
@@ -18,7 +19,7 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
 - r: distance between the two bodies (radius?? this would be very incorrect, but r does seem to be the convention) (unit: km)
 - rₚ: radius at the periapsis (closest point to gravity well)
 - rₐ: radius at the apoapsis (farthest point from gravity well)
-- rSOI: radius of the [sphere of influence](https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics))
+- rSOI: radius of the [sphere of influence](https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics)) (unit: km)
 - m: mass of the body in question (like a ship or a planet) (unit: t)
 - M: mass of the gravity well in question (like a planet or the sun) (unit: t)
 - E: energy (unit: t⋅km²⋅s⁻²)
