@@ -263,7 +263,58 @@ mod gravity_tests {
         assert!(v.z.abs() < EPSILON);
     }
 
-    // TODO: test gravity parent
+    #[test]
+    fn gravity_parent_for_two_body_system() {
+        let position = Point3::new(-20.0e+3, 27.5, 154.0);
+        let velocity = Vector3::new(0.0, 6.0, 0.0);
+        let mut state = State::new();
+        let planet = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let body = create_body_entity(
+            &mut state,
+            Body::new().with_position(position).with_velocity(velocity),
+            false,
+        );
+        apply_gravity(&mut state, 1.0);
+        assert_eq!(
+            *state.component::<Body>(body).unwrap().gravity_parent,
+            planet
+        );
+        assert_eq!(
+            *state.component::<Body>(planet).unwrap().gravity_parent,
+            EntityKey::null()
+        );
+    }
+
+    #[test]
+    fn gravity_parent_for_three_body_system() {
+        let position_a = Point3::new(-2.0e+6, 27.5, 154.0);
+        let position_b = position_a + Vector3::new(100.0, 0.0, 0.0);
+        let velocity = Vector3::new(0.0, 1.0, 0.0);
+        let mut state = State::new();
+        let sun = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS * 100.0), true);
+        let planet = create_body_entity(
+            &mut state,
+            Body::new()
+                .with_position(position_a)
+                .with_velocity(velocity)
+                .with_mass(EARTH_MASS),
+            true,
+        );
+        let body = create_body_entity(&mut state, Body::new().with_position(position_b), false);
+        apply_gravity(&mut state, 1.0);
+        assert_eq!(
+            *state.component::<Body>(sun).unwrap().gravity_parent,
+            EntityKey::null()
+        );
+        assert_eq!(
+            *state.component::<Body>(planet).unwrap().gravity_parent,
+            sun
+        );
+        assert_eq!(
+            *state.component::<Body>(body).unwrap().gravity_parent,
+            planet
+        );
+    }
 
     #[test]
     fn accel_on_earth_is_about_right() {
