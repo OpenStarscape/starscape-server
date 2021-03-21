@@ -15,8 +15,10 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
         position: Point3<f64>,
         velocity: Vector3<f64>,
         mass: f64,
+        /// radius of the sphere-of-influence squared
+        sphere_of_influence2: f64,
     };
-    let wells: Vec<GravityWell> = state
+    let mut wells: Vec<GravityWell> = state
         .components_iter::<GravityBody>()
         .map(|(entity, _)| {
             // TODO: error handing on body not in bodies
@@ -28,18 +30,55 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
                 position: *body.position,
                 velocity: *body.velocity,
                 mass: *body.mass,
+                sphere_of_influence2: 0.0,
             }
         })
         .collect();
+    // For the sphere of influence calculation, we need to look at gravity wells in descending order
+    wells.sort_unstable_by(|a, b| {
+        b.mass
+            .partial_cmp(&a.mass)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    if !wells.is_empty() {
+        // This will be the most massive object, presumably the sun
+        wells[0].sphere_of_influence2 = f64::INFINITY;
+    }
+    // Now calculate the sphere of influence of each body. To do this, we need to know the body's parent. But wait!
+    // isn't figuring out parents the reason we're calculating sphere of influence in the first place? Uh, yeah, so we
+    // have to get fancy. This is where the sorting comes in. We go through bodies in order of descending mass. For each
+    // body we only consider bodies we've already done (so bodies more massive than the current one). We find the last
+    // massive body that the current body is in the sphere of influence of. That is considered the parent, and lets us
+    // calculate the current body's sphere of influence.
+    for current in 1..wells.len() {
+        let current_position = wells[current].position;
+        for parent in (0..current).rev() {
+            // Get the distance², which is faster than normal distance and possibly all we need
+            let distance2 = current_position.distance2(wells[parent].position);
+            if distance2 <= wells[parent].sphere_of_influence2 {
+                // Should we set gravity_parent here? We could, but it will also be set below so don't bother
+                // Distance to the parent
+                let distance = distance2.sqrt();
+                let velocity2 = wells[current].velocity.distance2(wells[parent].velocity);
+                let g_times_parent_mass = GRAVITATIONAL_CONSTANT * wells[parent].mass;
+                // Semi-major axis of the current body's orbit around the parent
+                let semi_major = distance * g_times_parent_mass
+                    / (2.0 * g_times_parent_mass - distance * velocity2);
+                // Sphere of influence (approximate)
+                let sphere_of_influence =
+                    semi_major * (wells[current].mass / wells[parent].mass).powf(2.0 / 5.0);
+                wells[current].sphere_of_influence2 = sphere_of_influence * sphere_of_influence;
+            }
+        }
+    }
     let iter = state.components_iter_mut::<Body>();
-    iter.for_each(|(_, body)| {
-        let (grav_parent, _grav_parent_major) = wells.iter().fold(
+    iter.for_each(|(body_entity, body)| {
+        let (grav_parent, _grav_parent_mass) = wells.iter().fold(
             (EntityKey::null(), f64::INFINITY),
-            |(grav_parent, grav_parent_major_axis), well| {
-                // Get the distance², which is faster than normal distance and possibly all we need
-                let distance2 = well.position.distance2(*body.position);
-                // If comparing body to itself, distance² will be zero or close to it
-                if distance2 > EPSILON {
+            |(grav_parent, grav_parent_mass), well| {
+                if well.entity != body_entity {
+                    // Get the distance², which is faster than normal distance and all we need
+                    let distance2 = well.position.distance2(*body.position);
                     // Acceleration due to gravity follows the inverse square law
                     let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
                     // Change in velocity is previously calculated acceleration towards the well
@@ -47,30 +86,18 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
                         (well.position - *body.position).normalize_to(acceleration * dt);
                     // Apply delta-velocity to the body
                     body.velocity.set(*body.velocity + delta_vel);
-                    // Now we check to see if the well is this bodies gravity parent. This is
-                    // defined as the well more massive than the body around which the body is
-                    // orbiting elliptically with the smallest major axis.
-                    // - if the well is less massive than the body, it can't be by definition
-                    // - if distance² is greater than the current smallest major axis, the body
-                    //   can't be orbiting this body with a smaller axis
-                    if well.mass >= *body.mass
-                        && distance2 <= grav_parent_major_axis * grav_parent_major_axis
+                    // Now we check if if the well is a candidate to be this body's gravity parent. To be one it must:
+                    // - Be less massive than the current candidate
+                    // - Be more massive than the body
+                    // - Have a sphere of influence that includes the body
+                    if well.mass < grav_parent_mass
+                        && well.mass >= *body.mass
+                        && distance2 <= well.sphere_of_influence2
                     {
-                        let distance = distance2.sqrt();
-                        let velocity2 = (*body.velocity - well.velocity).magnitude2();
-                        let gm = GRAVITATIONAL_CONSTANT * well.mass;
-                        // The major axis is calculated by 2a = 2rGM/(2GM - rv²) (see math.md)
-                        let major_axis_denom = 2.0 * gm - distance * velocity2;
-                        // The orbit is elliptical only if the denominator is positive and finite
-                        if major_axis_denom > 0.0 && major_axis_denom.is_finite() {
-                            let major_axis = distance * gm / major_axis_denom;
-                            if major_axis < grav_parent_major_axis {
-                                return (well.entity, major_axis);
-                            }
-                        }
+                        return (well.entity, well.mass);
                     }
                 }
-                (grav_parent, grav_parent_major_axis)
+                (grav_parent, grav_parent_mass)
             },
         );
         body.gravity_parent.set(grav_parent);
