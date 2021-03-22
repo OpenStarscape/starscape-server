@@ -157,6 +157,8 @@ impl Body {
         )
         .install_property(state, entity, "mass");
 
+        OrbitConduit::new(entity).install_property(state, entity, "orbit");
+
         RWConduit::new(
             move |state| Ok(&state.component::<Body>(entity)?.color),
             move |state, value| Ok(state.component_mut::<Body>(entity)?.color.set(value)),

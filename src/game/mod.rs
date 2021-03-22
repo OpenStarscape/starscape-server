@@ -4,6 +4,7 @@ use super::*;
 
 mod autopilot;
 mod components;
+mod conduits;
 #[allow(clippy::module_inception)]
 mod game;
 mod physics;
@@ -12,6 +13,7 @@ pub use game::{init, physics_tick};
 
 use autopilot::*;
 use components::*;
+use conduits::*;
 use physics::*;
 
 /// A very small value; used for floating-point comparisons
