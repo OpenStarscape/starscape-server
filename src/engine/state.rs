@@ -61,10 +61,14 @@ impl State {
         self.time
     }
 
+    /*
+    Hmm, this is a footgun because one might expect properties to always be the same on a given physics tick, but to
+    make that so we'll need some sort of pending/committed concept.
     /// Monotonic clock that goes up with each physics tick
     pub fn physics_tick(&self) -> u64 {
         self.physics_tick
     }
+    */
 
     /// Advance the physics tick by 1 and time by time_delta
     pub fn increment_physics(&mut self, time_delta: f64) {
@@ -407,13 +411,13 @@ mod tests {
     #[test]
     fn can_increment_physics() {
         let mut state = State::new();
-        assert_eq!(state.physics_tick(), 0);
+        //assert_eq!(state.physics_tick(), 0);
         assert_eq!(state.time(), 0.0);
         state.increment_physics(1.0);
-        assert_eq!(state.physics_tick(), 1);
+        //assert_eq!(state.physics_tick(), 1);
         assert_eq!(state.time(), 1.0);
         state.increment_physics(2.5);
-        assert_eq!(state.physics_tick(), 2);
+        //assert_eq!(state.physics_tick(), 2);
         assert_eq!(state.time(), 3.5);
     }
 
