@@ -80,7 +80,7 @@ impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak
         let dispatcher = self
             .upgrade()
             .ok_or_else(|| InternalError("signal no longer exists".into()))?;
-        dispatcher.subscribers.subscribe(subscriber)?;
+        dispatcher.subscribers.add(subscriber)?;
         Ok(())
     }
 
@@ -88,7 +88,7 @@ impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak
         let dispatcher = self
             .upgrade()
             .ok_or_else(|| InternalError("signal no longer exists".into()))?;
-        dispatcher.subscribers.unsubscribe(subscriber)?;
+        dispatcher.subscribers.remove(subscriber)?;
         Ok(())
     }
 }

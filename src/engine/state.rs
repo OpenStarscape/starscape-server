@@ -74,7 +74,11 @@ impl State {
     pub fn increment_physics(&mut self, time_delta: f64) {
         self.physics_tick += 1;
         self.time += time_delta;
-        trace!("Time advanced to {} (physics tick {})", self.time, self.physics_tick);
+        trace!(
+            "Time advanced to {} (physics tick {})",
+            self.time,
+            self.physics_tick
+        );
     }
 
     /// Removes the given entity and all its components from the state
