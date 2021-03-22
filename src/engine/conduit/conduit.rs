@@ -2,11 +2,9 @@ use super::*;
 
 /// A chain of conduits composes the interface between properties, actions and signals and the state.
 /// `O` is the output/get type and `I` is the input/set type
-pub trait Conduit<O, I>: Send + Sync {
+pub trait Conduit<O, I>: Subscribable + Send + Sync {
     fn output(&self, state: &State) -> RequestResult<O>;
     fn input(&self, state: &mut State, value: I) -> RequestResult<()>;
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()>;
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()>;
 
     #[must_use]
     fn map_output<F, OuterO>(self, f: F) -> MapOutputConduit<Self, O, I, F>
@@ -90,7 +88,9 @@ impl<O, I> Conduit<O, I> for Arc<dyn Conduit<O, I>> {
     fn input(&self, state: &mut State, value: I) -> RequestResult<()> {
         (**self).input(state, value)
     }
+}
 
+impl<O, I> Subscribable for Arc<dyn Conduit<O, I>> {
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         (**self).subscribe(state, subscriber)
     }

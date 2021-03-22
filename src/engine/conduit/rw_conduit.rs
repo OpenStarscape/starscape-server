@@ -37,7 +37,16 @@ where
     fn input(&self, state: &mut State, value: T) -> RequestResult<()> {
         (self.input_fn)(state, value)
     }
+}
 
+impl<T, OFn, IFn> Subscribable for RWConduit<OFn, IFn>
+where
+    T: Clone,
+    for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
+    IFn: Fn(&mut State, T) -> RequestResult<()>,
+    OFn: Send + Sync + 'static,
+    IFn: Send + Sync + 'static,
+{
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         (self.output_fn)(state)?
             .subscribe(subscriber, &state.notif_queue)

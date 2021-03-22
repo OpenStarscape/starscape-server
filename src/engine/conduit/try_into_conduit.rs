@@ -31,7 +31,12 @@ where
             ))),
         }
     }
-
+}
+impl<C, InnerO, InnerI> Subscribable for TryIntoConduit<C, InnerO, InnerI>
+where
+    C: Conduit<InnerO, InnerI> + 'static,
+    InnerI: Send + Sync + 'static,
+{
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.0.subscribe(state, subscriber)
     }

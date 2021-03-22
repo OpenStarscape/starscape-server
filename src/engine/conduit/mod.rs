@@ -17,12 +17,12 @@ pub use action_conduit::{ActionConduit, ActionsDontProduceOutputSilly};
 pub use caching_conduit::CachingConduit;
 pub use component_list_conduit::ComponentListConduit;
 pub use conduit::Conduit;
+pub use conduit::ReadOnlyPropSetType;
 pub use property_conduit::PropertyConduit;
 pub use ro_conduit::ROConduit;
 pub use rw_conduit::RWConduit;
 pub use signal_conduit::SignalConduit;
 
-use conduit::ReadOnlyPropSetType;
 use map_input_conduit::MapInputConduit;
 use map_output_conduit::MapOutputConduit;
 use try_into_conduit::TryIntoConduit;

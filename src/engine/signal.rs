@@ -75,7 +75,9 @@ impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak
     fn input(&self, _: &mut State, _: SignalsDontTakeInputSilly) -> RequestResult<()> {
         unreachable!();
     }
+}
 
+impl<T: Clone + Send + Sync> Subscribable for Weak<Dispatcher<T>> {
     fn subscribe(&self, _: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         let dispatcher = self
             .upgrade()

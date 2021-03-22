@@ -30,7 +30,13 @@ where
         // ReadOnlyPropSetType can't be instantiated, so this can't be called
         std::unreachable!()
     }
-
+}
+impl<T, OFn> Subscribable for ROConduit<OFn>
+where
+    T: Clone,
+    for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
+    OFn: Send + Sync + 'static,
+{
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         (self.output_fn)(state)?
             .subscribe(subscriber, &state.notif_queue)

@@ -67,7 +67,13 @@ where
         // TODO: don't set if same as cache
         self.conduit.input(state, value)
     }
+}
 
+impl<C, T> Subscribable for Arc<CachingConduit<C, T>>
+where
+    C: Conduit<T, T> + 'static,
+    T: PartialEq + Send + Sync + 'static,
+{
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         if self.subscribers.add(subscriber)?.was_empty {
             let weak_self: Arc<dyn Subscriber> = self
@@ -119,7 +125,9 @@ mod tests {
         fn input(&self, _state: &mut State, _value: i32) -> RequestResult<()> {
             panic!("unexpected call");
         }
+    }
 
+    impl Subscribable for Arc<Mutex<MockConduit>> {
         fn subscribe(&self, _state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
             assert!(self.lock().unwrap().subscribed.is_none());
             self.lock().unwrap().subscribed = Some(Arc::downgrade(subscriber));

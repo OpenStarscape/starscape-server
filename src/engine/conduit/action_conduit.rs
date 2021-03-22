@@ -36,7 +36,12 @@ where
     fn input(&self, state: &mut State, value: T) -> RequestResult<()> {
         (self.input_fn)(state, value)
     }
+}
 
+impl<T, IFn> Subscribable for ActionConduit<T, IFn>
+where
+    IFn: Fn(&mut State, T) -> RequestResult<()> + Send + Sync + 'static,
+{
     fn subscribe(&self, _: &State, _: &Arc<dyn Subscriber>) -> RequestResult<()> {
         Err(BadRequest("can not subscribe to action".to_string()))
     }
