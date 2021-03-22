@@ -57,8 +57,8 @@ impl Engine {
 
         self.connections.flush_outbound_messages(&mut self.state);
 
-        self.state.time += self.physics_tick_delta;
-        if self.state.time > self.quit_after {
+        self.state.increment_physics(self.physics_tick_delta);
+        if self.state.time() > self.quit_after {
             self.should_quit = true;
             info!(
                 "engine has run for {:?}, stopping…",

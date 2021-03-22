@@ -14,7 +14,9 @@ type ComponentElement<T> = (PhantomData<T>, Element<()>);
 /// function is passed an immutable state, it can't change anything).
 pub struct State {
     /// Current time in seconds since the start of the game
-    pub time: f64,
+    time: f64,
+    /// Monotonic clock that goes up with each physics tick
+    physics_tick: u64,
     root: EntityKey,
     entities: DenseSlotMap<EntityKey, Entity>,
     components: AnyMap,
@@ -26,6 +28,7 @@ impl Default for State {
     fn default() -> Self {
         let mut state = Self {
             time: 0.0,
+            physics_tick: 0,
             root: EntityKey::null(),
             entities: DenseSlotMap::with_key(),
             components: AnyMap::new(),
@@ -51,6 +54,23 @@ impl State {
     /// initial entity clients bind to.
     pub fn root_entity(&self) -> EntityKey {
         self.root
+    }
+
+    /// Current time in seconds since the start of the game
+    pub fn time(&self) -> f64 {
+        self.time
+    }
+
+    /// Monotonic clock that goes up with each physics tick
+    pub fn physics_tick(&self) -> u64 {
+        self.physics_tick
+    }
+
+    /// Advance the physics tick by 1 and time by time_delta
+    pub fn increment_physics(&mut self, time_delta: f64) {
+        self.physics_tick += 1;
+        self.time += time_delta;
+        trace!("Time advanced to {} (physics tick {})", self.time, self.physics_tick);
     }
 
     /// Removes the given entity and all its components from the state
@@ -383,6 +403,19 @@ mod tests {
 
     #[derive(Debug, PartialEq)]
     struct OtherMockComponent(bool);
+
+    #[test]
+    fn can_increment_physics() {
+        let mut state = State::new();
+        assert_eq!(state.physics_tick(), 0);
+        assert_eq!(state.time(), 0.0);
+        state.increment_physics(1.0);
+        assert_eq!(state.physics_tick(), 1);
+        assert_eq!(state.time(), 1.0);
+        state.increment_physics(2.5);
+        assert_eq!(state.physics_tick(), 2);
+        assert_eq!(state.time(), 3.5);
+    }
 
     #[test]
     fn is_empty_by_default() {
