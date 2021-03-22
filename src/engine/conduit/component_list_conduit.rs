@@ -33,27 +33,11 @@ impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T>
 
 impl<T: 'static> Subscribable for ComponentListConduit<T> {
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
-        state
-            .subscribe_to_component_list::<T>(subscriber)
-            .map_err(|e| {
-                InternalError(format!(
-                    "failed to subscribe to {} component list: {}",
-                    type_name::<T>(),
-                    e
-                ))
-            })
+        state.subscribe_to_component_list::<T>(subscriber)
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
-        state
-            .unsubscribe_from_component_list::<T>(subscriber)
-            .map_err(|e| {
-                InternalError(format!(
-                    "failed to unsubscribe from {} component list: {}",
-                    type_name::<T>(),
-                    e
-                ))
-            })
+        state.unsubscribe_from_component_list::<T>(subscriber)
     }
 }
 

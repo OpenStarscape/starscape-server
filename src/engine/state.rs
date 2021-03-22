@@ -184,7 +184,7 @@ impl State {
     pub fn subscribe_to_component_list<T: 'static>(
         &self,
         subscriber: &Arc<dyn Subscriber>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> RequestResult<()> {
         let mut map = self
             .component_list_elements
             .lock()
@@ -193,13 +193,13 @@ impl State {
             .entry::<ComponentElement<T>>()
             .or_insert_with(|| (PhantomData, Element::new(())))
             .1;
-        element.subscribe(subscriber, &self.notif_queue)
+        element.subscribe(self, subscriber)
     }
 
     pub fn unsubscribe_from_component_list<T: 'static>(
         &self,
         subscriber: &Weak<dyn Subscriber>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> RequestResult<()> {
         let mut map = self
             .component_list_elements
             .lock()
@@ -208,7 +208,7 @@ impl State {
             .entry::<ComponentElement<T>>()
             .or_insert_with(|| (PhantomData, Element::new(())))
             .1;
-        element.unsubscribe(subscriber)
+        element.unsubscribe(self, subscriber)
     }
 
     /// Create a property for an entity. Panics if entity doesn't exist or already has something

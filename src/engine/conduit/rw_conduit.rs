@@ -48,26 +48,10 @@ where
     IFn: Send + Sync + 'static,
 {
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
-        (self.output_fn)(state)?
-            .subscribe(subscriber, &state.notif_queue)
-            .map_err(|e| {
-                InternalError(format!(
-                    "failed to subscribe to to Element<{}>: {}",
-                    type_name::<T>(),
-                    e
-                ))
-            })
+        (self.output_fn)(state)?.subscribe(state, subscriber)
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
-        (self.output_fn)(state)?
-            .unsubscribe(subscriber)
-            .map_err(|e| {
-                InternalError(format!(
-                    "failed to unsubscribe from Element<{}>: {}",
-                    type_name::<T>(),
-                    e
-                ))
-            })
+        (self.output_fn)(state)?.unsubscribe(state, subscriber)
     }
 }
