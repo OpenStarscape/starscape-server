@@ -20,20 +20,51 @@ impl SyncSubscriberList {
         }
     }
 
-    /// Notify all subscribers
-    pub fn send_notifications(&self, state: &State, handler: &dyn EventHandler) {
+    /// Call the given function for each added subscriber weak (they should all be alive but logic errors could cause
+    /// them not to be)
+    pub fn for_each_weak_subscriber<F: FnMut(&Weak<dyn Subscriber>)>(&self, mut f: F) {
         if self.has_subscribers.load(SeqCst) {
             let lock = self.lock.lock().expect("failed to lock subscribers");
             for (_ptr, subscriber) in &lock.0 {
-                if let Some(subscriber) = subscriber.upgrade() {
-                    subscriber.notify(state, handler);
-                } else {
-                    error!(
-                        "failed to lock Weak; should have been unsubscribed before being dropped"
-                    );
-                }
+                f(subscriber);
             }
         }
+    }
+
+    /// Call the given function for each added subscriber
+    pub fn for_each_subscriber<F: FnMut(Arc<dyn Subscriber>)>(&self, mut f: F) {
+        self.for_each_weak_subscriber(|w| {
+            if let Some(s) = w.upgrade() {
+                f(s);
+            } else {
+                error!("failed to lock Weak; should have been unsubscribed before being dropped");
+            }
+        });
+    }
+
+    /// Notify all subscribers
+    pub fn send_notifications(&self, state: &State, handler: &dyn EventHandler) {
+        self.for_each_subscriber(|s| {
+            s.notify(state, handler);
+        });
+    }
+
+    /// Subscribe all added subscribers to the target subscribable
+    pub fn subscribe_all(&self, state: &State, target: &dyn Subscribable) {
+        self.for_each_subscriber(|s| {
+            target
+                .subscribe(state, &s)
+                .or_log_error("subscribing subscriber list");
+        });
+    }
+
+    /// Unsubscribe all added subscribers from the target subscribable
+    pub fn unsubscribe_all(&self, state: &State, target: &dyn Subscribable) {
+        self.for_each_weak_subscriber(|w| {
+            target
+                .unsubscribe(state, w)
+                .or_log_error("unsubscribing subscriber list");
+        });
     }
 
     /// Add a subscriber
@@ -81,48 +112,92 @@ mod tests {
         )
     }
 
+    // TODO: test subscribe_all/unsubscribe_all
+
+    #[test]
+    fn loops_through_all_weak_subscribers() {
+        let (list, _, subscribers, _) = setup();
+        list.add(&subscribers[0]).unwrap();
+        list.add(&subscribers[1]).unwrap();
+        let mut count = 0;
+        list.for_each_weak_subscriber(|w| {
+            assert_eq!(
+                w.upgrade().unwrap().thin_ptr(),
+                subscribers[count].thin_ptr()
+            );
+            count += 1;
+        });
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn loops_through_all_subscribers() {
+        let (list, _, subscribers, _) = setup();
+        list.add(&subscribers[0]).unwrap();
+        list.add(&subscribers[1]).unwrap();
+        let mut count = 0;
+        list.for_each_subscriber(|s| {
+            assert_eq!(s.thin_ptr(), subscribers[count].thin_ptr());
+            count += 1;
+        });
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn ignores_dead_subscribers_when_looping() {
+        let (list, _, subscribers, _) = setup();
+        list.add(&subscribers[0]).unwrap();
+        list.add(&Arc::new(MockSubscriber::new().get())).unwrap();
+        list.add(&subscribers[1]).unwrap();
+        let mut count = 0;
+        list.for_each_subscriber(|s| {
+            assert_eq!(s.thin_ptr(), subscribers[count].thin_ptr());
+            count += 1;
+        });
+        assert_eq!(count, 2);
+    }
+
     #[test]
     fn can_send_with_no_subscribers() {
-        let (tracker, _, _, _) = setup();
+        let (list, _, _, _) = setup();
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
-        tracker.send_notifications(&state, &update_subscriber);
+        list.send_notifications(&state, &update_subscriber);
     }
 
     #[test]
     fn sends_to_single_subscriber() {
-        let (tracker, _, subscribers, mock_subscribers) = setup();
-        tracker.add(&subscribers[0]).expect("subscribing failed");
+        let (list, _, subscribers, mock_subscribers) = setup();
+        list.add(&subscribers[0]).expect("subscribing failed");
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
-        tracker.send_notifications(&state, &update_subscriber);
+        list.send_notifications(&state, &update_subscriber);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
     }
 
     #[test]
     fn sends_to_multiple_subscribers() {
-        let (tracker, _, subscribers, mock_subscribers) = setup();
-        tracker.add(&subscribers[0]).expect("subscribing failed");
-        tracker.add(&subscribers[1]).expect("subscribing failed");
+        let (list, _, subscribers, mock_subscribers) = setup();
+        list.add(&subscribers[0]).expect("subscribing failed");
+        list.add(&subscribers[1]).expect("subscribing failed");
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
-        tracker.send_notifications(&state, &update_subscriber);
+        list.send_notifications(&state, &update_subscriber);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
         assert_eq!(mock_subscribers[1].notify_count(), 1);
     }
 
     #[test]
     fn unsubscribing_stops_notifications_sending() {
-        let (tracker, _, subscribers, mock_subscribers) = setup();
+        let (list, _, subscribers, mock_subscribers) = setup();
         for subscriber in &subscribers {
-            tracker.add(&subscriber).expect("subscribing failed");
+            list.add(&subscriber).expect("subscribing failed");
         }
-        tracker
-            .remove(&Arc::downgrade(&subscribers[1]))
+        list.remove(&Arc::downgrade(&subscribers[1]))
             .expect("unsubscribing failed");
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
-        tracker.send_notifications(&state, &update_subscriber);
+        list.send_notifications(&state, &update_subscriber);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
         assert_eq!(mock_subscribers[1].notify_count(), 0);
         assert_eq!(mock_subscribers[2].notify_count(), 1);
@@ -130,9 +205,9 @@ mod tests {
 
     #[test]
     fn unsubscribing_when_not_subscribed_errors() {
-        let (tracker, _, subscribers, _) = setup();
-        assert!(tracker.remove(&Arc::downgrade(&subscribers[0])).is_err());
-        tracker.add(&subscribers[0]).expect("subscribing failed");
-        assert!(tracker.remove(&Arc::downgrade(&subscribers[1])).is_err());
+        let (list, _, subscribers, _) = setup();
+        assert!(list.remove(&Arc::downgrade(&subscribers[0])).is_err());
+        list.add(&subscribers[0]).expect("subscribing failed");
+        assert!(list.remove(&Arc::downgrade(&subscribers[1])).is_err());
     }
 }
