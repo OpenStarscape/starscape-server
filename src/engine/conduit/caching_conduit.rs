@@ -69,7 +69,7 @@ where
     }
 
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
-        if self.subscribers.subscribe(subscriber)?.was_empty {
+        if self.subscribers.add(subscriber)?.was_empty {
             let weak_self: Arc<dyn Subscriber> = self
                 .weak_self
                 .get()
@@ -83,7 +83,7 @@ where
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
-        if self.subscribers.unsubscribe(subscriber)?.is_now_empty {
+        if self.subscribers.remove(subscriber)?.is_now_empty {
             self.conduit
                 .unsubscribe(state, &(self.weak_self.get() as Weak<dyn Subscriber>))
                 .map_err(|e| InternalError(format!("unsubscribing caching conduit: {}", e)))?;

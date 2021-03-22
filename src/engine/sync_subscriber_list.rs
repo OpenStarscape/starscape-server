@@ -1,9 +1,7 @@
 use super::subscriber_list::{SubscribeReport, UnsubscribeReport};
 use super::*;
 
-/// A SubscriberList that is Sync (NOTE: is not currently sync because SubscriberList is not Send
-/// because conduits are not Send because aaaahhhhh, but this will get fixed). Useful for sticking
-/// in conduits that have to manage subscriptions in non-mut methods.
+/// A SubscriberList that is Sync. Useful for sticking in conduits that have to manage subscriptions in non-mut methods.
 pub struct SyncSubscriberList {
     lock: Mutex<SubscriberList>,
     /// Always true when the subscriber list has subscribers. Can be briefly true when the inner
@@ -39,7 +37,7 @@ impl SyncSubscriberList {
     }
 
     /// Add a subscriber
-    pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> RequestResult<SubscribeReport> {
+    pub fn add(&self, subscriber: &Arc<dyn Subscriber>) -> RequestResult<SubscribeReport> {
         self.has_subscribers.store(true, SeqCst);
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
         inner.add(subscriber).map_err(|e| {
@@ -51,10 +49,7 @@ impl SyncSubscriberList {
     }
 
     /// Remove a subscriber
-    pub fn unsubscribe(
-        &self,
-        subscriber: &Weak<dyn Subscriber>,
-    ) -> RequestResult<UnsubscribeReport> {
+    pub fn remove(&self, subscriber: &Weak<dyn Subscriber>) -> RequestResult<UnsubscribeReport> {
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
         let result = inner.remove(subscriber);
         if let Ok(report) = &result {
@@ -97,9 +92,7 @@ mod tests {
     #[test]
     fn sends_to_single_subscriber() {
         let (tracker, _, subscribers, mock_subscribers) = setup();
-        tracker
-            .subscribe(&subscribers[0])
-            .expect("subscribing failed");
+        tracker.add(&subscribers[0]).expect("subscribing failed");
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
         tracker.send_notifications(&state, &update_subscriber);
@@ -109,12 +102,8 @@ mod tests {
     #[test]
     fn sends_to_multiple_subscribers() {
         let (tracker, _, subscribers, mock_subscribers) = setup();
-        tracker
-            .subscribe(&subscribers[0])
-            .expect("subscribing failed");
-        tracker
-            .subscribe(&subscribers[1])
-            .expect("subscribing failed");
+        tracker.add(&subscribers[0]).expect("subscribing failed");
+        tracker.add(&subscribers[1]).expect("subscribing failed");
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
         tracker.send_notifications(&state, &update_subscriber);
@@ -126,10 +115,10 @@ mod tests {
     fn unsubscribing_stops_notifications_sending() {
         let (tracker, _, subscribers, mock_subscribers) = setup();
         for subscriber in &subscribers {
-            tracker.subscribe(&subscriber).expect("subscribing failed");
+            tracker.add(&subscriber).expect("subscribing failed");
         }
         tracker
-            .unsubscribe(&Arc::downgrade(&subscribers[1]))
+            .remove(&Arc::downgrade(&subscribers[1]))
             .expect("unsubscribing failed");
         let state = State::new();
         let update_subscriber = MockEventHandler::new();
@@ -142,14 +131,8 @@ mod tests {
     #[test]
     fn unsubscribing_when_not_subscribed_errors() {
         let (tracker, _, subscribers, _) = setup();
-        assert!(tracker
-            .unsubscribe(&Arc::downgrade(&subscribers[0]))
-            .is_err());
-        tracker
-            .subscribe(&subscribers[0])
-            .expect("subscribing failed");
-        assert!(tracker
-            .unsubscribe(&Arc::downgrade(&subscribers[1]))
-            .is_err());
+        assert!(tracker.remove(&Arc::downgrade(&subscribers[0])).is_err());
+        tracker.add(&subscribers[0]).expect("subscribing failed");
+        assert!(tracker.remove(&Arc::downgrade(&subscribers[1])).is_err());
     }
 }
