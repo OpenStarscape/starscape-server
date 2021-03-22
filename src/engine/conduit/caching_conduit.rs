@@ -162,24 +162,24 @@ mod tests {
 
     #[test]
     fn first_subscription_connects_conduit() {
-        let (state, caching, inner, sinks, _) = setup();
+        let (state, caching, inner, subscribers, _) = setup();
         assert!(inner.lock().unwrap().subscribed.is_none());
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         assert!(inner.lock().unwrap().subscribed.is_some());
     }
 
     #[test]
     fn subscribes_self_to_inner() {
-        let (state, caching, inner, sinks, _) = setup();
+        let (state, caching, inner, subscribers, _) = setup();
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         if let Some(subscribed_to) = inner.lock().unwrap().subscribed.clone() {
             let subscribed_to = subscribed_to.thin_ptr();
             let caching = caching.thin_ptr();
-            let sink = sinks[0].thin_ptr();
+            let sink = subscribers[0].thin_ptr();
             assert_ne!(subscribed_to, sink);
             assert_eq!(subscribed_to, caching);
         } else {
@@ -189,8 +189,8 @@ mod tests {
 
     #[test]
     fn subsequent_subscriptions_do_not_connect_conduit() {
-        let (state, caching, inner, sinks, _) = setup();
-        for sink in sinks {
+        let (state, caching, inner, subscribers, _) = setup();
+        for sink in subscribers {
             // mock conduit should panic if subscribed multiple times
             caching
                 .subscribe(&state, &sink)
@@ -201,41 +201,41 @@ mod tests {
 
     #[test]
     fn does_not_disconnect_on_first_unsubscribe() {
-        let (state, caching, inner, sinks, _) = setup();
-        for sink in &sinks {
+        let (state, caching, inner, subscribers, _) = setup();
+        for sink in &subscribers {
             // mock conduit should panic if subscribed multiple times
             caching
                 .subscribe(&state, sink)
                 .expect("failed to subscribe");
         }
         caching
-            .unsubscribe(&state, &Arc::downgrade(&sinks[0]))
+            .unsubscribe(&state, &Arc::downgrade(&subscribers[0]))
             .expect("failed to unsubscribe");
         assert!(inner.lock().unwrap().subscribed.is_some());
     }
 
     #[test]
     fn removing_only_subscription_disconnects_conduit() {
-        let (state, caching, inner, sinks, _) = setup();
+        let (state, caching, inner, subscribers, _) = setup();
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         caching
-            .unsubscribe(&state, &Arc::downgrade(&sinks[0]))
+            .unsubscribe(&state, &Arc::downgrade(&subscribers[0]))
             .expect("failed to unsubscribe");
         assert!(inner.lock().unwrap().subscribed.is_none());
     }
 
     #[test]
     fn removing_all_subscriptions_disconnects_conduit() {
-        let (state, caching, inner, sinks, _) = setup();
-        for sink in &sinks {
+        let (state, caching, inner, subscribers, _) = setup();
+        for sink in &subscribers {
             // mock conduit should panic if subscribed multiple times
             caching
                 .subscribe(&state, sink)
                 .expect("failed to subscribe");
         }
-        for sink in &sinks {
+        for sink in &subscribers {
             // mock conduit should panic if unsubscribed multiple times
             caching
                 .unsubscribe(&state, &Arc::downgrade(sink))
@@ -246,57 +246,76 @@ mod tests {
 
     #[test]
     fn single_connection_subscribing_twice_errors() {
-        let (state, caching, _, sinks, _) = setup();
+        let (state, caching, _, subscribers, _) = setup();
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
-        assert!(caching.subscribe(&state, &sinks[0]).is_err());
+        assert!(caching.subscribe(&state, &subscribers[0]).is_err());
     }
 
     #[test]
     fn unsubscribing_with_connection_not_subscribed_errors() {
-        let (state, caching, _, sinks, _) = setup();
+        let (state, caching, _, subscribers, _) = setup();
         assert!(caching
-            .unsubscribe(&state, &Arc::downgrade(&sinks[0]))
+            .unsubscribe(&state, &Arc::downgrade(&subscribers[0]))
             .is_err());
     }
 
     #[test]
     fn notifies_subscribers_when_updated() {
-        let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockEventHandler::new();
+        let (state, caching, inner, subscribers, mock_subscribers) = setup();
+        let event_handler = MockEventHandler::new();
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         inner.lock().unwrap().value_to_get = Ok(42);
-        caching.notify(&state, &prop_update_sink);
-        assert_eq!(mock_sinks[0].notify_count(), 1);
+        caching.notify(&state, &event_handler);
+        assert_eq!(mock_subscribers[0].notify_count(), 1);
     }
 
     #[test]
     fn notified_subscribers_when_updated_multiple_times() {
-        let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockEventHandler::new();
+        let (mut state, caching, inner, subscribers, mock_subscribers) = setup();
+        let event_handler = MockEventHandler::new();
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         inner.lock().unwrap().value_to_get = Ok(42);
-        caching.notify(&state, &prop_update_sink);
+        caching.notify(&state, &event_handler);
+        state.increment_physics(1.0);
         inner.lock().unwrap().value_to_get = Ok(69);
-        caching.notify(&state, &prop_update_sink);
-        assert_eq!(mock_sinks[0].notify_count(), 2);
+        caching.notify(&state, &event_handler);
+        assert_eq!(mock_subscribers[0].notify_count(), 2);
     }
 
     #[test]
-    fn does_not_notify_property_update_sink_when_same_data_sent_twice() {
-        let (state, caching, inner, sinks, mock_sinks) = setup();
-        let prop_update_sink = MockEventHandler::new();
+    fn does_not_notify_event_handler_when_same_data_sent_twice() {
+        let (mut state, caching, inner, subscribers, mock_subscribers) = setup();
+        let event_handler = MockEventHandler::new();
         caching
-            .subscribe(&state, &sinks[0])
+            .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         inner.lock().unwrap().value_to_get = Ok(42);
-        caching.notify(&state, &prop_update_sink);
-        caching.notify(&state, &prop_update_sink);
-        assert_eq!(mock_sinks[0].notify_count(), 1);
+        caching.notify(&state, &event_handler);
+        state.increment_physics(1.0);
+        caching.notify(&state, &event_handler);
+        assert_eq!(mock_subscribers[0].notify_count(), 1);
     }
+
+    /*
+    #[test]
+    fn does_not_attempt_to_get_value_multiple_times_on_one_tick() {
+        let (state, caching, inner, subscribers, mock_subscribers) = setup();
+        let event_handler = MockEventHandler::new();
+        caching
+            .subscribe(&state, &subscribers[0])
+            .expect("failed to subscribe");
+        inner.lock().unwrap().value_to_get = Ok(42);
+        caching.notify(&state, &event_handler);
+        // note we do not increment physics, so the conduit should expect all values to be unchanged
+        inner.lock().unwrap().value_to_get = Ok(0);
+        caching.notify(&state, &event_handler);
+        assert_eq!(mock_subscribers[0].notify_count(), 1);
+    }
+    */
 }
