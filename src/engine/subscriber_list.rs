@@ -27,10 +27,7 @@ impl SubscriberList {
         Self(Vec::new())
     }
 
-    pub fn subscribe(
-        &mut self,
-        subscriber: &Arc<dyn Subscriber>,
-    ) -> RequestResult<SubscribeReport> {
+    pub fn add(&mut self, subscriber: &Arc<dyn Subscriber>) -> RequestResult<SubscribeReport> {
         let subscriber_ptr = subscriber.thin_ptr() as usize;
         let subscriber = Arc::downgrade(subscriber);
         if self
@@ -46,7 +43,7 @@ impl SubscriberList {
         }
     }
 
-    pub fn unsubscribe(
+    pub fn remove(
         &mut self,
         subscriber: &Weak<dyn Subscriber>,
     ) -> RequestResult<UnsubscribeReport> {
@@ -82,51 +79,51 @@ mod tests {
     #[test]
     fn subscribing_same_subscriber_twice_errors() {
         let (mut list, subscribers) = setup();
-        list.subscribe(&subscribers[0]).expect("subscribing failed");
-        assert!(list.subscribe(&subscribers[0]).is_err());
+        list.add(&subscribers[0]).expect("subscribing failed");
+        assert!(list.add(&subscribers[0]).is_err());
     }
 
     #[test]
     fn unsubscribing_when_not_subscribed_errors() {
         let (mut list, subscribers) = setup();
-        assert!(list.unsubscribe(&Arc::downgrade(&subscribers[0])).is_err());
-        list.subscribe(&subscribers[0]).expect("subscribing failed");
-        assert!(list.unsubscribe(&Arc::downgrade(&subscribers[1])).is_err());
+        assert!(list.remove(&Arc::downgrade(&subscribers[0])).is_err());
+        list.add(&subscribers[0]).expect("subscribing failed");
+        assert!(list.remove(&Arc::downgrade(&subscribers[1])).is_err());
     }
 
     #[test]
     fn first_subscriber_reports_was_empty() {
         let (mut list, subscribers) = setup();
-        let report = list.subscribe(&subscribers[0]).expect("subscribing failed");
+        let report = list.add(&subscribers[0]).expect("subscribing failed");
         assert_eq!(report.was_empty, true);
     }
 
     #[test]
     fn subsequent_subscribers_do_not_report_was_empty() {
         let (mut list, subscribers) = setup();
-        list.subscribe(&subscribers[0]).expect("subscribing failed");
-        let report = list.subscribe(&subscribers[1]).expect("subscribing failed");
+        list.add(&subscribers[0]).expect("subscribing failed");
+        let report = list.add(&subscribers[1]).expect("subscribing failed");
         assert_eq!(report.was_empty, false);
-        let report = list.subscribe(&subscribers[2]).expect("subscribing failed");
+        let report = list.add(&subscribers[2]).expect("subscribing failed");
         assert_eq!(report.was_empty, false);
     }
 
     #[test]
     fn adding_removing_and_adding_new_subscriber_reports_was_empty() {
         let (mut list, subscribers) = setup();
-        list.subscribe(&subscribers[0]).expect("subscribing failed");
-        list.unsubscribe(&Arc::downgrade(&subscribers[0]))
+        list.add(&subscribers[0]).expect("subscribing failed");
+        list.remove(&Arc::downgrade(&subscribers[0]))
             .expect("unsubscribing failed");
-        let report = list.subscribe(&subscribers[1]).expect("subscribing failed");
+        let report = list.add(&subscribers[1]).expect("subscribing failed");
         assert_eq!(report.was_empty, true);
     }
 
     #[test]
     fn removing_only_subscriber_reports_emtpy() {
         let (mut list, subscribers) = setup();
-        list.subscribe(&subscribers[0]).expect("subscribing failed");
+        list.add(&subscribers[0]).expect("subscribing failed");
         let report = list
-            .unsubscribe(&Arc::downgrade(&subscribers[0]))
+            .remove(&Arc::downgrade(&subscribers[0]))
             .expect("unsubscribing failed");
         assert_eq!(report.is_now_empty, true);
     }
@@ -134,10 +131,10 @@ mod tests {
     #[test]
     fn removing_one_of_two_subscribers_does_not_report_empty() {
         let (mut list, subscribers) = setup();
-        list.subscribe(&subscribers[0]).expect("subscribing failed");
-        list.subscribe(&subscribers[1]).expect("subscribing failed");
+        list.add(&subscribers[0]).expect("subscribing failed");
+        list.add(&subscribers[1]).expect("subscribing failed");
         let report = list
-            .unsubscribe(&Arc::downgrade(&subscribers[0]))
+            .remove(&Arc::downgrade(&subscribers[0]))
             .expect("unsubscribing failed");
         assert_eq!(report.is_now_empty, false);
     }
