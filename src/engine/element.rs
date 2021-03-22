@@ -55,21 +55,20 @@ impl<T> Element<T> {
     pub fn get_mut_without_notifying_of_change(&mut self) -> &mut T {
         &mut self.inner
     }
+}
 
-    /// Send notifications to the given subscriber when the inner value changes
-    pub fn subscribe(
-        &self,
-        subscriber: &Arc<dyn Subscriber>,
-        notif_queue: &NotifQueue,
-    ) -> Result<(), Box<dyn Error>> {
+impl<T> Subscribable for Element<T> {
+    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.has_subscribers.store(true, SeqCst);
-        let mut lock = self.subscribers.lock().expect("failed to lock subscribers");
-        lock.notif_queue.try_init_with_clone(notif_queue)?;
+        let mut lock = self.subscribers.lock().unwrap();
+        lock.notif_queue
+            .try_init_with_clone(&state.notif_queue)
+            .map_err(|e| InternalError(format!("failed to subscribe to element: {}", e)))?;
         lock.list.add(subscriber)?;
         Ok(())
     }
 
-    pub fn unsubscribe(&self, subscriber: &Weak<dyn Subscriber>) -> Result<(), Box<dyn Error>> {
+    fn unsubscribe(&self, _: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         let report = self
             .subscribers
             .lock()
@@ -104,51 +103,52 @@ impl<T> Deref for Element<T> {
 mod tests {
     use super::*;
 
-    fn setup() -> (Element<i64>, NotifQueue, Arc<dyn Subscriber>) {
+    fn setup() -> (Element<i64>, State, Arc<dyn Subscriber>) {
         let store = Element::new(7);
         let subscriber = MockSubscriber::new_terrified().get();
-        let notif_queue = NotifQueue::new();
+        let state = State::new();
         store
-            .subscribe(&subscriber, &notif_queue)
+            .subscribe(&state, &subscriber)
             .expect("failed to subscribe");
-        (store, notif_queue, subscriber)
+        (store, state, subscriber)
     }
 
     #[test]
     fn queues_notifications_when_set() {
-        let (mut store, notifs, _) = setup();
+        let (mut store, state, _) = setup();
         store.set(5);
-        assert_eq!(notifs.len(), 1);
+        assert_eq!(state.notif_queue.len(), 1);
     }
 
     #[test]
     fn queues_notifications_when_value_mut_accessed() {
-        let (mut store, notifs, _) = setup();
+        let (mut store, state, _) = setup();
         store.get_mut();
-        assert_eq!(notifs.len(), 1);
+        assert_eq!(state.notif_queue.len(), 1);
     }
 
     #[test]
     fn does_not_queue_notifications_on_get_mut_without_notifying_of_change() {
-        let (mut store, notifs, _) = setup();
+        let (mut store, state, _) = setup();
         store.get_mut_without_notifying_of_change();
-        assert_eq!(notifs.len(), 0);
+        assert_eq!(state.notif_queue.len(), 0);
     }
 
     #[test]
     fn does_not_send_notification_when_set_to_same_value() {
-        let (mut store, notifs, _) = setup();
+        let (mut store, state, _) = setup();
         store.set(7);
-        assert_eq!(notifs.len(), 0);
+        assert_eq!(state.notif_queue.len(), 0);
     }
 
     #[test]
     fn unsubscribing_stops_notifications() {
-        let (mut store, notifs, subscriber) = setup();
+        let (mut store, state, subscriber) = setup();
+        // State::new() is ok only because the function doesn't use it, use the real state if this breaks
         store
-            .unsubscribe(&Arc::downgrade(&subscriber))
+            .unsubscribe(&State::new(), &Arc::downgrade(&subscriber))
             .expect("unsubbing failed");
         store.set(5);
-        assert_eq!(notifs.len(), 0);
+        assert_eq!(state.notif_queue.len(), 0);
     }
 }
