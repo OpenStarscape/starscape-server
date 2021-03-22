@@ -60,7 +60,12 @@ where
     fn input(&self, state: &mut State, value: Value) -> RequestResult<()> {
         self.inner.input(state, value)
     }
+}
 
+impl<C> Subscribable for Arc<PropertyConduit<C>>
+where
+    C: Conduit<Value, Value> + 'static,
+{
     /// Uses this as a signal to subscribe, but ignores the given subscriber.
     fn subscribe(&self, state: &State, _: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.inner

@@ -44,7 +44,16 @@ where
     fn input(&self, state: &mut State, value: SetOuter) -> RequestResult<()> {
         self.conduit.input(state, (self.f)(value)?)
     }
+}
 
+impl<C, F, Get, SetInner, SetOuter> Subscribable for MapInputConduit<C, Get, SetInner, SetOuter, F>
+where
+    C: Conduit<Get, SetInner>,
+    F: Fn(SetOuter) -> RequestResult<SetInner> + Send + Sync,
+    Get: Send + Sync,
+    SetInner: Send + Sync,
+    SetOuter: Send + Sync,
+{
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.conduit.subscribe(state, subscriber)
     }

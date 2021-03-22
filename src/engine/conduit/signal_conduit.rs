@@ -62,7 +62,11 @@ where
     fn input(&self, _: &mut State, _: Value) -> RequestResult<()> {
         Err(BadRequest("signals do not take input".into()))
     }
-
+}
+impl<C> Subscribable for Arc<SignalConduit<C>>
+where
+    C: Conduit<Vec<Value>, SignalsDontTakeInputSilly> + 'static,
+{
     /// Uses this as a signal to subscribe, but ignores the given subscriber.
     fn subscribe(&self, state: &State, _: &Arc<dyn Subscriber>) -> RequestResult<()> {
         self.inner

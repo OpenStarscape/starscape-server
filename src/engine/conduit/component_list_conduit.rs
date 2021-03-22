@@ -29,7 +29,9 @@ impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T>
         // ReadOnlyPropSetType can't be instantiated, so this can't be called
         std::unreachable!()
     }
+}
 
+impl<T: 'static> Subscribable for ComponentListConduit<T> {
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         state
             .subscribe_to_component_list::<T>(subscriber)
