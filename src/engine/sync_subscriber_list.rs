@@ -42,7 +42,7 @@ impl SyncSubscriberList {
     pub fn subscribe(&self, subscriber: &Arc<dyn Subscriber>) -> RequestResult<SubscribeReport> {
         self.has_subscribers.store(true, SeqCst);
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
-        inner.subscribe(subscriber).map_err(|e| {
+        inner.add(subscriber).map_err(|e| {
             if inner.0.is_empty() {
                 self.has_subscribers.store(false, SeqCst);
             }
@@ -56,7 +56,7 @@ impl SyncSubscriberList {
         subscriber: &Weak<dyn Subscriber>,
     ) -> RequestResult<UnsubscribeReport> {
         let mut inner = self.lock.lock().expect("failed to lock subscribers");
-        let result = inner.unsubscribe(subscriber);
+        let result = inner.remove(subscriber);
         if let Ok(report) = &result {
             if report.is_now_empty {
                 self.has_subscribers.store(false, SeqCst);

@@ -65,7 +65,7 @@ impl<T> Element<T> {
         self.has_subscribers.store(true, SeqCst);
         let mut lock = self.subscribers.lock().expect("failed to lock subscribers");
         lock.notif_queue.try_init_with_clone(notif_queue)?;
-        lock.list.subscribe(subscriber)?;
+        lock.list.add(subscriber)?;
         Ok(())
     }
 
@@ -75,7 +75,7 @@ impl<T> Element<T> {
             .lock()
             .expect("failed to lock subscribers")
             .list
-            .unsubscribe(subscriber)?;
+            .remove(subscriber)?;
         if report.is_now_empty {
             self.has_subscribers.store(false, SeqCst);
         }
