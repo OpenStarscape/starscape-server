@@ -19,12 +19,15 @@ mod subscription;
 mod sync_subscriber_list;
 mod value;
 
-pub use conduit::*;
+pub use conduit::{
+    ActionConduit, ComponentListConduit, Conduit, ROConduit, RWConduit, ReadOnlyPropSetType,
+};
 pub use element::Element;
 pub use engine::Engine;
 pub use notif_queue::{NotifQueue, Notification};
 pub use signal::Signal;
 pub use state::{EntityKey, State};
+pub use subscribable::Subscribable;
 pub use subscriber::Subscriber;
 pub use subscriber_list::SubscriberList;
 pub use sync_subscriber_list::SyncSubscriberList;
@@ -34,5 +37,4 @@ use component_key::ComponentKey;
 use conduit::*;
 use entity::Entity;
 use signal::SignalsDontTakeInputSilly;
-use subscribable::Subscribable;
 use subscription::Subscription;
