@@ -10,6 +10,55 @@ pub struct HttpServer {
     join_handle: Option<tokio::task::JoinHandle<()>>,
 }
 
+fn redirect_request_to_https(
+    authority: Option<warp::host::Authority>,
+    path: warp::path::FullPath,
+    query: String,
+) -> Box<dyn warp::Reply> {
+    warn!(
+        "redirecting to hard-coded path, request path: {}",
+        path.as_str()
+    );
+    let authority = match authority {
+        Some(a) => a,
+        None => {
+            warn!("could not redirect to HTTPS: no authority");
+            return Box::new(warp::http::status::StatusCode::NOT_FOUND.into_response())
+                as Box<dyn warp::Reply>;
+        }
+    };
+    let path_and_query_str = if query.is_empty() {
+        path.as_str().to_string()
+    } else {
+        format!("{}?{}", path.as_str(), query)
+    };
+    let path_and_query = match warp::http::uri::PathAndQuery::from_maybe_shared(path_and_query_str)
+    {
+        Ok(p) => p,
+        Err(e) => {
+            warn!(
+                "could not redirect to HTTPS: failed to build path and query: {}",
+                e
+            );
+            return Box::new(warp::http::status::StatusCode::NOT_FOUND.into_response())
+                as Box<dyn warp::Reply>;
+        }
+    };
+    match warp::hyper::Uri::builder()
+        .scheme("https")
+        .authority(authority)
+        .path_and_query(path_and_query)
+        .build()
+    {
+        Ok(uri) => Box::new(warp::redirect(uri)) as Box<dyn warp::Reply>,
+        Err(e) => {
+            error!("could not redirect to HTTPS: failed to build URI: {}", e);
+            Box::new(warp::http::status::StatusCode::INTERNAL_SERVER_ERROR.into_response())
+                as Box<dyn warp::Reply>
+        }
+    }
+}
+
 impl HttpServer {
     #[allow(dead_code)]
     pub fn new_unencrypted(
@@ -42,54 +91,7 @@ impl HttpServer {
             warp::host::optional()
                 .and(warp::path::full())
                 .and(warp::query::raw())
-                .map(
-                    |authority: Option<warp::host::Authority>,
-                     path: warp::path::FullPath,
-                     query: String| {
-                        warn!(
-                            "redirecting to hard-coded path, request path: {}",
-                            path.as_str()
-                        );
-                        let authority = match authority {
-                            Some(a) => a,
-                            None => {
-								warn!("could not redirect to HTTPS: no authority");
-                                return Box::new(
-                                    warp::http::status::StatusCode::NOT_FOUND.into_response(),
-                                ) as Box<dyn warp::Reply>
-                            }
-                        };
-						let path_and_query_str = if query.is_empty() {
-							path.as_str().to_string()
-						} else {
-							format!("{}?{}", path.as_str(), query)
-						};
-						let path_and_query = match warp::http::uri::PathAndQuery::from_maybe_shared(path_and_query_str) {
-							Ok(p) => p,
-							Err(e) => {
-								warn!("could not redirect to HTTPS: failed to build path and query: {}", e);
-								return Box::new(
-                                    warp::http::status::StatusCode::NOT_FOUND.into_response(),
-                                ) as Box<dyn warp::Reply>
-							}
-						};
-                        match warp::hyper::Uri::builder()
-                            .scheme("https")
-                            .authority(authority)
-                            .path_and_query(path_and_query)
-                            .build()
-                        {
-                            Ok(uri) => Box::new(warp::redirect(uri)) as Box<dyn warp::Reply>,
-                            Err(e) => {
-                                error!("could not redirect to HTTPS: failed to build URI: {}", e);
-                                Box::new(
-                                    warp::http::status::StatusCode::INTERNAL_SERVER_ERROR
-                                        .into_response(),
-                                ) as Box<dyn warp::Reply>
-                            }
-                        }
-                    },
-                ),
+                .map(redirect_request_to_https),
         )
         .try_bind_with_graceful_shutdown(socket_addr, async {
             let _ = shutdown_rx.await;
