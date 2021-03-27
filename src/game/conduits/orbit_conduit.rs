@@ -83,7 +83,7 @@ impl Conduit<OrbitData, ReadOnlyPropSetType> for OrbitConduit {
         Ok(OrbitData {
             semi_major: Vector3::zero(),
             semi_minor: Vector3::zero(),
-            parent: EntityKey::null(),
+            parent: *self.cached_parent.lock().unwrap(),
         })
     }
 
@@ -112,3 +112,5 @@ impl Subscribable for OrbitConduit {
         Ok(())
     }
 }
+
+// TODO: test
