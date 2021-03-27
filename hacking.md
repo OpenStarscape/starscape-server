@@ -70,8 +70,8 @@ Code should be formatted with `cargo fmt` on it's default settings. The followin
 Prefer
 ```
 use module::{
-	Name,
-	Other,
+    Name,
+    Other,
 };
 ```
 style imports over
