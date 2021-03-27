@@ -204,11 +204,11 @@ mod message_tests {
             &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
                 .unwrap(),
             "{
-				\"mtype\": \"update\",
-				\"object\": 42,
-				\"property\": \"foobar\",
-				\"value\": 12.5
-			}",
+                \"mtype\": \"update\",
+                \"object\": 42,
+                \"property\": \"foobar\",
+                \"value\": 12.5
+            }",
         )
     }
 
@@ -222,11 +222,11 @@ mod message_tests {
             &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
                 .unwrap(),
             "{
-				\"mtype\": \"update\",
-				\"object\": 42,
-				\"property\": \"foobar\",
-				\"value\": [42]
-			}",
+                \"mtype\": \"update\",
+                \"object\": 42,
+                \"property\": \"foobar\",
+                \"value\": [42]
+            }",
         )
     }
 
@@ -240,11 +240,11 @@ mod message_tests {
             &p.encode_event(&MockEncoderCtx, &Event::value(e[0], prop, value))
                 .unwrap(),
             "{
-				\"mtype\": \"value\",
-				\"object\": 42,
-				\"property\": \"abc\",
-				\"value\": 19
-			}",
+                \"mtype\": \"value\",
+                \"object\": 42,
+                \"property\": \"abc\",
+                \"value\": 19
+            }",
         )
     }
 
@@ -258,11 +258,11 @@ mod message_tests {
             &p.encode_event(&MockEncoderCtx, &Event::signal(e[0], prop, value))
                 .unwrap(),
             "{
-				\"mtype\": \"event\",
-				\"object\": 42,
-				\"property\": \"abc\",
-				\"value\": \"hello\"
-			}",
+                \"mtype\": \"event\",
+                \"object\": 42,
+                \"property\": \"abc\",
+                \"value\": \"hello\"
+            }",
         )
     }
 
@@ -274,9 +274,9 @@ mod message_tests {
             &p.encode_event(&MockEncoderCtx, &Event::Destroyed(e[0]))
                 .unwrap(),
             "{
-				\"mtype\": \"destroyed\",
-				\"object\": 42
-			}",
+                \"mtype\": \"destroyed\",
+                \"object\": 42
+            }",
         )
     }
 
@@ -288,9 +288,9 @@ mod message_tests {
             &p.encode_event(&MockEncoderCtx, &Event::FatalError(message))
                 .unwrap(),
             "{
-				\"mtype\": \"error\",
-				\"text\": \"Error Message\"
-			}",
+                \"mtype\": \"error\",
+                \"text\": \"Error Message\"
+            }",
         )
     }
 }
