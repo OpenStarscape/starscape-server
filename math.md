@@ -5,6 +5,8 @@ Mostly orbital mechanics related
 - [Orbital Mechanics 101 video](https://www.youtube.com/watch?v=VGcQhgkXPx0&t=600s)
 - [Vis-viva equation](https://en.wikipedia.org/wiki/Vis-viva_equation)
 - [sphere of influence](https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics))
+- [Orbital state vectors](https://en.wikipedia.org/wiki/Orbital_state_vectors)
+- [Orbital elements](https://en.wikipedia.org/wiki/Orbital_elements)
 
 ## Units
 These are the standard units assumed throughout the Starscape server and protocol
