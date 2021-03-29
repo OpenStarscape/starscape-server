@@ -7,6 +7,7 @@ Mostly orbital mechanics related
 - [sphere of influence](https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics))
 - [Orbital state vectors](https://en.wikipedia.org/wiki/Orbital_state_vectors)
 - [Orbital elements](https://en.wikipedia.org/wiki/Orbital_elements)
+- [Stack Exchange answer on positions from orbits](https://space.stackexchange.com/a/8915)
 
 ## Units
 These are the standard units assumed throughout the Starscape server and protocol
