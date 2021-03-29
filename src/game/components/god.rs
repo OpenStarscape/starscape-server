@@ -1,6 +1,7 @@
 use super::*;
 
 pub struct God {
+    pub time: Element<f64>,
     ship_created: Signal<EntityKey>,
     max_connections: Element<u64>,
     current_connections: Element<u64>,
@@ -9,6 +10,7 @@ pub struct God {
 impl Default for God {
     fn default() -> Self {
         Self {
+            time: Element::new(0.0),
             ship_created: Signal::new(),
             max_connections: Element::new(0),
             current_connections: Element::new(0),
@@ -30,6 +32,9 @@ impl God {
             Ok(())
         })
         .install_action(state, entity, "create_ship");
+
+        ROConduit::new(move |state| Ok(&state.component::<God>(entity)?.time))
+            .install_property(state, entity, "time");
 
         RWConduit::new(
             move |state| Ok(&state.component::<God>(entity)?.max_connections),

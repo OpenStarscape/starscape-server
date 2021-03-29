@@ -17,6 +17,9 @@ pub struct OrbitData {
     periapsis: f64,
     /// Some time at which the body was/will be at the periapsis
     start_time: f64,
+    /// Time it takes for a full orbit to complete. Calculatable from parent mass and G, but MUST
+    /// be updated atomically with the rest of the orbit.
+    period_time: f64,
     /// The "gravity parent" of the body. Should always be the same as the dedicated property of
     /// that name. Duplicated here because it MUST be updated atomically with the rest of the orbit
     /// parameters.
@@ -32,6 +35,7 @@ impl From<OrbitData> for Value {
             orbit.ascending_node.into(),
             orbit.periapsis.into(),
             orbit.start_time.into(),
+            orbit.period_time.into(),
             orbit.parent.into(),
         ];
         array.into()
@@ -110,6 +114,7 @@ impl Conduit<OrbitData, ReadOnlyPropSetType> for OrbitConduit {
             ascending_node: 0.5,
             periapsis: 2.0,
             start_time: 0.0,
+            period_time: 10.0,
             parent,
         })
     }

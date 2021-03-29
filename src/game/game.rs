@@ -145,6 +145,12 @@ pub fn init(state: &mut State) {
 }
 
 pub fn physics_tick(state: &mut State, delta: f64) {
+    let time = state.time();
+    state
+        .component_mut::<God>(state.root_entity())
+        .expect("failed to get root")
+        .time
+        .set(time);
     apply_acceleration(state, delta);
     apply_gravity(state, delta);
     apply_collisions(state, delta);
