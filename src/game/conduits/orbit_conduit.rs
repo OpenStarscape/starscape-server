@@ -1,8 +1,25 @@
 use super::*;
 
+/// [Orbital Elements on Wikipedia](https://en.wikipedia.org/wiki/Orbital_elements) may be helpful
+/// in understanding this struct
 pub struct OrbitData {
-    semi_major: Vector3<f64>,
-    semi_minor: Vector3<f64>,
+    /// Size of the semi-major axis (longest radius) (commonly a)
+    semi_major: f64,
+    /// Size of the semi-minor axis (shortest radius) (commonly b)
+    semi_minor: f64,
+    /// Angle (in radians) of the orbit compared to the global X/Y plane (commonly i)
+    inclination: f64,
+    /// Angle (in radians, on the global X/Y plane) of the ascending node (point where orbit crosses
+    /// global X/Y plane going up) (commonly Ω (idk wtf that is either))
+    ascending_node: f64,
+    /// Angle (in radiuans, in the orbit space) of the periapsis (body's closest point to the
+    /// parent) relative to the ascending node (commonly ω)
+    periapsis: f64,
+    /// Some time at which the body was/will be at the periapsis
+    start_time: f64,
+    /// The "gravity parent" of the body. Should always be the same as the dedicated property of
+    /// that name. Duplicated here because it MUST be updated atomically with the rest of the orbit
+    /// parameters.
     parent: EntityKey,
 }
 
@@ -11,6 +28,10 @@ impl From<OrbitData> for Value {
         let array: Vec<Value> = vec![
             orbit.semi_major.into(),
             orbit.semi_minor.into(),
+            orbit.inclination.into(),
+            orbit.ascending_node.into(),
+            orbit.periapsis.into(),
+            orbit.start_time.into(),
             orbit.parent.into(),
         ];
         array.into()
@@ -59,31 +80,37 @@ impl OrbitConduit {
         Ok(())
     }
 
-    fn update_parent(&self, state: &State) {
+    /// Ensures we are subscribed to the properties of the currently correct parent, and returns it
+    fn update_parent(&self, state: &State) -> EntityKey {
         let parent = *state
             .component::<Body>(self.body)
             .expect("OrbitConduit body does not exist")
             .gravity_parent;
         let mut cached_parent = self.cached_parent.lock().unwrap();
         if parent != *cached_parent {
-            let _ = Self::for_each_parent_subscribable(state, *cached_parent, &mut |s| {
+            let _ = Self::for_each_parent_subscribable(state, *cached_parent, &|s| {
                 self.subscribers.unsubscribe_all(state, s);
             });
             *cached_parent = parent;
-            let _ = Self::for_each_parent_subscribable(state, *cached_parent, &mut |s| {
+            let _ = Self::for_each_parent_subscribable(state, *cached_parent, &|s| {
                 self.subscribers.subscribe_all(state, s);
             });
         }
+        *cached_parent
     }
 }
 
 impl Conduit<OrbitData, ReadOnlyPropSetType> for OrbitConduit {
     fn output(&self, state: &State) -> RequestResult<OrbitData> {
-        self.update_parent(state);
+        let parent = self.update_parent(state);
         Ok(OrbitData {
-            semi_major: Vector3::zero(),
-            semi_minor: Vector3::zero(),
-            parent: *self.cached_parent.lock().unwrap(),
+            semi_major: 100.0,
+            semi_minor: 50.0,
+            inclination: 1.0,
+            ascending_node: 0.5,
+            periapsis: 2.0,
+            start_time: 0.0,
+            parent,
         })
     }
 
@@ -94,6 +121,7 @@ impl Conduit<OrbitData, ReadOnlyPropSetType> for OrbitConduit {
 
 impl Subscribable for OrbitConduit {
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
+        // If the parent isn't initialized, we could miss notifications if we don't set it up here
         self.update_parent(state);
         self.for_each_subscribable(state, &|s| {
             s.subscribe(state, subscriber)
@@ -104,6 +132,8 @@ impl Subscribable for OrbitConduit {
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
+        // No need to update parent here, it reflects the currently subscribed to things which is
+        // all that matters.
         self.for_each_subscribable(state, &|s| {
             s.unsubscribe(state, subscriber)
                 .or_log_error("unsubscribing from OrbitConduit");
