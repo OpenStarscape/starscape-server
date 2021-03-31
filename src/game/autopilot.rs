@@ -118,7 +118,7 @@ fn accel_for_orbit(params: &OrbitParams) -> Vector3<f64> {
                     -delta_theta
                 };
                 // delta_theta is now the angle (positive or negative) to the target place in the orbit
-                let scale = 1.0 - delta_theta / (PI * 2.0);
+                let scale = 1.0 - delta_theta / TAU;
                 params.goal_altitude * scale
             }
         };
