@@ -31,7 +31,7 @@ use std::error::Error;
 use std::{
     any::{type_name, Any},
     collections::{HashMap, HashSet},
-    f64::consts::PI,
+    f64::consts::TAU,
     fmt::{Debug, Formatter},
     marker::PhantomData,
     ops::Deref,
