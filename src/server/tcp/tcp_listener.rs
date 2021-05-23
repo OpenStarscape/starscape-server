@@ -61,24 +61,19 @@ mod tests {
 
     const SHORT_TIME: Duration = Duration::from_millis(20);
 
-    fn build(tx: Sender<Box<dyn SessionBuilder>>) -> TcpListener {
-        let ip = "::1".parse().unwrap();
-        let mut err = "[no error]".to_string();
-        for i in 0..20 {
-            let addr = SocketAddr::new(ip, 55_000 + i * 11);
-            match TcpListener::new(tx.clone(), addr) {
-                Ok(listener) => return listener,
-                Err(e) => err = format!("{}", e),
-            }
+    fn build(tx: Sender<Box<dyn SessionBuilder>>) -> (ReservedSocket, TcpListener) {
+        let socket = provision_socket();
+        match TcpListener::new(tx.clone(), *socket) {
+            Ok(listener) => (socket, listener),
+            Err(e) => panic!("failed to create TcpListener: {}", e),
         }
-        panic!("failed to create TcpListener: {}", err);
     }
 
     #[test]
     fn can_start_and_stop_immediately() {
         run_with_timeout(|| {
             let (tx, _rx) = channel();
-            let _listener = build(tx);
+            let (_socket, _listener) = build(tx);
         });
     }
 
@@ -86,7 +81,7 @@ mod tests {
     fn can_start_and_stop_with_pause() {
         let (tx, _rx) = channel();
         run_with_timeout(move || {
-            let _listener = build(tx);
+            let (_socket, _listener) = build(tx);
             thread::sleep(SHORT_TIME);
         });
     }
@@ -95,7 +90,7 @@ mod tests {
     fn does_not_create_session_by_default() {
         let (tx, rx) = channel();
         run_with_timeout(|| {
-            let _listener = build(tx);
+            let (_socket, _listener) = build(tx);
             thread::sleep(SHORT_TIME);
         });
         let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
@@ -106,7 +101,7 @@ mod tests {
     fn ceates_session_on_connection() {
         let (tx, rx) = channel();
         run_with_timeout(|| {
-            let listener = build(tx);
+            let (_socket, listener) = build(tx);
             let _client = TcpStream::connect(&listener.address).expect("failed to connect");
             thread::sleep(SHORT_TIME);
         });
@@ -118,12 +113,12 @@ mod tests {
     fn can_create_multiple_sessions() {
         let (tx, rx) = channel();
         run_with_timeout(|| {
-            let listener = build(tx);
-            let _client_a = TcpStream::connect(&listener.address).expect("failed to connect");
-            let _client_b = TcpStream::connect(&listener.address).expect("failed to connect");
-            let _client_c = TcpStream::connect(&listener.address).expect("failed to connect");
+            let (socket, _listener) = build(tx);
+            let _client_a = TcpStream::connect(&*socket).expect("failed to connect");
+            let _client_b = TcpStream::connect(&*socket).expect("failed to connect");
+            let _client_c = TcpStream::connect(&*socket).expect("failed to connect");
             thread::sleep(SHORT_TIME);
-            let _client_d = TcpStream::connect(&listener.address).expect("failed to connect");
+            let _client_d = TcpStream::connect(&*socket).expect("failed to connect");
             thread::sleep(SHORT_TIME);
         });
         let sessions: Vec<Box<dyn SessionBuilder>> = rx.try_iter().collect();
@@ -134,8 +129,8 @@ mod tests {
     fn can_build_session() {
         run_with_timeout(|| {
             let (tx, rx) = channel();
-            let listener = build(tx);
-            let _client = TcpStream::connect(&listener.address).expect("failed to connect");
+            let (socket, _listener) = build(tx);
+            let _client = TcpStream::connect(&*socket).expect("failed to connect");
             thread::sleep(SHORT_TIME);
             let builder = rx.try_recv().unwrap();
             let handler = MockInboundHandler::new();
@@ -147,8 +142,8 @@ mod tests {
     fn can_send_data_client_to_server() {
         run_with_timeout(|| {
             let (tx, rx) = channel();
-            let listener = build(tx);
-            let mut client = TcpStream::connect(&listener.address).expect("failed to connect");
+            let (socket, _listener) = build(tx);
+            let mut client = TcpStream::connect(&*socket).expect("failed to connect");
             thread::sleep(SHORT_TIME);
             let builder = rx.try_recv().unwrap();
             let handler = MockInboundHandler::new();
@@ -163,8 +158,8 @@ mod tests {
     fn can_send_data_server_to_client() {
         run_with_timeout(|| {
             let (tx, rx) = channel();
-            let listener = build(tx);
-            let mut client = TcpStream::connect(&listener.address).expect("failed to connect");
+            let (socket, _listener) = build(tx);
+            let mut client = TcpStream::connect(&*socket).expect("failed to connect");
             thread::sleep(SHORT_TIME);
             let builder = rx.try_recv().unwrap();
             let handler = MockInboundHandler::new();
@@ -183,8 +178,8 @@ mod tests {
             let _client;
             {
                 let (tx, rx) = channel();
-                let listener = build(tx);
-                _client = TcpStream::connect(&listener.address).expect("failed to connect");
+                let (socket, _listener) = build(tx);
+                _client = TcpStream::connect(&*socket).expect("failed to connect");
                 thread::sleep(SHORT_TIME);
                 let builder = rx.try_recv().unwrap();
                 let handler = MockInboundHandler::new();
