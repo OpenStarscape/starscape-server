@@ -62,7 +62,7 @@ impl Engine {
             self.should_quit = true;
             info!(
                 "engine has run for {:?}, stopping…",
-                std::time::Duration::from_secs_f64(self.quit_after)
+                Duration::from_secs_f64(self.quit_after)
             )
         }
         !self.should_quit

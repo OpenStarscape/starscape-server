@@ -56,7 +56,6 @@ mod tests {
     use std::{
         io::{Read, Write},
         thread,
-        time::Duration,
     };
 
     const SHORT_TIME: Duration = Duration::from_millis(20);

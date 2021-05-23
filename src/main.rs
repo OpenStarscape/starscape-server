@@ -40,6 +40,7 @@ use std::{
         atomic::{AtomicBool, Ordering::SeqCst},
         Arc, Mutex, RwLock, Weak,
     },
+    time::Duration,
 };
 
 /// The number of game ticks/second

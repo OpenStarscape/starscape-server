@@ -5,7 +5,6 @@ use std::{
     cell::RefCell,
     sync::mpsc::RecvTimeoutError::{Disconnected, Timeout},
     thread,
-    time::Duration,
 };
 
 mod attempt_any_to_string;

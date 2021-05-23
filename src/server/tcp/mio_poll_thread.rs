@@ -93,7 +93,7 @@ where
 mod tests {
     use super::*;
     use std::sync::Mutex;
-    use std::{thread, time::Duration};
+    use std::thread;
 
     const SHORT_TIME: Duration = Duration::from_millis(20);
 
