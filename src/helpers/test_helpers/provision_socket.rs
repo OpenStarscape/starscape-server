@@ -83,4 +83,13 @@ mod tests {
         let b = provision_socket();
         assert_ne!(*a, *b);
     }
+
+    #[test]
+    fn does_not_provision_new_socket_if_not_needed() {
+        for _ in 0..100 {
+            let _ = provision_socket();
+        }
+        // This is a global pool, so this test is banking on the assumption that >50 sockets will never be needed at once
+        assert!(SOCKETS.lock().unwrap().known.len() < 50);
+    }
 }
