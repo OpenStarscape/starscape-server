@@ -60,6 +60,19 @@ fn redirect_request_to_https(
     }
 }
 
+async fn https_redirect_fallback_response(
+    rejection: warp::Rejection,
+) -> Result<warp::http::Response<String>, warp::Rejection> {
+    warn!("Redirecting to HTTPS failed: {:?}", rejection);
+    Ok(warp::http::Response::builder()
+        .status(warp::http::status::StatusCode::INTERNAL_SERVER_ERROR)
+        .body(format!(
+            "Please use HTTPS instead of HTTP, automatic redirection failed: {:?}",
+            rejection
+        ))
+        .expect("failed to create response"))
+}
+
 impl HttpServer {
     #[allow(dead_code)]
     pub fn new_unencrypted(
@@ -92,7 +105,8 @@ impl HttpServer {
             warp::host::optional()
                 .and(warp::path::full())
                 .and(warp::query::raw())
-                .map(redirect_request_to_https),
+                .map(redirect_request_to_https)
+                .recover(https_redirect_fallback_response),
         )
         .try_bind_with_graceful_shutdown(socket_addr, async {
             let _ = shutdown_rx.await;
