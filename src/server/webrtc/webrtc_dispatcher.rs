@@ -1,6 +1,6 @@
 use super::*;
 
-/// Becuse session setup is basically just "when we start getting data we assume there's a session",
+/// Because session setup is basically just "when we start getting data we assume there's a session",
 /// sessions start getting data before a connection has been set up for them. For this reason, we
 /// need to buffer the received data and send it to the connection when it's ready.
 enum DispatchTarget {

@@ -165,3 +165,42 @@ impl Debug for HttpServer {
 }
 
 impl ServerComponent for HttpServer {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const CERT_PATH: &str = "src/server/tls_test_files/mock-cert.pem";
+    const KEY_PATH: &str = "src/server/tls_test_files/mock-privkey.pem";
+
+    fn mock_filter() -> GenericFilter {
+        warp::any()
+            .map(|| {
+                Box::new(warp::http::status::StatusCode::OK.into_response()) as Box<dyn warp::Reply>
+            })
+            .boxed()
+    }
+
+    #[test]
+    fn can_start_and_stop_unencrypted() {
+        run_with_tokio(|| {
+            let socket = provision_socket();
+            let _ = HttpServer::new_unencrypted(mock_filter(), *socket).unwrap();
+        });
+    }
+
+    #[test]
+    fn can_start_and_stop_encrypted() {
+        run_with_tokio(|| {
+            let socket = provision_socket();
+            let _ = HttpServer::new_encrypted(mock_filter(), *socket, CERT_PATH, KEY_PATH).unwrap();
+        });
+    }
+
+    #[test]
+    fn can_start_and_stop_https_redirect() {
+        run_with_tokio(|| {
+            let socket = provision_socket();
+            let _ = HttpServer::new_https_redirect(*socket).unwrap();
+        });
+    }
+}
