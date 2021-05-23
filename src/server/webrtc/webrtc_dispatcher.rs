@@ -149,7 +149,6 @@ impl WebrtcDispatcher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     fn test_addr(port: u16) -> SocketAddr {
         SocketAddr::new("::1".parse().unwrap(), port)

@@ -34,6 +34,8 @@ lazy_static::lazy_static! {
     });
 }
 
+/// Returns a socket address that was not in use when checked and will not be used by anything else in this process
+/// until after the ReservedSocket is dropped. Manages a global pool of socket addresses for efficiency.
 pub fn provision_socket() -> ReservedSocket {
     let mut sockets = SOCKETS.lock().unwrap();
     // First, search for an already known socket that is not currently locked
