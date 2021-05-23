@@ -1,11 +1,11 @@
 use super::*;
-use tokio::time::timeout;
 use warp::reply::Reply;
 
 /// Uses Warp to spin up an HTTP server. At time of writing this is only used to initialize WebRTC,
 /// but it accepts an arbitrary Warp filter and so could easily be used for whatever else we
 /// needed.
 pub struct HttpServer {
+    name: String,
     socket_addr: SocketAddr,
     shutdown_tx: Option<futures::channel::oneshot::Sender<()>>,
     join_handle: Option<tokio::task::JoinHandle<()>>,
@@ -77,6 +77,7 @@ impl HttpServer {
             server.await;
         });
         Ok(HttpServer {
+            name: "Unencrypted HTTP".to_string(),
             socket_addr,
             shutdown_tx: Some(shutdown_tx),
             join_handle: Some(join_handle),
@@ -107,6 +108,7 @@ impl HttpServer {
             server.await;
         });
         Ok(HttpServer {
+            name: "HTTP-to-HTTPS redirect".to_string(),
             socket_addr,
             shutdown_tx: Some(shutdown_tx),
             join_handle: Some(join_handle),
@@ -138,6 +140,7 @@ impl HttpServer {
             server.await;
         });
         Ok(HttpServer {
+            name: "Encrypted HTTPS".to_string(),
             socket_addr,
             shutdown_tx: Some(shutdown_tx),
             join_handle: Some(join_handle),
@@ -148,22 +151,22 @@ impl HttpServer {
 impl Drop for HttpServer {
     fn drop(&mut self) {
         if let Err(()) = self.shutdown_tx.take().unwrap().send(()) {
-            error!("failed to send HTTP server shutdown request");
+            error!("failed to send {} server shutdown request", self.name);
         };
         match futures::executor::block_on(tokio::time::timeout(
             Duration::from_millis(200),
             self.join_handle.take().unwrap(),
         )) {
-            Err(_) => warn!("shutting down HTTP server timed out"),
-            Ok(Err(e)) => error!("failed to join HTTP server task: {}", e),
-            _ => trace!("HTTP server shut down"),
+            Err(_) => warn!("shutting down {} server timed out", self.name),
+            Ok(Err(e)) => error!("failed to join {} server task: {}", self.name, e),
+            _ => trace!("{} server shut down", self.name),
         }
     }
 }
 
 impl Debug for HttpServer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "HttpServer on {}", self.socket_addr)
+        write!(f, "{} server on {}", self.name, self.socket_addr)
     }
 }
 
