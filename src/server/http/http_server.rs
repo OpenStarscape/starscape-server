@@ -169,6 +169,7 @@ impl ServerComponent for HttpServer {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpStream;
     const CERT_PATH: &str = "src/server/tls_test_files/mock-cert.pem";
     const KEY_PATH: &str = "src/server/tls_test_files/mock-privkey.pem";
 
@@ -181,26 +182,40 @@ mod tests {
     }
 
     #[test]
-    fn can_start_and_stop_unencrypted() {
-        run_with_tokio(|| {
+    fn tcp_stream_connects_to_unencrypted() {
+        run_with_tokio(move || {
             let socket = provision_socket();
-            let _ = HttpServer::new_unencrypted(mock_filter(), *socket).unwrap();
+            let _server = HttpServer::new_unencrypted(mock_filter(), *socket).unwrap();
+            let _stream = TcpStream::connect(*socket).unwrap();
         });
     }
 
     #[test]
-    fn can_start_and_stop_encrypted() {
-        run_with_tokio(|| {
+    fn tcp_stream_connects_to_encrypted() {
+        run_with_tokio(move || {
             let socket = provision_socket();
-            let _ = HttpServer::new_encrypted(mock_filter(), *socket, CERT_PATH, KEY_PATH).unwrap();
+            let _server =
+                HttpServer::new_encrypted(mock_filter(), *socket, CERT_PATH, KEY_PATH).unwrap();
+            let _stream = TcpStream::connect(*socket).unwrap();
         });
     }
 
     #[test]
-    fn can_start_and_stop_https_redirect() {
-        run_with_tokio(|| {
+    fn tcp_stream_connects_to_https_redirect() {
+        run_with_tokio(move || {
             let socket = provision_socket();
-            let _ = HttpServer::new_https_redirect(*socket).unwrap();
+            let _server = HttpServer::new_https_redirect(*socket).unwrap();
+            let _stream = TcpStream::connect(*socket).unwrap();
+        });
+    }
+
+    #[test]
+    fn can_stop_unencrypted_while_tcp_stream_open() {
+        run_with_tokio(move || {
+            let socket = provision_socket();
+            let mut _server = Some(HttpServer::new_unencrypted(mock_filter(), *socket).unwrap());
+            let _stream = TcpStream::connect(*socket).unwrap();
+            _server = None;
         });
     }
 }
