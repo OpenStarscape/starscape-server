@@ -70,12 +70,11 @@ impl HttpServer {
         trace!("starting HTTP server on {:?}", socket_addr);
         let (_addr, server) = warp::serve(filter)
             .try_bind_with_graceful_shutdown(socket_addr, async {
-                shutdown_rx.await.ok();
+                let _ = shutdown_rx.await;
             })
             .map_err(|e| format!("failed to bind HTTP server to {}: {}", socket_addr, e))?;
         let join_handle = tokio::spawn(async move {
             server.await;
-            trace!("HTTP server shut down");
         });
         Ok(HttpServer {
             socket_addr,
@@ -106,7 +105,6 @@ impl HttpServer {
 
         let join_handle = tokio::spawn(async move {
             server.await;
-            trace!("HTTPS server shut down");
         });
         Ok(HttpServer {
             socket_addr,
@@ -138,7 +136,6 @@ impl HttpServer {
 
         let join_handle = tokio::spawn(async move {
             server.await;
-            trace!("HTTPS server shut down");
         });
         Ok(HttpServer {
             socket_addr,
@@ -153,8 +150,13 @@ impl Drop for HttpServer {
         if let Err(()) = self.shutdown_tx.take().unwrap().send(()) {
             error!("failed to send HTTP server shutdown request");
         };
-        if let Err(e) = futures::executor::block_on(self.join_handle.take().unwrap()) {
-            error!("failed to join HTTP server task: {}", e);
+        match futures::executor::block_on(tokio::time::timeout(
+            Duration::from_millis(200),
+            self.join_handle.take().unwrap(),
+        )) {
+            Err(_) => warn!("shutting down HTTP server timed out"),
+            Ok(Err(e)) => error!("failed to join HTTP server task: {}", e),
+            _ => trace!("HTTP server shut down"),
         }
     }
 }
