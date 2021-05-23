@@ -17,6 +17,7 @@ mod mock_session;
 mod mock_subscriber;
 mod provision_socket;
 mod run_with_timeout;
+mod run_with_tokio;
 
 pub use attempt_any_to_string::*;
 pub use mock_event_handler::*;
@@ -27,3 +28,4 @@ pub use mock_session::*;
 pub use mock_subscriber::*;
 pub use provision_socket::*;
 pub use run_with_timeout::*;
+pub use run_with_tokio::*;

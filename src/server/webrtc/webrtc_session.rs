@@ -67,7 +67,7 @@ impl Session for WebrtcSession {
     /// - Firefox 83.0 on Linux (local Wifi): 9,156
     /// - Chromeium 87.0 on Linux (local Wifi): 2,020
     /// It's further complicated by the fact that if the packet is too big, Firefox seems to
-    /// consistantly also drop the packet after the next one, and Chromium just *closes the whole
+    /// consistently also drop the packet after the next one, and Chromium just *closes the whole
     /// fucking connection*. That is, only if the packet is small enough. If it's *too* big both
     /// browsers will completely ignore it (maybe it got dropped earlier somewhere?). There's some
     /// explanation in this [2016 blogpost](https://lgrahl.de/articles/demystifying-webrtc-dc-size-limit.html),
