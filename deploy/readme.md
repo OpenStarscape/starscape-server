@@ -55,5 +55,6 @@ http_content = "../web-build"
 - `tar -czvf starscape-web.tar.gz ./build`
 - `scp ./starscape-web.tar.gz root@0.0.0.0:/root/starscape` # with the real server IP substituted in
 - __on server__
+- `tar -xvf ~/starscape/starscape-web.tar.gz`
 - `rm -Rf ~/starscape/web-build`
 - `mv ./build/ ~/starscape/web-build`
