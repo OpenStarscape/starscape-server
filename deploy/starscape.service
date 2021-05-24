@@ -9,7 +9,7 @@ Restart=on-success
 RestartSec=3
 User=root
 KillSignal=SIGINT
-ExecStart=/root/starscape/server/target/release/starscape-server
+ExecStart=/root/starscape/server/starscape-server
 WorkingDirectory=/root/starscape/server/
 
 [Install]
