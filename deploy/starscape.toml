@@ -1,6 +1,6 @@
 # tcp = true
 # websockets = true
 # webrtc = true
-# https = true
+https = false
 # http_content = "../web/dist"
 # max_game_time = 1200
