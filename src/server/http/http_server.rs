@@ -106,6 +106,10 @@ impl HttpServer {
                 .and(warp::path::full())
                 .and(warp::query::raw())
                 .map(redirect_request_to_https)
+                // If there's no query string, `warp::query::raw()` fails so we need to try again
+                .or(warp::host::optional()
+                    .and(warp::path::full())
+                    .map(|authority, path| redirect_request_to_https(authority, path, "".into())))
                 .recover(https_redirect_fallback_response),
         )
         .try_bind_with_graceful_shutdown(socket_addr, async {
