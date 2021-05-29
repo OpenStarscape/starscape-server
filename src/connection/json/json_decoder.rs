@@ -637,10 +637,7 @@ mod message_tests {
 
     #[test]
     fn message_20mb_long_is_error() {
-        let mut message = String::new();
-        for _ in 0..20_000_000 {
-            message.push('a');
-        }
+        let message = String::from_utf8(vec![b'a'; 20_000_000]).unwrap();
         assert_results_in_error(&message, "too long");
     }
 }
