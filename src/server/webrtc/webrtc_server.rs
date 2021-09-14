@@ -129,6 +129,8 @@ impl WebrtcServer {
         );
         let join_handle = tokio::spawn(abortable_server);
 
+        warn!("WebrtcServer created. WebRTC sessions may suffer from packet loss.");
+
         Ok((
             webrtc_warp_filter(endpoint),
             Self {
