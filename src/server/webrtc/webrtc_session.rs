@@ -13,6 +13,7 @@ impl WebrtcSession {
         addr: SocketAddr,
         outbound_tx: tokio::sync::mpsc::Sender<(SocketAddr, WebrtcMessage)>,
     ) -> Self {
+        warn!("WebrtcSession created. WebRTC sessions may suffer from packet loss");
         Self {
             dispatcher,
             addr,
