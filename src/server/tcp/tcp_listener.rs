@@ -163,7 +163,7 @@ mod tests {
             let builder = rx.try_recv().unwrap();
             let handler = MockInboundHandler::new();
             let mut session = builder.build(Box::new(handler.clone())).unwrap();
-            session.yeet_bundle(&[82]).unwrap();
+            session.send_data(&[82]).unwrap();
             thread::sleep(SHORT_TIME);
             let mut buffer = [0; 1];
             client.read_exact(&mut buffer).unwrap();

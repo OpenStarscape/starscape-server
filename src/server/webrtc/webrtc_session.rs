@@ -35,7 +35,7 @@ impl SessionBuilder for WebrtcSession {
 }
 
 impl Session for WebrtcSession {
-    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn send_data(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         if data.len() > self.max_packet_len() {
             warn!(
                 "trying to send bundle {} bytes long when WebRTC max packet length is {}",

@@ -37,7 +37,7 @@ impl MockSession {
 }
 
 impl Session for MockSession {
-    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn send_data(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         let mut lock = self.0.lock().unwrap();
         if lock.is_closed {
             panic!("sent bundle after MockSession closed");

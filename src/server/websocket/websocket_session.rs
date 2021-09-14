@@ -103,7 +103,7 @@ pub struct WebsocketSession {
 }
 
 impl Session for WebsocketSession {
-    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn send_data(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         if let Some(outbound_tx) = &mut self.outbound_tx {
             match outbound_tx.try_send(data.to_vec()) {
                 Ok(()) => Ok(()),

@@ -17,20 +17,14 @@ pub trait SessionBuilder: Send + Debug {
     ) -> Result<Box<dyn Session>, Box<dyn Error>>;
 }
 
-/// Represents a low-level network connection. Abstracts over things like Unix
-/// sockets, UDP, TCP and WebRTC data channels (not all of these are implemented
-/// at this time). Reliable+ordered session types use the same data format as
-/// unreliable+unordered.
+/// Represents a reliable, ordered data connection to a client. Abstracts over things like TCP
+/// connection and WebSockets.
 pub trait Session: Send + Debug {
-    /// Sends a bundle of data to the client. Bundles should be assumed to be unreliable+unordered.
-    /// This errors if there's an issue with the underlying connection, or if data is longer
-    /// than max_packet_len() has ever been.
+    /// Sends the given data to the client. This errors if there's an issue with the underlying
+    /// connection, or if data is longer than max_packet_len().
     /// TODO: this should take an Arc<[u8]> so it can be sent on channels without being copied
-    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>>;
-    /// The longest a packet should be. This may change (if, for example, long
-    /// packets are frequently dropped). It should be avoided, but It's not an
-    /// error to send a packet with a previously-allowed length (this would be
-    /// impossible to prevent in a thread-safe way).
+    fn send_data(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>>;
+    /// The longest a packet should be, should always return the same value for the same session.
     fn max_packet_len(&self) -> usize;
     /// Close the session, which should result in its inbound handler getting a close() (although
     /// not necessarily immediately)

@@ -68,7 +68,7 @@ impl Debug for TcpSession {
 }
 
 impl Session for TcpSession {
-    fn yeet_bundle(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
+    fn send_data(&mut self, data: &[u8]) -> Result<(), Box<dyn Error>> {
         self.stream.write_all(data)?;
         Ok(())
     }
