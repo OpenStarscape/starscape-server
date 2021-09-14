@@ -117,7 +117,7 @@ impl ConnectionImpl {
             return;
         }
         let mut session = self.session.lock().unwrap();
-        if let Err(e) = session.yeet_bundle(&data) {
+        if let Err(e) = session.send_data(&data) {
             warn!("closing session due to problem sending bundle: {}", e);
             self.should_close.store(true, SeqCst);
             session.close();

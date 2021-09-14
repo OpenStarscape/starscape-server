@@ -288,7 +288,7 @@ mod tests {
             .build(Box::new(MockInboundHandler::new()))
             .expect("failed to build session");
         session
-            .yeet_bundle(&test_data(2))
+            .send_data(&test_data(2))
             .expect("failed to yeet bundle");
         let (addr, bundle) = run_with_timeout(move || block_on(outbound_rx.recv()))
             .expect("failed to receive bundle");

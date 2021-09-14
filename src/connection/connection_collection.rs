@@ -200,7 +200,7 @@ mod tests {
     struct MockSession;
 
     impl Session for MockSession {
-        fn yeet_bundle(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
+        fn send_data(&mut self, _data: &[u8]) -> Result<(), Box<dyn Error>> {
             Ok(())
         }
 
