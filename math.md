@@ -32,6 +32,7 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
 - b: semi-minor axis (short radius) of the orbit (unit: km)
 - e: eccentricity of the orbit
 - θₘ: angle between relative velocity and direction towards the central body
+- T: orbital period (time taken to complete an orbit)
 
 ## Equations
 - E = ½mv² - (GmM)/r
@@ -53,6 +54,7 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
   - hyperbola: e > 1
   - parabola: e = 1
 - rSOI ≈ a(m/M)^(2/5)
+- T = 𝜏√(a³/GM) _(Kepler's Third Law)_
 
 ## Laws
 - Conservation of angular momentum: in free orbit L stays the same (as does h assuming mass doesn't change)
