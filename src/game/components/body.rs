@@ -28,9 +28,8 @@ impl Shape {
     }
 }
 
-/// Empty type that indicates this entity is a source of gravity
-/// Ideally all objects would have a gravitational effect on all other objects, but that is
-/// unnecessary and computationally expensive
+/// Empty type that indicates this entity is a source of gravity. Ideally all objects would have a gravitational effect
+/// on all other objects, but that is unnecessary and computationally expensive
 pub struct GravityBody;
 
 /// Any physics object in space
@@ -51,9 +50,9 @@ pub struct Body {
     pub color: Element<Option<ColorRGB>>,
     /// Human-readable name (generally capitalized with spaces)
     pub name: Element<Option<String>>,
-    /// The gravity well more massive than this body which this body is currently elliptically
-    /// orbiting around with the smallest major axis. This logic generally results in a nice tree.
-    /// For example, a ship's parent might be Luna, Luna's parent would be Earth and Earth's parent
+    /// The least massive body that is more massive than this body, and for which this body is within the sphere of
+    /// influence of (https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics)). This logic generally results
+    /// in a nice tree. For example, a ship's parent might be Luna, Luna's parent would be Earth and Earth's parent
     /// would be Sol.
     pub gravity_parent: Element<EntityKey>,
     /// The interface the physics system uses to talk to the controller of this object
