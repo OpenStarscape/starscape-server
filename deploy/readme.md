@@ -39,6 +39,16 @@ http_content = "../web-build"
 - Example: `ln -s /etc/letsencrypt/live/starscape.wmww.sh/fullchain.pem ~/starscape/ssl/cert.pem`
 - Example: `ln -s /etc/letsencrypt/live/starscape.wmww.sh/privkey.pem ~/starscape/ssl/privkey.pem`
 
+## Renew Certificate
+- Because we roll our own webserver, certbot can't integrate with us
+- Instead we had certbot run a standalone HTTP server, but we had to stop the Starscape server for that
+- Autorenewal fails for the same reason while the Starscape server is running
+- When the cert expires, log into the server, and:
+- `$ systemctl stop starscape.service`
+- `$ certbot renew`
+- `$ systemctl start starscape.service`
+- TODO: better solution, possibly using the [webroot](https://certbot.eff.org/docs/using.html#webroot) plugin?
+
 ## To update server
 - `cd ~/starscape/server`
 - `git pull`
