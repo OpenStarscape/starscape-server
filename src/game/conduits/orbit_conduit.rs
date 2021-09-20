@@ -18,7 +18,7 @@ pub struct OrbitData {
     /// is at the point on the orbit with the highest global Z value. Commonly ω.
     periapsis: f64,
     /// Some time at which the body was/will be at the periapsis
-    start_time: f64,
+    base_time: f64,
     /// Time it takes for a full orbit to complete. Derivable from parent mass and G. Included here because it must be
     /// updated atomically with the rest of the orbit parameters.
     period_time: f64,
@@ -39,7 +39,7 @@ impl From<OrbitData> for Value {
                 orbit.inclination.into(),
                 orbit.ascending_node.into(),
                 orbit.periapsis.into(),
-                orbit.start_time.into(),
+                orbit.base_time.into(),
                 orbit.period_time.into(),
                 orbit.parent.into(),
             ];
@@ -127,7 +127,7 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
             inclination: 1.0,
             ascending_node: 0.5,
             periapsis: 2.0,
-            start_time: 0.0,
+            base_time: 0.0,
             period_time: 10.0,
             parent,
         })
@@ -138,7 +138,7 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
             inclination: TAU / 6.0,
             ascending_node: 0.0,
             periapsis: TAU / 3.0,
-            start_time: 0.0,
+            base_time: 0.0,
             period_time: 10.0,
             parent,
         }))
