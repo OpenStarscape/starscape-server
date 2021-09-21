@@ -8,6 +8,8 @@ mod conduits;
 #[allow(clippy::module_inception)]
 mod game;
 mod physics;
+#[cfg(test)]
+mod test;
 
 pub use game::{init, physics_tick};
 
