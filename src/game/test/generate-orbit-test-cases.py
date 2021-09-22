@@ -76,21 +76,36 @@ orbit_param_names = [
 pos_names = ['x', 'y', 'z']
 vel_names = ['dx', 'dy', 'dz']
 
-for test in test_data:
-    fn_name = test[name].replace(' ', '_')
-    code += '''
+def make_test_case(test, suffix, pos_offset, vel_offset):
+    fn_name = test[name].replace(' ', '_') + suffix
+    return '''
 #[test]
 fn ''' + fn_name + '''() {
     run_orbit_test(
         vec![''' + format_floats(test[orbit], orbit_param_names, 3) + '''
         ],''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
+        // body position
         Point3::new(''' + format_floats(test[position], pos_names, 3) + '''
         ),
+        // body velocity
         Vector3::new(''' + format_floats(test[velocity], vel_names, 3) + '''
+        ),
+        // position offset
+        Point3::new(''' + format_floats(pos_offset, pos_names, 3) + '''
+        ),
+        // velocity offset
+        Vector3::new(''' + format_floats(vel_offset, vel_names, 3) + '''
         ),
     );
 }
 '''
+
+output_cases = 0
+for test in test_data:
+    code += make_test_case(test, '', [0, 0, 0], [0, 0, 0])
+    code += make_test_case(test, '_with_position_offset', [12, -500, 106.7], [0, 0, 0])
+    code += make_test_case(test, '_with_velocity_offset', [0, 0, 0], [-88, 123, -68.4])
+    output_cases += 3
 
 # Delete output file if it already exists
 if os.path.exists(output_path):
@@ -98,7 +113,7 @@ if os.path.exists(output_path):
     os.remove(output_path)
 
 # Write output files
-print('writing tests to ' + output_path + '…')
+print('writing ' + str(output_cases) + ' tests to ' + output_path + '…')
 with open(output_path, 'w') as f:
     f.write(code)
 
