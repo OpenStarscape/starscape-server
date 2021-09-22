@@ -2,6 +2,7 @@ use super::*;
 
 /// [Orbital Elements on Wikipedia](https://en.wikipedia.org/wiki/Orbital_elements) may be helpful
 /// in understanding this struct
+#[derive(Debug, Clone, Copy)]
 pub struct OrbitData {
     /// Length of the semi-major axis (longest radius). Commonly a.
     semi_major: f64,
@@ -44,6 +45,34 @@ impl From<OrbitData> for Value {
                 orbit.parent.into(),
             ];
             array.into()
+        }
+    }
+}
+
+impl From<Value> for RequestResult<OrbitData> {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Array(data) => {
+                if data.len() == 8 {
+                    let mut iter = data.into_iter();
+                    Ok(OrbitData {
+                        semi_major: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        semi_minor: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        inclination: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        ascending_node: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        periapsis: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        base_time: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        period_time: RequestResult::<f64>::from(iter.next().unwrap())?,
+                        parent: RequestResult::<EntityKey>::from(iter.next().unwrap())?,
+                    })
+                } else {
+                    Err(BadRequest(format!(
+                        "orbit has {} elements instead of 8",
+                        data.len()
+                    )))
+                }
+            }
+            _ => Err(BadRequest(format!("{:?} is not an array", value))),
         }
     }
 }
@@ -173,4 +202,43 @@ impl Subscribable for OrbitConduit {
     }
 }
 
-// TODO: test
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // more orbit-related tests are in ../test
+
+    #[test]
+    fn can_encode_orbit_data() {
+        let e = mock_keys(1);
+        let data = OrbitData {
+            semi_major: 100.0,
+            semi_minor: 50.0,
+            inclination: 0.1,
+            ascending_node: 0.2,
+            periapsis: 0.3,
+            base_time: 3.0,
+            period_time: 5.0,
+            parent: e[0],
+        };
+        let value: Value = data.into();
+        let result = RequestResult::<(f64, f64, f64, f64, f64, f64, f64, EntityKey)>::from(value)
+            .expect("failed to decode orbit data");
+        assert_eq!(result, (100.0, 50.0, 0.1, 0.2, 0.3, 3.0, 5.0, e[0]));
+    }
+
+    #[test]
+    fn can_decode_orbit_data() {
+        let e = mock_keys(1);
+        let value: Value = (100.0, 50.0, 0.1, 0.2, 0.3, 3.0, 5.0, e[0]).into();
+        let result = RequestResult::<OrbitData>::from(value).expect("failed to decode orbit data");
+        assert_eq!(result.semi_major, 100.0);
+        assert_eq!(result.semi_minor, 50.0);
+        assert_eq!(result.inclination, 0.1);
+        assert_eq!(result.ascending_node, 0.2);
+        assert_eq!(result.periapsis, 0.3);
+        assert_eq!(result.base_time, 3.0);
+        assert_eq!(result.period_time, 5.0);
+        assert_eq!(result.parent, e[0]);
+    }
+}
