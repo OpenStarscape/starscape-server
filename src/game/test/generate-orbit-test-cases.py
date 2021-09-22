@@ -82,8 +82,8 @@ def make_test_case(test, suffix, pos_offset, vel_offset):
 #[test]
 fn ''' + fn_name + '''() {
     run_orbit_test(
-        vec![''' + format_floats(test[orbit], orbit_param_names, 3) + '''
-        ],''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
+        &(''' + format_floats(test[orbit], orbit_param_names, 3) + '''
+        ),''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
         // body position
         Point3::new(''' + format_floats(test[position], pos_names, 3) + '''
         ),
