@@ -186,6 +186,50 @@ where
     }
 }
 
+impl<A, B, C, D, E, F> From<(A, B, C, D, E, F)> for Value
+where
+    A: Into<Value>,
+    B: Into<Value>,
+    C: Into<Value>,
+    D: Into<Value>,
+    E: Into<Value>,
+    F: Into<Value>,
+{
+    fn from(tuple: (A, B, C, D, E, F)) -> Self {
+        Value::Array(vec![
+            tuple.0.into(),
+            tuple.1.into(),
+            tuple.2.into(),
+            tuple.3.into(),
+            tuple.4.into(),
+            tuple.5.into(),
+        ])
+    }
+}
+
+impl<A, B, C, D, E, F, G> From<(A, B, C, D, E, F, G)> for Value
+where
+    A: Into<Value>,
+    B: Into<Value>,
+    C: Into<Value>,
+    D: Into<Value>,
+    E: Into<Value>,
+    F: Into<Value>,
+    G: Into<Value>,
+{
+    fn from(tuple: (A, B, C, D, E, F, G)) -> Self {
+        Value::Array(vec![
+            tuple.0.into(),
+            tuple.1.into(),
+            tuple.2.into(),
+            tuple.3.into(),
+            tuple.4.into(),
+            tuple.5.into(),
+            tuple.6.into(),
+        ])
+    }
+}
+
 impl Value {
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
@@ -484,6 +528,88 @@ where
     }
 }
 
+impl<A, B, C, D, E, F> From<Value> for DecodeResult<(A, B, C, D, E, F)>
+where
+    Value: Into<DecodeResult<A>>,
+    Value: Into<DecodeResult<B>>,
+    Value: Into<DecodeResult<C>>,
+    Value: Into<DecodeResult<D>>,
+    Value: Into<DecodeResult<E>>,
+    Value: Into<DecodeResult<F>>,
+{
+    fn from(value: Value) -> Self {
+        const LEN: usize = 6;
+        let vec = match value {
+            Value::Array(vec) => vec,
+            _ => {
+                return Err(BadRequest(format!(
+                    "can not decode {:?} as a tuple because it is not an array",
+                    value
+                )))
+            }
+        };
+        if vec.len() != LEN {
+            return Err(BadRequest(format!(
+                "{:?} has {} elements instead of {}",
+                vec,
+                vec.len(),
+                LEN
+            )));
+        }
+        let mut iter = vec.into_iter();
+        Ok((
+            Into::<DecodeResult<A>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<B>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<C>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<D>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<E>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<F>>::into(iter.next().unwrap())?,
+        ))
+    }
+}
+
+impl<A, B, C, D, E, F, G> From<Value> for DecodeResult<(A, B, C, D, E, F, G)>
+where
+    Value: Into<DecodeResult<A>>,
+    Value: Into<DecodeResult<B>>,
+    Value: Into<DecodeResult<C>>,
+    Value: Into<DecodeResult<D>>,
+    Value: Into<DecodeResult<E>>,
+    Value: Into<DecodeResult<F>>,
+    Value: Into<DecodeResult<G>>,
+{
+    fn from(value: Value) -> Self {
+        const LEN: usize = 7;
+        let vec = match value {
+            Value::Array(vec) => vec,
+            _ => {
+                return Err(BadRequest(format!(
+                    "can not decode {:?} as a tuple because it is not an array",
+                    value
+                )))
+            }
+        };
+        if vec.len() != LEN {
+            return Err(BadRequest(format!(
+                "{:?} has {} elements instead of {}",
+                vec,
+                vec.len(),
+                LEN
+            )));
+        }
+        let mut iter = vec.into_iter();
+        Ok((
+            Into::<DecodeResult<A>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<B>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<C>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<D>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<E>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<F>>::into(iter.next().unwrap())?,
+            Into::<DecodeResult<G>>::into(iter.next().unwrap())?,
+        ))
+    }
+}
+
 #[cfg(test)]
 mod encode_tests {
     use super::*;
@@ -717,6 +843,39 @@ mod decode_tests {
     }
 
     #[test]
+    fn can_get_six_tuple() {
+        let value = (7, "hello".into(), None, Point3::new(1.0, 2.0, 3.0), 3.5, Vector3::new(0.0, 0.0, 0.0));
+        assert_decodes_to::<(i64, String, Option<f64>, Point3<f64>, f64, Vector3<f64>)>(
+            Array(vec![
+                Integer(7),
+                Text("hello".into()),
+                Null,
+                Vector(Vector3::new(1.0, 2.0, 3.0)),
+                Scalar(3.5),
+                Vector(Vector3::new(0.0, 0.0, 0.0)),
+            ]),
+            value,
+        );
+    }
+
+    #[test]
+    fn can_get_seven_tuple() {
+        let value = (7, "hello".into(), None, Point3::new(1.0, 2.0, 3.0), 3.5, Vector3::new(0.0, 0.0, 0.0), EntityKey::null());
+        assert_decodes_to::<(i64, String, Option<f64>, Point3<f64>, f64, Vector3<f64>, EntityKey)>(
+            Array(vec![
+                Integer(7),
+                Text("hello".into()),
+                Null,
+                Vector(Vector3::new(1.0, 2.0, 3.0)),
+                Scalar(3.5),
+                Vector(Vector3::new(0.0, 0.0, 0.0)),
+                Entity(EntityKey::null()),
+            ]),
+            value,
+        );
+    }
+
+    #[test]
     fn can_get_tuple_in_tuple() {
         let value = ((7, 8), vec![]);
         assert_decodes_to::<((i64, i64), Vec<String>)>(
@@ -731,7 +890,9 @@ mod decode_tests {
         assert_doesnt_decode_to::<(Value, Value)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded.clone());
-        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded);
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value, Value)>(decoded);
     }
 
     #[test]
@@ -740,7 +901,9 @@ mod decode_tests {
         assert_doesnt_decode_to::<(Value,)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded.clone());
-        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded);
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value, Value)>(decoded);
     }
 
     #[test]
@@ -749,7 +912,9 @@ mod decode_tests {
         assert_doesnt_decode_to::<(Value,)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded.clone());
-        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded);
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value, Value)>(decoded);
     }
 
     #[test]
@@ -758,7 +923,9 @@ mod decode_tests {
         assert_doesnt_decode_to::<(Value,)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value)>(decoded.clone());
-        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded);
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value, Value)>(decoded);
     }
 
     #[test]
@@ -767,6 +934,30 @@ mod decode_tests {
         assert_doesnt_decode_to::<(Value,)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value)>(decoded.clone());
         assert_doesnt_decode_to::<(Value, Value, Value)>(decoded.clone());
-        assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded);
+        assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value, Value)>(decoded);
+    }
+
+    #[test]
+    fn can_only_get_six_tuple_if_array_that_size() {
+        let decoded = Array(vec![Null, Null, Null, Null, Null, Null]);
+        assert_doesnt_decode_to::<(Value,)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value, Value)>(decoded);
+    }
+
+    #[test]
+    fn can_only_get_seven_tuple_if_array_that_size() {
+        let decoded = Array(vec![Null, Null, Null, Null, Null, Null, Null]);
+        assert_doesnt_decode_to::<(Value,)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value)>(decoded.clone());
+        assert_doesnt_decode_to::<(Value, Value, Value, Value, Value, Value)>(decoded);
     }
 }
