@@ -5,28 +5,28 @@ use super::*;
 #[derive(Debug, Clone, Copy)]
 pub struct OrbitData {
     /// Length of the semi-major axis (longest radius). Commonly a.
-    semi_major: f64,
+    pub semi_major: f64,
     /// Length of the semi-minor axis (shortest radius). Commonly b.
-    semi_minor: f64,
+    pub semi_minor: f64,
     /// Tilt (in radians) of the orbital plane above the global X/Y plane. Ranges from 0 to π. Commonly i.
-    inclination: f64,
+    pub inclination: f64,
     /// The ascending node is the point where the orbit crosses the parent's global Z position with a positive Z
     /// velocity. This property is the angle in radians of the ascending node compared to the parent on the global X/Y
     /// plane. Commonly Ω (idk wtf that is either).
-    ascending_node: f64,
+    pub ascending_node: f64,
     /// The periapsis is the closest point on the orbit to the parent. This property is the angle in radians of the
     /// periapsis relative to the ascending node on the orbit plane. 0 is at the ascending node. π/2 means the periapsis
     /// is at the point on the orbit with the highest global Z value. Commonly ω.
-    periapsis: f64,
+    pub periapsis: f64,
     /// Some time at which the body was/will be at the periapsis
-    base_time: f64,
+    pub base_time: f64,
     /// Time it takes for a full orbit to complete. Derivable from parent mass and G. Included here because it must be
     /// updated atomically with the rest of the orbit parameters.
-    period_time: f64,
+    pub period_time: f64,
     /// The "gravity parent" of the body. Should always be the same as the dedicated property of
     /// that name. Duplicated here because it must be updated atomically with the rest of the orbit
     /// parameters.
-    parent: EntityKey,
+    pub parent: EntityKey,
 }
 
 impl From<OrbitData> for Value {
