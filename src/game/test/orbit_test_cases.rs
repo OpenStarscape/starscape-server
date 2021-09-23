@@ -6,26 +6,125 @@ use super::*;
 #[test]
 fn start_of_default_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            1.0,                   // x
-            0.0,                   // y
-            0.0,                   // z
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            1.0,                   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            1.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_default_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_default_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -33,26 +132,125 @@ fn start_of_default_orbit() {
 #[test]
 fn quarter_past_default_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        1.5707963267948966,        // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            1.0,                   // y
-            0.0,                   // z
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            -1.0,                  // dx
-            0.0,                   // dy
-            0.0,                   // dz
+            -1.0,              // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_default_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.0,              // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_default_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.0,              // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -60,26 +258,125 @@ fn quarter_past_default_orbit() {
 #[test]
 fn half_past_default_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        3.141592653589793,         // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
         Point3::new(
-            -1.0,                  // x
-            0.0,                   // y
-            0.0,                   // z
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -1.0,                  // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -1.0,              // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_default_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
+        Point3::new(
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.0,              // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_default_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
+        Point3::new(
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.0,              // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -87,26 +384,125 @@ fn half_past_default_orbit() {
 #[test]
 fn full_rotation_default_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        6.283185307179586,         // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        6.283185307179586,     // at_time
+        // body position
         Point3::new(
-            1.0,                   // x
-            0.0,                   // y
-            0.0,                   // z
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            1.0,                   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            1.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn full_rotation_default_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        6.283185307179586,     // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn full_rotation_default_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        6.283185307179586,     // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -114,26 +510,125 @@ fn full_rotation_default_orbit() {
 #[test]
 fn half_past_orbit_with_grav_param() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            3.358503816725428,     // period_time
-        ],
-        3.5,                       // grav_param
-        1.679251908362714,         // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 3.358503816725428,
+            parent: EntityKey::null(),
+        },
+        3.5,                   // grav_param
+        1.679251908362714,     // at_time
+        // body position
         Point3::new(
-            -1.0,                  // x
-            0.0,                   // y
-            0.0,                   // z
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -1.8708286933869707,   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -1.8708286933869707,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_orbit_with_grav_param_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 3.358503816725428,
+            parent: EntityKey::null(),
+        },
+        3.5,                   // grav_param
+        1.679251908362714,     // at_time
+        // body position
+        Point3::new(
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.8708286933869707,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_orbit_with_grav_param_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 3.358503816725428,
+            parent: EntityKey::null(),
+        },
+        3.5,                   // grav_param
+        1.679251908362714,     // at_time
+        // body position
+        Point3::new(
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.8708286933869707,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -141,26 +636,125 @@ fn half_past_orbit_with_grav_param() {
 #[test]
 fn start_of_inclined_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            1.0,                   // x
-            0.0,                   // y
-            0.0,                   // z
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            0.8090169943749475,    // dy
-            0.5877852522924731,    // dz
+            0.0,               // dx
+            0.8090169943749475,// dy
+            0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_inclined_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            0.8090169943749475,// dy
+            0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_inclined_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            0.8090169943749475,// dy
+            0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -168,26 +762,125 @@ fn start_of_inclined_orbit() {
 #[test]
 fn quarter_past_inclined_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        1.5707963267948966,        // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            0.8090169943749475,    // y
-            0.5877852522924731,    // z
+            0.0,               // x
+            0.8090169943749475,// y
+            0.5877852522924731,// z
         ),
+        // body velocity
         Vector3::new(
-            -1.0,                  // dx
-            0.0,                   // dy
-            0.0,                   // dz
+            -1.0,              // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_inclined_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            0.8090169943749475,// y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.0,              // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_inclined_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            0.8090169943749475,// y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.0,              // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -195,26 +888,125 @@ fn quarter_past_inclined_orbit() {
 #[test]
 fn half_past_inclined_orbit() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        3.141592653589793,         // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
         Point3::new(
-            -1.0,                  // x
-            0.0,                   // y
-            0.0,                   // z
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -0.8090169943749475,   // dy
-            -0.5877852522924731,   // dz
+            0.0,               // dx
+            -0.8090169943749475,// dy
+            -0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_inclined_orbit_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
+        Point3::new(
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.8090169943749475,// dy
+            -0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_inclined_orbit_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
+        Point3::new(
+            -1.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.8090169943749475,// dy
+            -0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -222,26 +1014,125 @@ fn half_past_inclined_orbit() {
 #[test]
 fn start_of_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            1.0,                   // y
-            0.0,                   // z
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            -0.8090169943749475,   // dx
-            0.0,                   // dy
-            0.5877852522924731,    // dz
+            -0.8090169943749475,// dx
+            0.0,               // dy
+            0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.8090169943749475,// dx
+            0.0,               // dy
+            0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.8090169943749475,// dx
+            0.0,               // dy
+            0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -249,26 +1140,125 @@ fn start_of_90deg_ascending_node() {
 #[test]
 fn quarter_past_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        1.5707963267948966,        // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
         Point3::new(
-            -0.8090169943749475,   // x
-            0.0,                   // y
-            0.5877852522924731,    // z
+            -0.8090169943749475,// x
+            0.0,               // y
+            0.5877852522924731,// z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -1.0,                  // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -1.0,              // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
+        Point3::new(
+            -0.8090169943749475,// x
+            0.0,               // y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.0,              // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.5707963267948966,    // at_time
+        // body position
+        Point3::new(
+            -0.8090169943749475,// x
+            0.0,               // y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.0,              // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -276,26 +1266,125 @@ fn quarter_past_90deg_ascending_node() {
 #[test]
 fn half_past_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            1.0,                   // semi_major_axis
-            1.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            6.283185307179586,     // period_time
-        ],
-        1.0,                       // grav_param
-        3.141592653589793,         // at_time
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            -1.0,                  // y
-            0.0,                   // z
+            0.0,               // x
+            -1.0,              // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.8090169943749475,    // dx
-            0.0,                   // dy
-            -0.5877852522924731,   // dz
+            0.8090169943749475,// dx
+            0.0,               // dy
+            -0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -1.0,              // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.8090169943749475,// dx
+            0.0,               // dy
+            -0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        3.141592653589793,     // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -1.0,              // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.8090169943749475,// dx
+            0.0,               // dy
+            -0.5877852522924731,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -303,26 +1392,125 @@ fn half_past_90deg_ascending_node() {
 #[test]
 fn start_of_flat_eliptical() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            1.0,                   // x
-            0.0,                   // y
-            0.0,                   // z
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            1.3416407864998738,    // dy
-            0.0,                   // dz
+            0.0,               // dx
+            1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_flat_eliptical_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_flat_eliptical_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -330,26 +1518,125 @@ fn start_of_flat_eliptical() {
 #[test]
 fn start_of_flat_eliptical_with_start_time() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            1.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        1.0,                       // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.0,                   // at_time
+        // body position
         Point3::new(
-            1.0,                   // x
-            0.0,                   // y
-            0.0,                   // z
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            1.3416407864998738,    // dy
-            0.0,                   // dz
+            0.0,               // dx
+            1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_flat_eliptical_with_start_time_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_flat_eliptical_with_start_time_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        1.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -357,26 +1644,125 @@ fn start_of_flat_eliptical_with_start_time() {
 #[test]
 fn half_past_flat_eliptical() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        35.12407365520363,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
         Point3::new(
-            -9.0,                  // x
-            0.0,                   // y
-            0.0,                   // z
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -0.1490711984999859,   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_flat_eliptical_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
+        Point3::new(
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_flat_eliptical_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
+        Point3::new(
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -384,26 +1770,125 @@ fn half_past_flat_eliptical() {
 #[test]
 fn half_past_flat_eliptical_with_negative_base_time() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            -1000.0,               // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        88.84628331131256,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: -1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        88.84628331131256,     // at_time
+        // body position
         Point3::new(
-            -9.0,                  // x
-            0.0,                   // y
-            0.0,                   // z
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -0.1490711984999859,   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_flat_eliptical_with_negative_base_time_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: -1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        88.84628331131256,     // at_time
+        // body position
+        Point3::new(
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_flat_eliptical_with_negative_base_time_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: -1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        88.84628331131256,     // at_time
+        // body position
+        Point3::new(
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -411,26 +1896,125 @@ fn half_past_flat_eliptical_with_negative_base_time() {
 #[test]
 fn half_past_flat_eliptical_with_base_time_after_current_time() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            1000.0,                // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        51.65001130950196,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        51.65001130950196,     // at_time
+        // body position
         Point3::new(
-            -9.0,                  // x
-            0.0,                   // y
-            0.0,                   // z
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -0.1490711984999859,   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_flat_eliptical_with_base_time_after_current_time_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        51.65001130950196,     // at_time
+        // body position
+        Point3::new(
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_flat_eliptical_with_base_time_after_current_time_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        51.65001130950196,     // at_time
+        // body position
+        Point3::new(
+            -9.0,              // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -438,26 +2022,125 @@ fn half_past_flat_eliptical_with_base_time_after_current_time() {
 #[test]
 fn start_of_inclined_eliptical() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            1.0,                   // x
-            0.0,                   // y
-            0.0,                   // z
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            1.0854101966249685,    // dy
-            0.7885966681787004,    // dz
+            0.0,               // dx
+            1.0854101966249685,// dy
+            0.7885966681787004,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_inclined_eliptical_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.0854101966249685,// dy
+            0.7885966681787004,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_inclined_eliptical_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            1.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            1.0854101966249685,// dy
+            0.7885966681787004,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -465,26 +2148,125 @@ fn start_of_inclined_eliptical() {
 #[test]
 fn start_of_eliptical_with_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            1.0,                   // y
-            0.0,                   // z
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            -1.0854101966249685,   // dx
-            0.0,                   // dy
-            0.7885966681787004,    // dz
+            -1.0854101966249685,// dx
+            0.0,               // dy
+            0.7885966681787004,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_eliptical_with_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.0854101966249685,// dx
+            0.0,               // dy
+            0.7885966681787004,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_eliptical_with_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            1.0,               // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.0854101966249685,// dx
+            0.0,               // dy
+            0.7885966681787004,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -492,26 +2274,125 @@ fn start_of_eliptical_with_90deg_ascending_node() {
 #[test]
 fn start_of_eliptical_with_90deg_periapsis() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            0.8090169943749475,    // y
-            0.5877852522924731,    // z
+            0.0,               // x
+            0.8090169943749475,// y
+            0.5877852522924731,// z
         ),
+        // body velocity
         Vector3::new(
-            -1.3416407864998738,   // dx
-            0.0,                   // dy
-            0.0,                   // dz
+            -1.3416407864998738,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_eliptical_with_90deg_periapsis_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            0.8090169943749475,// y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.3416407864998738,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_eliptical_with_90deg_periapsis_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            0.8090169943749475,// y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            -1.3416407864998738,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -519,26 +2400,125 @@ fn start_of_eliptical_with_90deg_periapsis() {
 #[test]
 fn half_past_eliptical_with_90deg_periapsis() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        35.12407365520363,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            -7.281152949374527,    // y
-            -5.2900672706322585,   // z
+            0.0,               // x
+            -7.281152949374527,// y
+            -5.2900672706322585,// z
         ),
+        // body velocity
         Vector3::new(
-            0.1490711984999859,    // dx
-            0.0,                   // dy
-            0.0,                   // dz
+            0.1490711984999859,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_eliptical_with_90deg_periapsis_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -7.281152949374527,// y
+            -5.2900672706322585,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.1490711984999859,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_eliptical_with_90deg_periapsis_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -7.281152949374527,// y
+            -5.2900672706322585,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.1490711984999859,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -546,26 +2526,125 @@ fn half_past_eliptical_with_90deg_periapsis() {
 #[test]
 fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        0.0,                       // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
         Point3::new(
-            -0.8090169943749475,   // x
-            0.0,                   // y
-            0.5877852522924731,    // z
+            -0.8090169943749475,// x
+            0.0,               // y
+            0.5877852522924731,// z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            -1.3416407864998738,   // dy
-            0.0,                   // dz
+            0.0,               // dx
+            -1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            -0.8090169943749475,// x
+            0.0,               // y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        0.0,                   // at_time
+        // body position
+        Point3::new(
+            -0.8090169943749475,// x
+            0.0,               // y
+            0.5877852522924731,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            -1.3416407864998738,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -573,26 +2652,125 @@ fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
 #[test]
 fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        35.12407365520363,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
         Point3::new(
-            7.281152949374527,     // x
-            0.0,                   // y
-            -5.2900672706322585,   // z
+            7.281152949374527, // x
+            0.0,               // y
+            -5.2900672706322585,// z
         ),
+        // body velocity
         Vector3::new(
-            0.0,                   // dx
-            0.1490711984999859,    // dy
-            0.0,                   // dz
+            0.0,               // dx
+            0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
+        Point3::new(
+            7.281152949374527, // x
+            0.0,               // y
+            -5.2900672706322585,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        35.12407365520363,     // at_time
+        // body position
+        Point3::new(
+            7.281152949374527, // x
+            0.0,               // y
+            -5.2900672706322585,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.0,               // dx
+            0.1490711984999859,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -600,26 +2778,125 @@ fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
 #[test]
 fn half_past_eliptical_with_90deg_periapsis_and_grav_param() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            26.179938779914945,    // period_time
-        ],
-        7.2,                       // grav_param
-        13.089969389957473,        // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 26.179938779914945,
+            parent: EntityKey::null(),
+        },
+        7.2,                   // grav_param
+        13.089969389957473,    // at_time
+        // body position
         Point3::new(
-            0.0,                   // x
-            -7.281152949374527,    // y
-            -5.2900672706322585,   // z
+            0.0,               // x
+            -7.281152949374527,// y
+            -5.2900672706322585,// z
         ),
+        // body velocity
         Vector3::new(
-            0.3999999999999998,    // dx
-            0.0,                   // dy
-            0.0,                   // dz
+            0.3999999999999998,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 26.179938779914945,
+            parent: EntityKey::null(),
+        },
+        7.2,                   // grav_param
+        13.089969389957473,    // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -7.281152949374527,// y
+            -5.2900672706322585,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.3999999999999998,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 26.179938779914945,
+            parent: EntityKey::null(),
+        },
+        7.2,                   // grav_param
+        13.089969389957473,    // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -7.281152949374527,// y
+            -5.2900672706322585,// z
+        ),
+        // body velocity
+        Vector3::new(
+            0.3999999999999998,// dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -627,26 +2904,125 @@ fn half_past_eliptical_with_90deg_periapsis_and_grav_param() {
 #[test]
 fn quarter_past_flat_eliptical() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        17.562036827601816,        // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        17.562036827601816,    // at_time
+        // body position
         Point3::new(
-            -6.990524302126245,    // x
-            2.404253560550809,     // y
-            0.0,                   // z
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            -0.24241384204161084,  // dx
-            -0.10854928913039147,  // dy
-            0.0,                   // dz
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_flat_eliptical_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        17.562036827601816,    // at_time
+        // body position
+        Point3::new(
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_flat_eliptical_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        17.562036827601816,    // at_time
+        // body position
+        Point3::new(
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -654,26 +3030,125 @@ fn quarter_past_flat_eliptical() {
 #[test]
 fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            1.5707963267948966,    // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        17.562036827601816,        // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        17.562036827601816,    // at_time
+        // body position
         Point3::new(
-            5.655452960011202,     // x
-            -2.40425356055081,     // y
-            -4.10892709058194,     // z
+            5.655452960011202, // x
+            -2.40425356055081, // y
+            -4.10892709058194, // z
         ),
+        // body velocity
         Vector3::new(
-            0.19611691788338723,   // dx
-            0.10854928913039139,   // dy
-            -0.1424872813036159,   // dz
+            0.19611691788338723,// dx
+            0.10854928913039139,// dy
+            -0.1424872813036159,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        17.562036827601816,    // at_time
+        // body position
+        Point3::new(
+            5.655452960011202, // x
+            -2.40425356055081, // y
+            -4.10892709058194, // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.19611691788338723,// dx
+            0.10854928913039139,// dy
+            -0.1424872813036159,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 1.5707963267948966,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        17.562036827601816,    // at_time
+        // body position
+        Point3::new(
+            5.655452960011202, // x
+            -2.40425356055081, // y
+            -4.10892709058194, // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.19611691788338723,// dx
+            0.10854928913039139,// dy
+            -0.1424872813036159,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -681,26 +3156,125 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
 #[test]
 fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.6283185307179586,    // inclination_angle
-            0.0,                   // ascending_node_angle
-            1.5707963267948966,    // periapsis_angle
-            0.0,                   // base_time
-            26.179938779914945,    // period_time
-        ],
-        7.2,                       // grav_param
-        6.544984694978736,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 26.179938779914945,
+            parent: EntityKey::null(),
+        },
+        7.2,                   // grav_param
+        6.544984694978736,     // at_time
+        // body position
         Point3::new(
-            -2.4042535605508095,   // x
-            -5.655452960011202,    // y
-            -4.10892709058194,     // z
+            -2.4042535605508095,// x
+            -5.655452960011202,// y
+            -4.10892709058194, // z
         ),
+        // body velocity
         Vector3::new(
-            0.29126830728580105,   // dx
-            -0.5262369119099977,   // dy
-            -0.3823334963088241,   // dz
+            0.29126830728580105,// dx
+            -0.5262369119099977,// dy
+            -0.3823334963088241,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 26.179938779914945,
+            parent: EntityKey::null(),
+        },
+        7.2,                   // grav_param
+        6.544984694978736,     // at_time
+        // body position
+        Point3::new(
+            -2.4042535605508095,// x
+            -5.655452960011202,// y
+            -4.10892709058194, // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.29126830728580105,// dx
+            -0.5262369119099977,// dy
+            -0.3823334963088241,// dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.6283185307179586,
+            ascending_node: 0.0,
+            periapsis: 1.5707963267948966,
+            base_time: 0.0,
+            period_time: 26.179938779914945,
+            parent: EntityKey::null(),
+        },
+        7.2,                   // grav_param
+        6.544984694978736,     // at_time
+        // body position
+        Point3::new(
+            -2.4042535605508095,// x
+            -5.655452960011202,// y
+            -4.10892709058194, // z
+        ),
+        // body velocity
+        Vector3::new(
+            0.29126830728580105,// dx
+            -0.5262369119099977,// dy
+            -0.3823334963088241,// dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -708,26 +3282,125 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param() {
 #[test]
 fn quarter_past_flat_eliptical_with_negative_base_time() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            -1000.0,               // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        71.28424648371075,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: -1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        71.28424648371075,     // at_time
+        // body position
         Point3::new(
-            -6.990524302126245,    // x
-            2.404253560550809,     // y
-            0.0,                   // z
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            -0.24241384204161084,  // dx
-            -0.10854928913039147,  // dy
-            0.0,                   // dz
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_flat_eliptical_with_negative_base_time_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: -1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        71.28424648371075,     // at_time
+        // body position
+        Point3::new(
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_flat_eliptical_with_negative_base_time_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: -1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        71.28424648371075,     // at_time
+        // body position
+        Point3::new(
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
@@ -735,26 +3408,125 @@ fn quarter_past_flat_eliptical_with_negative_base_time() {
 #[test]
 fn quarter_past_flat_eliptical_with_base_time_after_current_time() {
     run_orbit_test(
-        vec![
-            5.0,                   // semi_major_axis
-            3.0,                   // semi_minor_axis
-            0.0,                   // inclination_angle
-            0.0,                   // ascending_node_angle
-            0.0,                   // periapsis_angle
-            1000.0,                // base_time
-            70.24814731040726,     // period_time
-        ],
-        1.0,                       // grav_param
-        34.08797448190015,         // at_time
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        34.08797448190015,     // at_time
+        // body position
         Point3::new(
-            -6.990524302126245,    // x
-            2.404253560550809,     // y
-            0.0,                   // z
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
         ),
+        // body velocity
         Vector3::new(
-            -0.24241384204161084,  // dx
-            -0.10854928913039147,  // dy
-            0.0,                   // dz
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_position_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        34.08797448190015,     // at_time
+        // body position
+        Point3::new(
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_velocity_offset() {
+    run_orbit_test(
+        OrbitData{
+            semi_major: 5.0,
+            semi_minor: 3.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 1000.0,
+            period_time: 70.24814731040726,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        34.08797448190015,     // at_time
+        // body position
+        Point3::new(
+            -6.990524302126245,// x
+            2.404253560550809, // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            -0.24241384204161084,// dx
+            -0.10854928913039147,// dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
