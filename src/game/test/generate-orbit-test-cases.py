@@ -60,16 +60,28 @@ def format_floats(array, names, indent):
         line += ','
         lines.append(line)
     for i in range(len(names)):
-        lines[i] += ' ' * (36 - len(lines[i]))
+        lines[i] += ' ' * (32 - len(lines[i]))
         lines[i] += '// ' + names[i]
     return ''.join(lines)
 
+def format_struct(array, names, indent):
+    assert len(array) == len(names)
+    lines = []
+    for i in range(len(array)):
+        line = '\n'
+        line += '    ' * indent
+        line += names[i] + ': ' + str(float(array[i]))
+        line += ','
+        lines.append(line)
+    return ''.join(lines)
+
+# names used in Rust code
 orbit_param_names = [
-    'semi_major_axis',
-    'semi_minor_axis',
-    'inclination_angle',
-    'ascending_node_angle',
-    'periapsis_angle',
+    'semi_major',
+    'semi_minor',
+    'inclination',
+    'ascending_node',
+    'periapsis',
     'base_time',
     'period_time',
 ]
@@ -82,8 +94,9 @@ def make_test_case(test, suffix, pos_offset, vel_offset):
 #[test]
 fn ''' + fn_name + '''() {
     run_orbit_test(
-        &(''' + format_floats(test[orbit], orbit_param_names, 3) + '''
-        ),''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
+        OrbitData{''' + format_struct(test[orbit], orbit_param_names, 3) + '''
+            parent: EntityKey::null(),
+        },''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
         // body position
         Point3::new(''' + format_floats(test[position], pos_names, 3) + '''
         ),
