@@ -4,8 +4,8 @@
 use super::*;
 
 #[test]
-fn start_of_default_orbit() {
-    run_orbit_test(
+fn start_of_default_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -46,8 +46,8 @@ fn start_of_default_orbit() {
 }
 
 #[test]
-fn start_of_default_orbit_with_position_offset() {
-    run_orbit_test(
+fn start_of_default_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -80,16 +80,16 @@ fn start_of_default_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_default_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_default_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -114,24 +114,12 @@ fn start_of_default_orbit_with_velocity_offset() {
             1.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_default_orbit() {
-    run_orbit_test(
+fn quarter_past_default_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -172,8 +160,8 @@ fn quarter_past_default_orbit() {
 }
 
 #[test]
-fn quarter_past_default_orbit_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_default_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -206,16 +194,16 @@ fn quarter_past_default_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_default_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_default_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -240,24 +228,12 @@ fn quarter_past_default_orbit_with_velocity_offset() {
             0.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_default_orbit() {
-    run_orbit_test(
+fn half_past_default_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -298,8 +274,8 @@ fn half_past_default_orbit() {
 }
 
 #[test]
-fn half_past_default_orbit_with_position_offset() {
-    run_orbit_test(
+fn half_past_default_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -332,16 +308,16 @@ fn half_past_default_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_default_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_default_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -366,24 +342,12 @@ fn half_past_default_orbit_with_velocity_offset() {
             -1.0,              // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn full_rotation_default_orbit() {
-    run_orbit_test(
+fn full_rotation_default_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -424,8 +388,8 @@ fn full_rotation_default_orbit() {
 }
 
 #[test]
-fn full_rotation_default_orbit_with_position_offset() {
-    run_orbit_test(
+fn full_rotation_default_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -458,16 +422,16 @@ fn full_rotation_default_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn full_rotation_default_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn full_rotation_default_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -492,24 +456,12 @@ fn full_rotation_default_orbit_with_velocity_offset() {
             1.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_orbit_with_grav_param() {
-    run_orbit_test(
+fn half_past_orbit_with_grav_param_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -550,8 +502,8 @@ fn half_past_orbit_with_grav_param() {
 }
 
 #[test]
-fn half_past_orbit_with_grav_param_with_position_offset() {
-    run_orbit_test(
+fn half_past_orbit_with_grav_param_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -584,16 +536,16 @@ fn half_past_orbit_with_grav_param_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_orbit_with_grav_param_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_orbit_with_grav_param_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -618,24 +570,12 @@ fn half_past_orbit_with_grav_param_with_velocity_offset() {
             -1.8708286933869707,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_inclined_orbit() {
-    run_orbit_test(
+fn start_of_inclined_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -676,8 +616,8 @@ fn start_of_inclined_orbit() {
 }
 
 #[test]
-fn start_of_inclined_orbit_with_position_offset() {
-    run_orbit_test(
+fn start_of_inclined_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -710,16 +650,16 @@ fn start_of_inclined_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_inclined_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_inclined_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -744,24 +684,12 @@ fn start_of_inclined_orbit_with_velocity_offset() {
             0.8090169943749475,// dy
             0.5877852522924731,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_inclined_orbit() {
-    run_orbit_test(
+fn quarter_past_inclined_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -802,8 +730,8 @@ fn quarter_past_inclined_orbit() {
 }
 
 #[test]
-fn quarter_past_inclined_orbit_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_inclined_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -836,16 +764,16 @@ fn quarter_past_inclined_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_inclined_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_inclined_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -870,24 +798,12 @@ fn quarter_past_inclined_orbit_with_velocity_offset() {
             0.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_inclined_orbit() {
-    run_orbit_test(
+fn half_past_inclined_orbit_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -928,8 +844,8 @@ fn half_past_inclined_orbit() {
 }
 
 #[test]
-fn half_past_inclined_orbit_with_position_offset() {
-    run_orbit_test(
+fn half_past_inclined_orbit_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -962,16 +878,16 @@ fn half_past_inclined_orbit_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_inclined_orbit_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_inclined_orbit_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -996,24 +912,12 @@ fn half_past_inclined_orbit_with_velocity_offset() {
             -0.8090169943749475,// dy
             -0.5877852522924731,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_90deg_ascending_node() {
-    run_orbit_test(
+fn start_of_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1054,8 +958,8 @@ fn start_of_90deg_ascending_node() {
 }
 
 #[test]
-fn start_of_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn start_of_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1088,16 +992,16 @@ fn start_of_90deg_ascending_node_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1122,24 +1026,12 @@ fn start_of_90deg_ascending_node_with_velocity_offset() {
             0.0,               // dy
             0.5877852522924731,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_90deg_ascending_node() {
-    run_orbit_test(
+fn quarter_past_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1180,8 +1072,8 @@ fn quarter_past_90deg_ascending_node() {
 }
 
 #[test]
-fn quarter_past_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1214,16 +1106,16 @@ fn quarter_past_90deg_ascending_node_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1248,24 +1140,12 @@ fn quarter_past_90deg_ascending_node_with_velocity_offset() {
             -1.0,              // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_90deg_ascending_node() {
-    run_orbit_test(
+fn half_past_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1306,8 +1186,8 @@ fn half_past_90deg_ascending_node() {
 }
 
 #[test]
-fn half_past_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn half_past_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1340,16 +1220,16 @@ fn half_past_90deg_ascending_node_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 1.0,
             semi_minor: 1.0,
@@ -1374,24 +1254,12 @@ fn half_past_90deg_ascending_node_with_velocity_offset() {
             0.0,               // dy
             -0.5877852522924731,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_flat_eliptical() {
-    run_orbit_test(
+fn start_of_flat_eliptical_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1432,8 +1300,8 @@ fn start_of_flat_eliptical() {
 }
 
 #[test]
-fn start_of_flat_eliptical_with_position_offset() {
-    run_orbit_test(
+fn start_of_flat_eliptical_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1466,16 +1334,16 @@ fn start_of_flat_eliptical_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_flat_eliptical_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_flat_eliptical_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1500,24 +1368,12 @@ fn start_of_flat_eliptical_with_velocity_offset() {
             1.3416407864998738,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_flat_eliptical_with_start_time() {
-    run_orbit_test(
+fn start_of_flat_eliptical_with_start_time_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1558,8 +1414,8 @@ fn start_of_flat_eliptical_with_start_time() {
 }
 
 #[test]
-fn start_of_flat_eliptical_with_start_time_with_position_offset() {
-    run_orbit_test(
+fn start_of_flat_eliptical_with_start_time_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1592,16 +1448,16 @@ fn start_of_flat_eliptical_with_start_time_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_flat_eliptical_with_start_time_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_flat_eliptical_with_start_time_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1626,24 +1482,12 @@ fn start_of_flat_eliptical_with_start_time_with_velocity_offset() {
             1.3416407864998738,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_flat_eliptical() {
-    run_orbit_test(
+fn half_past_flat_eliptical_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1684,8 +1528,8 @@ fn half_past_flat_eliptical() {
 }
 
 #[test]
-fn half_past_flat_eliptical_with_position_offset() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1718,16 +1562,16 @@ fn half_past_flat_eliptical_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_flat_eliptical_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_flat_eliptical_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1752,24 +1596,12 @@ fn half_past_flat_eliptical_with_velocity_offset() {
             -0.1490711984999859,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_flat_eliptical_with_negative_base_time() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_negative_base_time_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1810,8 +1642,8 @@ fn half_past_flat_eliptical_with_negative_base_time() {
 }
 
 #[test]
-fn half_past_flat_eliptical_with_negative_base_time_with_position_offset() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_negative_base_time_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1844,16 +1676,16 @@ fn half_past_flat_eliptical_with_negative_base_time_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_flat_eliptical_with_negative_base_time_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_negative_base_time_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1878,24 +1710,12 @@ fn half_past_flat_eliptical_with_negative_base_time_with_velocity_offset() {
             -0.1490711984999859,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_flat_eliptical_with_base_time_after_current_time() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_base_time_after_current_time_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1936,8 +1756,8 @@ fn half_past_flat_eliptical_with_base_time_after_current_time() {
 }
 
 #[test]
-fn half_past_flat_eliptical_with_base_time_after_current_time_with_position_offset() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_base_time_after_current_time_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -1970,16 +1790,16 @@ fn half_past_flat_eliptical_with_base_time_after_current_time_with_position_offs
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_flat_eliptical_with_base_time_after_current_time_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_flat_eliptical_with_base_time_after_current_time_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2004,24 +1824,12 @@ fn half_past_flat_eliptical_with_base_time_after_current_time_with_velocity_offs
             -0.1490711984999859,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_inclined_eliptical() {
-    run_orbit_test(
+fn start_of_inclined_eliptical_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2062,8 +1870,8 @@ fn start_of_inclined_eliptical() {
 }
 
 #[test]
-fn start_of_inclined_eliptical_with_position_offset() {
-    run_orbit_test(
+fn start_of_inclined_eliptical_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2096,16 +1904,16 @@ fn start_of_inclined_eliptical_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_inclined_eliptical_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_inclined_eliptical_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2130,24 +1938,12 @@ fn start_of_inclined_eliptical_with_velocity_offset() {
             1.0854101966249685,// dy
             0.7885966681787004,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_ascending_node() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2188,8 +1984,8 @@ fn start_of_eliptical_with_90deg_ascending_node() {
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2222,16 +2018,16 @@ fn start_of_eliptical_with_90deg_ascending_node_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2256,24 +2052,12 @@ fn start_of_eliptical_with_90deg_ascending_node_with_velocity_offset() {
             0.0,               // dy
             0.7885966681787004,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_periapsis() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_periapsis_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2314,8 +2098,8 @@ fn start_of_eliptical_with_90deg_periapsis() {
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_periapsis_with_position_offset() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_periapsis_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2348,16 +2132,16 @@ fn start_of_eliptical_with_90deg_periapsis_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_periapsis_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_periapsis_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2382,24 +2166,12 @@ fn start_of_eliptical_with_90deg_periapsis_with_velocity_offset() {
             0.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2440,8 +2212,8 @@ fn half_past_eliptical_with_90deg_periapsis() {
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_with_position_offset() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2474,16 +2246,16 @@ fn half_past_eliptical_with_90deg_periapsis_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2508,24 +2280,12 @@ fn half_past_eliptical_with_90deg_periapsis_with_velocity_offset() {
             0.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2566,8 +2326,8 @@ fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2600,16 +2360,16 @@ fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_positio
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2634,24 +2394,12 @@ fn start_of_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocit
             -1.3416407864998738,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2692,8 +2440,8 @@ fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2726,16 +2474,16 @@ fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_positi
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2760,24 +2508,12 @@ fn half_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_veloci
             0.1490711984999859,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_and_grav_param() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_and_grav_param_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2818,8 +2554,8 @@ fn half_past_eliptical_with_90deg_periapsis_and_grav_param() {
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_position_offset() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2852,16 +2588,16 @@ fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_position_offset(
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_velocity_offset() {
-    run_orbit_test(
+fn half_past_eliptical_with_90deg_periapsis_and_grav_param_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2886,24 +2622,12 @@ fn half_past_eliptical_with_90deg_periapsis_and_grav_param_with_velocity_offset(
             0.0,               // dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_flat_eliptical() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2944,8 +2668,8 @@ fn quarter_past_flat_eliptical() {
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -2978,16 +2702,16 @@ fn quarter_past_flat_eliptical_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3012,24 +2736,12 @@ fn quarter_past_flat_eliptical_with_velocity_offset() {
             -0.10854928913039147,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
-    run_orbit_test(
+fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3070,8 +2782,8 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node() {
 }
 
 #[test]
-fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3104,16 +2816,16 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_pos
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3138,24 +2850,12 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_90deg_ascending_node_with_vel
             0.10854928913039139,// dy
             -0.1424872813036159,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param() {
-    run_orbit_test(
+fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3196,8 +2896,8 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param() {
 }
 
 #[test]
-fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3230,16 +2930,16 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_position_offs
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3264,24 +2964,12 @@ fn quarter_past_eliptical_with_90deg_periapsis_and_grav_param_with_velocity_offs
             -0.5262369119099977,// dy
             -0.3823334963088241,// dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_negative_base_time() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_negative_base_time_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3322,8 +3010,8 @@ fn quarter_past_flat_eliptical_with_negative_base_time() {
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_negative_base_time_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_negative_base_time_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3356,16 +3044,16 @@ fn quarter_past_flat_eliptical_with_negative_base_time_with_position_offset() {
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_negative_base_time_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_negative_base_time_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3390,24 +3078,12 @@ fn quarter_past_flat_eliptical_with_negative_base_time_with_velocity_offset() {
             -0.10854928913039147,// dy
             0.0,               // dz
         ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
-        ),
     );
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_base_time_after_current_time() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_base_time_after_current_time_at_origin() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3448,8 +3124,8 @@ fn quarter_past_flat_eliptical_with_base_time_after_current_time() {
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_position_offset() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_offsets() {
+    static_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3482,16 +3158,16 @@ fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_position_o
         ),
         // velocity offset
         Vector3::new(
-            0.0,               // dx
-            0.0,               // dy
-            0.0,               // dz
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
         ),
     );
 }
 
 #[test]
-fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_velocity_offset() {
-    run_orbit_test(
+fn quarter_past_flat_eliptical_with_base_time_after_current_time_dynamic() {
+    dynamic_orbit_test(
         OrbitData{
             semi_major: 5.0,
             semi_minor: 3.0,
@@ -3515,18 +3191,6 @@ fn quarter_past_flat_eliptical_with_base_time_after_current_time_with_velocity_o
             -0.24241384204161084,// dx
             -0.10854928913039147,// dy
             0.0,               // dz
-        ),
-        // position offset
-        Point3::new(
-            0.0,               // x
-            0.0,               // y
-            0.0,               // z
-        ),
-        // velocity offset
-        Vector3::new(
-            -88.0,             // dx
-            123.0,             // dy
-            -68.4,             // dz
         ),
     );
 }
