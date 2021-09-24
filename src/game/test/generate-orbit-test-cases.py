@@ -88,12 +88,12 @@ orbit_param_names = [
 pos_names = ['x', 'y', 'z']
 vel_names = ['dx', 'dy', 'dz']
 
-def make_test_case(test, suffix, pos_offset, vel_offset):
+def make_test_case(test, suffix, fn, pos_offset, vel_offset):
     fn_name = test[name].replace(' ', '_') + suffix
-    return '''
+    result = '''
 #[test]
 fn ''' + fn_name + '''() {
-    run_orbit_test(
+    ''' + fn + '''(
         OrbitData{''' + format_struct(test[orbit], orbit_param_names, 3) + '''
             parent: EntityKey::null(),
         },''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
@@ -102,22 +102,26 @@ fn ''' + fn_name + '''() {
         ),
         // body velocity
         Vector3::new(''' + format_floats(test[velocity], vel_names, 3) + '''
-        ),
+        ),'''
+    if pos_offset is not None and vel_offset is not None:
+        result += '''
         // position offset
         Point3::new(''' + format_floats(pos_offset, pos_names, 3) + '''
         ),
         // velocity offset
         Vector3::new(''' + format_floats(vel_offset, vel_names, 3) + '''
-        ),
+        ),'''
+    result += '''
     );
 }
 '''
+    return result;
 
 output_cases = 0
 for test in test_data:
-    code += make_test_case(test, '', [0, 0, 0], [0, 0, 0])
-    code += make_test_case(test, '_with_position_offset', [12, -500, 106.7], [0, 0, 0])
-    code += make_test_case(test, '_with_velocity_offset', [0, 0, 0], [-88, 123, -68.4])
+    code += make_test_case(test, '_at_origin', 'static_orbit_test', [0, 0, 0], [0, 0, 0])
+    code += make_test_case(test, '_with_offsets', 'static_orbit_test', [12, -500, 106.7], [-88, 123, -68.4])
+    code += make_test_case(test, '_dynamic', 'dynamic_orbit_test', None, None)
     output_cases += 3
 
 # Delete output file if it already exists
