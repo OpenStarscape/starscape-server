@@ -3,4 +3,4 @@ mod orbit_test_cases;
 mod run_orbit_test;
 
 use super::*;
-use run_orbit_test::run_orbit_test;
+use run_orbit_test::*;
