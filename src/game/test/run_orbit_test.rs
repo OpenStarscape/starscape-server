@@ -3,16 +3,17 @@ use super::*;
 const DYNAMIC_TEST_RELATIVE_DELTA_TIME: f64 = 0.0001;
 const DYNAMIC_TEST_POSITION_RELATIVE_THRESHOLD: f64 = 0.02;
 const DYNAMIC_TEST_VELOCITY_RELATIVE_THRESHOLD: f64 = 0.03;
+const ORBIT_EPSILON: f64 = 1.0e-8;
+const ORBIT_MAX_ULPS: u32 = 12;
 
-/// Modulo that always returns a positive result, useful for canonicalizing things like angles
-fn positive_mod(value: f64, modulo: f64) -> f64 {
-    value - (value / modulo).floor() * modulo
+/// Modulo that returns a positive (or very slightly negative) result,
+/// useful for canonicalizing things like angles
+fn positiveish_mod(value: f64, modulo: f64) -> f64 {
+    value - ((value + ORBIT_EPSILON) / modulo).floor() * modulo
 }
 
 fn canonicalize_orbit(orbit: &OrbitData) -> OrbitData {
     let mut orbit = *orbit;
-    assert!(orbit.base_time >= 0.0);
-    assert!(orbit.base_time <= orbit.period_time);
     if ulps_eq!(orbit.inclination, 0.0) {
         // flat orbit. ascending_node doesn't matter.
         orbit.periapsis += orbit.ascending_node;
@@ -20,28 +21,43 @@ fn canonicalize_orbit(orbit: &OrbitData) -> OrbitData {
     }
     if ulps_eq!(orbit.semi_major, orbit.semi_minor) {
         // circular orbit. periapsis doesn't matter.
-        orbit.base_time += orbit.periapsis * orbit.period_time / TAU;
+        orbit.base_time -= orbit.periapsis * orbit.period_time / TAU;
         orbit.periapsis = 0.0;
     }
     // Make sure base_time is always between 0 and period_time
-    orbit.base_time = positive_mod(orbit.base_time, orbit.period_time);
-    orbit.inclination = positive_mod(orbit.inclination, TAU);
-    orbit.ascending_node = positive_mod(orbit.ascending_node, TAU);
-    orbit.periapsis = positive_mod(orbit.periapsis, TAU);
+    orbit.base_time = positiveish_mod(orbit.base_time, orbit.period_time);
+    orbit.inclination = positiveish_mod(orbit.inclination, TAU);
+    orbit.ascending_node = positiveish_mod(orbit.ascending_node, TAU);
+    orbit.periapsis = positiveish_mod(orbit.periapsis, TAU);
     orbit
 }
 
+fn orbit_params_as_slice(orbit: &OrbitData) -> [f64; 7] {
+    [
+        orbit.semi_major,
+        orbit.semi_minor,
+        orbit.inclination,
+        orbit.ascending_node,
+        orbit.periapsis,
+        orbit.base_time,
+        orbit.period_time,
+    ]
+}
+
 fn orbits_eq(a: &OrbitData, b: &OrbitData) -> bool {
-    let a = canonicalize_orbit(a);
-    let b = canonicalize_orbit(b);
-    return ulps_eq!(a.semi_major, b.semi_major)
-        && ulps_eq!(a.semi_minor, b.semi_minor)
-        && ulps_eq!(a.inclination, b.inclination)
-        && ulps_eq!(a.ascending_node, b.ascending_node)
-        && ulps_eq!(a.periapsis, b.periapsis)
-        && ulps_eq!(a.base_time, b.base_time)
-        && ulps_eq!(a.period_time, b.period_time)
-        && a.parent == b.parent;
+    let a_params = orbit_params_as_slice(&a);
+    let b_params = orbit_params_as_slice(&b);
+    for i in 0..a_params.len() {
+        if ulps_ne!(
+            a_params[i],
+            b_params[i],
+            max_ulps = ORBIT_MAX_ULPS,
+            epsilon = ORBIT_EPSILON
+        ) {
+            return false;
+        }
+    }
+    a.parent == b.parent
 }
 
 pub fn static_orbit_test(
@@ -72,6 +88,11 @@ pub fn static_orbit_test(
         .with_mass(parent_mass / 10.0)
         .with_name("body".to_string())
         .install(&mut state, body);
+    state
+        .component_mut::<Body>(body)
+        .unwrap()
+        .gravity_parent
+        .set(orbit.parent);
     let orbit_value = state.get_property(ConnectionKey::null(), body, "orbit");
     match orbit_value {
         Ok(value) => {
@@ -80,8 +101,10 @@ pub fn static_orbit_test(
             }
             match RequestResult::<OrbitData>::from(value) {
                 Ok(actual) => {
-                    if !orbits_eq(&actual, &orbit) {
-                        panic!("expected {:#?}, got {:#?}", orbit, actual);
+                    let expected = canonicalize_orbit(&orbit);
+                    let actual = canonicalize_orbit(&actual);
+                    if !orbits_eq(&actual, &expected) {
+                        panic!("expected {:#?}, got {:#?}", expected, actual);
                     }
                 }
                 Err(e) => panic!("Orbit property produced invalid type: {}", e),
@@ -100,7 +123,7 @@ pub fn dynamic_orbit_test(
     position: Point3<f64>,
     velocity: Vector3<f64>,
 ) {
-    let run_time = positive_mod(at_time - orbit.base_time, orbit.period_time);
+    let run_time = positiveish_mod(at_time - orbit.base_time, orbit.period_time);
     let rotation = Basis3::from_angle_z(Rad(orbit.ascending_node))
         * Basis3::from_angle_x(Rad(orbit.inclination))
         * Basis3::from_angle_z(Rad(orbit.periapsis));
