@@ -346,6 +346,120 @@ fn half_past_default_orbit_dynamic() {
 }
 
 #[test]
+fn three_quarters_past_default_orbit_at_origin() {
+    static_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        4.71238898038469,      // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -1.0,              // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            1.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            0.0,               // x
+            0.0,               // y
+            0.0,               // z
+        ),
+        // velocity offset
+        Vector3::new(
+            0.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
+fn three_quarters_past_default_orbit_with_offsets() {
+    static_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        4.71238898038469,      // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -1.0,              // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            1.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+        // position offset
+        Point3::new(
+            12.0,              // x
+            -500.0,            // y
+            106.7,             // z
+        ),
+        // velocity offset
+        Vector3::new(
+            -88.0,             // dx
+            123.0,             // dy
+            -68.4,             // dz
+        ),
+    );
+}
+
+#[test]
+fn three_quarters_past_default_orbit_dynamic() {
+    dynamic_orbit_test(
+        OrbitData{
+            semi_major: 1.0,
+            semi_minor: 1.0,
+            inclination: 0.0,
+            ascending_node: 0.0,
+            periapsis: 0.0,
+            base_time: 0.0,
+            period_time: 6.283185307179586,
+            parent: EntityKey::null(),
+        },
+        1.0,                   // grav_param
+        4.71238898038469,      // at_time
+        // body position
+        Point3::new(
+            0.0,               // x
+            -1.0,              // y
+            0.0,               // z
+        ),
+        // body velocity
+        Vector3::new(
+            1.0,               // dx
+            0.0,               // dy
+            0.0,               // dz
+        ),
+    );
+}
+
+#[test]
 fn full_rotation_default_orbit_at_origin() {
     static_orbit_test(
         OrbitData{
