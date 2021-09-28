@@ -31,12 +31,16 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
 - a: semi-major axis (long radius) of the orbit (unit: km)
 - b: semi-minor axis (short radius) of the orbit (unit: km)
 - e: eccentricity of the orbit
+- →e: eccentricity vector (magnitude: eccentricity, direction: points from apoapsis to periapsis)
 - θₘ: angle between relative velocity and direction towards the central body
 - T: orbital period (time taken to complete an orbit)
+- f: distance from center to a focus
+- ε: specific orbital energy
 
 ## Equations
 - E = ½mv² - (GmM)/r
-- L = mrv⋅sin(θₘ)
+- L = hm
+- h = rv⋅sin(θₘ)
 - rₚ + rₐ = 2a _(obvious)_
 - rₚrₐ = b² _(less obvious)_
 - b = a√(1 - e²)
@@ -55,6 +59,11 @@ Other units and constants are derived from these (so our G is 6.67430e-17 instea
   - parabola: e = 1
 - rSOI ≈ a(m/M)^(2/5)
 - T = 𝜏√(a³/GM) _(Kepler's Third Law)_
+- f = √(a² - b²)
+- rₚ = a - √(a² - b²)
+- e = √(1 + 2εh²/(GM)²)
+- ε = -GM/2a
+- →e = (1/GM)((v² - (GM/r))→r - (→r⋅→v)→v)
 
 ## Laws
 - Conservation of angular momentum: in free orbit L stays the same (as does h assuming mass doesn't change)
