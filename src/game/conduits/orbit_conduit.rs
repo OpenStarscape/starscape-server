@@ -147,30 +147,98 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
         let body = state.component::<Body>(self.body)?;
         if let Ok(parent_body) = state.component::<Body>(parent) {
             let gm = GRAVITATIONAL_CONSTANT * *parent_body.mass;
+            let relitive_pos = *body.position - *parent_body.position;
+            let relitive_vel = *body.velocity - *parent_body.velocity;
+            let current_time = state.time();
+            let r = relitive_pos.magnitude();
+            let v = relitive_vel.magnitude();
+            let up_unit = relitive_pos.cross(relitive_vel).normalize();
+            let semi_major = r * gm / (2.0 * gm - r * v * v);
+            // let specific_angular_momentum =
+            //     r * relitive_vel.dot(up_unit.cross(relitive_pos).normalize());
+            // also works:
+            // let specific_angular_momentum = r
+            //     * v
+            //     * (relitive_vel.dot(relitive_pos)
+            //         / (relitive_vel.magnitude() * relitive_pos.magnitude()))
+            //     .acos()
+            //     .sin();
+            // let specific_orbital_energy = -gm / (2.0 * semi_major);
+            let eccentricity_vec = (1.0 / gm)
+                * ((v * v - (gm / r)) * relitive_pos
+                    - (relitive_pos.dot(relitive_vel)) * relitive_vel);
+            let eccentricity = eccentricity_vec.magnitude();
+            let major_axis_unit = if ulps_eq!(eccentricity, 0.0) {
+                relitive_vel.normalize()
+            } else {
+                eccentricity_vec / eccentricity
+            };
+            // also works:
+            // let eccentricity =
+            //     (1.0
+            //         + (2.0
+            //             * specific_orbital_energy
+            //             * specific_angular_momentum
+            //             * specific_angular_momentum)
+            //             / (gm * gm))
+            //         .sqrt();
+            let inclination = Vector3::unit_z().dot(up_unit).acos();
+            let ascending_node_unit = if ulps_eq!(up_unit, Vector3::unit_z()) {
+                relitive_vel.normalize()
+            } else {
+                Vector3::unit_z().cross(up_unit).normalize()
+            };
+            let ascending_node = ascending_node_unit.y.atan2(ascending_node_unit.x);
+            let semi_minor = semi_major * (1.0 - eccentricity * eccentricity).sqrt();
+            let period_time = TAU * (semi_major * semi_major * semi_major / gm).sqrt();
+            let minor_axis_unit = up_unit.cross(major_axis_unit).normalize();
+            let periapsis = (-minor_axis_unit.dot(ascending_node_unit))
+                .atan2(major_axis_unit.dot(ascending_node_unit));
+            // assert!(
+            //     ulps_eq!(major_axis_unit.dot(up_unit), 0.0),
+            //     "eccentricity_vec: {:?}, up_unit: {:?}",
+            //     eccentricity_vec,
+            //     up_unit
+            // );
+            let orbital_plane_pos = Vector2::new(
+                major_axis_unit.dot(relitive_pos),
+                minor_axis_unit.dot(relitive_pos),
+            );
+            // assert!(
+            //     ulps_eq!(orbital_plane_pos.magnitude(), relitive_pos.magnitude()),
+            //     "orbital_plane_pos: {:?}, relitive_pos: {:?}",
+            //     orbital_plane_pos,
+            //     relitive_pos
+            // );
+            let center_to_focus = (semi_major * semi_major - semi_minor * semi_minor).sqrt();
+            let eccentricic_anomoly = (orbital_plane_pos.y * semi_major / semi_minor)
+                .atan2(orbital_plane_pos.x + center_to_focus);
+            let mean_anomoly = eccentricic_anomoly - eccentricity * eccentricic_anomoly.sin();
+            let base_time = current_time - mean_anomoly * period_time / TAU;
+            if semi_major.is_finite()
+                && semi_minor.is_finite()
+                && inclination.is_finite()
+                && ascending_node.is_finite()
+                && periapsis.is_finite()
+                && base_time.is_finite()
+                && period_time.is_finite()
+            {
+                Ok(Some(OrbitData {
+                    semi_major,
+                    semi_minor,
+                    inclination,
+                    ascending_node,
+                    periapsis,
+                    base_time,
+                    period_time,
+                    parent,
+                }))
+            } else {
+                Ok(None)
+            }
         } else {
+            Ok(None)
         }
-        /*
-        Ok(OrbitData {
-            semi_major: 100.0,
-            semi_minor: 50.0,
-            inclination: 1.0,
-            ascending_node: 0.5,
-            periapsis: 2.0,
-            base_time: 0.0,
-            period_time: 10.0,
-            parent,
-        })
-        */
-        Ok(Some(OrbitData {
-            semi_major: 100.0,
-            semi_minor: 50.0,
-            inclination: TAU / 6.0,
-            ascending_node: 0.0,
-            periapsis: TAU / 3.0,
-            base_time: 0.0,
-            period_time: 10.0,
-            parent,
-        }))
     }
 
     fn input(&self, _: &mut State, _: ReadOnlyPropSetType) -> RequestResult<()> {
