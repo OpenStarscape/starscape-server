@@ -5,7 +5,6 @@ use super::*;
 mod autopilot;
 mod components;
 mod conduits;
-#[allow(clippy::module_inception)]
 mod game;
 mod physics;
 #[cfg(test)]

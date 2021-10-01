@@ -6,7 +6,6 @@ use super::*;
 mod component_key;
 mod conduit;
 mod element;
-#[allow(clippy::module_inception)]
 mod engine;
 mod entity;
 mod notif_queue;

@@ -93,7 +93,6 @@ impl SyncSubscriberList {
 }
 
 #[cfg(test)]
-#[allow(clippy::type_complexity)]
 mod tests {
     use super::*;
 

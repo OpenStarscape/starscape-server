@@ -4,7 +4,6 @@ use super::*;
 
 mod http;
 mod ip_addrs;
-#[allow(clippy::module_inception)]
 mod server;
 mod session;
 mod tcp;

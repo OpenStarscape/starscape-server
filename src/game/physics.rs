@@ -17,7 +17,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
         mass: f64,
         /// radius of the sphere-of-influence squared
         sphere_of_influence2: f64,
-    };
+    }
     let mut wells: Vec<GravityWell> = state
         .components_iter::<GravityBody>()
         .map(|(entity, _)| {
@@ -104,7 +104,6 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
     });
 }
 
-#[allow(clippy::many_single_char_names)]
 fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> {
     // r = r1 + r2
     // x = x1 - x2, y = …, z = …
@@ -182,7 +181,6 @@ pub fn apply_motion(state: &mut State, dt: f64) {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
 mod gravity_tests {
     use super::*;
 
@@ -203,9 +201,9 @@ mod gravity_tests {
         let velocity = Vector3::new(0.0, 0.0, 0.0);
         let mut state = State::new();
         let body = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
         apply_gravity(&mut state, 1.0);
-        assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
     }
 
     #[test]
@@ -218,9 +216,9 @@ mod gravity_tests {
             Body::new().with_mass(EARTH_MASS).with_position(position),
             true,
         );
-        assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
         apply_gravity(&mut state, 1.0);
-        assert_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
     }
 
     #[test]
@@ -229,12 +227,12 @@ mod gravity_tests {
         let mut state = State::new();
         let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
         let body = create_body_entity(&mut state, Body::new().with_position(position), false);
-        assert_eq!(state.component::<Body>(body).unwrap().velocity.x, 0.0);
+        assert_ulps_eq!(state.component::<Body>(body).unwrap().velocity.x, 0.0);
         apply_gravity(&mut state, 1.0);
         let v = *state.component::<Body>(body).unwrap().velocity;
         assert!(v.x < -EPSILON);
-        assert_eq!(v.y, 0.0);
-        assert_eq!(v.z, 0.0);
+        assert_ulps_eq!(v.y, 0.0);
+        assert_ulps_eq!(v.z, 0.0);
     }
 
     #[test]
@@ -253,7 +251,7 @@ mod gravity_tests {
         apply_gravity(&mut state_b, 0.5);
         let v_b = *state_b.component::<Body>(body_b).unwrap().velocity;
 
-        assert!((v_a.x - (v_b.x * 2.0)).abs() < EPSILON);
+        assert_ulps_eq!(v_a.x - (v_b.x * 2.0), 0.0);
     }
 
     #[test]
@@ -265,9 +263,9 @@ mod gravity_tests {
         apply_gravity(&mut state, 1.0);
         let v = *state.component::<Body>(body).unwrap().velocity;
         assert!(v.x < -EPSILON);
-        assert!(v.y.abs() < EPSILON);
+        assert_ulps_eq!(v.y, 0.0);
         assert!(v.z > EPSILON);
-        assert!((v.x + v.z).abs() < EPSILON);
+        assert_ulps_eq!(v.x + v.z, 0.0);
     }
 
     #[test]
@@ -285,9 +283,7 @@ mod gravity_tests {
         let body = create_body_entity(&mut state, Body::new().with_position(position), false);
         apply_gravity(&mut state, 1.0);
         let v = *state.component::<Body>(body).unwrap().velocity;
-        assert!(v.x.abs() < EPSILON);
-        assert!(v.y.abs() < EPSILON);
-        assert!(v.z.abs() < EPSILON);
+        assert_ulps_eq!(v, Vector3::zero());
     }
 
     #[test]
@@ -351,20 +347,18 @@ mod gravity_tests {
         let body = create_body_entity(&mut state, Body::new().with_position(position), false);
         apply_gravity(&mut state, 1.0);
         let v = *state.component::<Body>(body).unwrap().velocity;
-        assert!(v.y.abs() < EPSILON);
-        assert!(v.z.abs() < EPSILON);
+        assert_ulps_eq!(v.y, 0.0);
+        assert_ulps_eq!(v.z, 0.0);
         // When converted to meters/s, should be the well known value 9.81 (measured accel due to
         // gravity on earth's surface). Because of various factors (centripetal force, earth's mass
         // being distributed throughout the planet, etc) it wont be exact.
         let acce_m_per_s = v.x * 1000.0;
-        println!("{}", acce_m_per_s);
         assert!(acce_m_per_s > 9.7);
         assert!(acce_m_per_s < 9.9);
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
 mod collision_tests {
     use super::*;
 
@@ -422,7 +416,7 @@ mod collision_tests {
         assert_eq!(col1[0].body, b2);
         assert_eq!(col2[0].body, b1);
         assert_eq!(col1[0].time_until, col2[0].time_until);
-        assert!((col1[0].time_until - time).abs() < EPSILON);
+        assert_ulps_eq!(col1[0].time_until - time, 0.0, epsilon = 0.0001);
     }
 
     #[test]
@@ -618,7 +612,6 @@ mod collision_tests {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
 mod motion_tests {
     use super::*;
 
@@ -632,16 +625,16 @@ mod motion_tests {
     fn no_motion_if_zero_velocity() {
         let mut state = State::new();
         let body = create_body_entity(&mut state, Body::new());
-        assert_eq!(
+        assert_ulps_eq!(
             *state.component::<Body>(body).unwrap().position,
             Point3::new(0.0, 0.0, 0.0)
         );
-        assert_eq!(
+        assert_ulps_eq!(
             *state.component::<Body>(body).unwrap().velocity,
             Vector3::new(0.0, 0.0, 0.0)
         );
         apply_motion(&mut state, 1.0);
-        assert_eq!(
+        assert_ulps_eq!(
             *state.component::<Body>(body).unwrap().position,
             Point3::new(0.0, 0.0, 0.0)
         );
@@ -661,11 +654,11 @@ mod motion_tests {
             Body::new().with_velocity(Vector3::new(0.0, 0.5, 0.0)),
         );
         apply_motion(&mut state, 1.0);
-        assert_eq!(
+        assert_ulps_eq!(
             *state.component::<Body>(body1).unwrap().position,
             Point3::new(0.0, 4.0, 2.0)
         );
-        assert_eq!(
+        assert_ulps_eq!(
             *state.component::<Body>(body2).unwrap().position,
             Point3::new(0.0, 0.5, 0.0)
         );
@@ -679,7 +672,7 @@ mod motion_tests {
             Body::new().with_velocity(Vector3::new(4.0, 0.0, 0.0)),
         );
         apply_motion(&mut state, 0.5);
-        assert_eq!(
+        assert_ulps_eq!(
             *state.component::<Body>(body).unwrap().position,
             Point3::new(2.0, 0.0, 0.0)
         );
