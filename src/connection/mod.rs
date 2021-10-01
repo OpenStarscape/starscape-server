@@ -4,7 +4,6 @@
 use super::*;
 
 mod bundle_handler;
-#[allow(clippy::module_inception)]
 mod connection;
 mod connection_collection;
 mod event;

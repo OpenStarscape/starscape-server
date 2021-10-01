@@ -2,6 +2,14 @@
 //! space flight simulator that encourages 3rd party clients. See `../hacking.md` for an
 //! architecture overview and coding guidlines.
 
+#![allow(
+    clippy::module_inception,
+    clippy::suspicious_operation_groupings,
+    clippy::new_ret_no_self,
+    clippy::unit_arg,
+    clippy::many_single_char_names
+)]
+
 #[macro_use]
 extern crate log;
 
@@ -9,9 +17,7 @@ extern crate log;
 extern crate slotmap;
 
 mod connection;
-#[allow(clippy::new_ret_no_self)]
 mod engine;
-#[allow(clippy::unit_arg)]
 mod game;
 mod helpers;
 mod server;

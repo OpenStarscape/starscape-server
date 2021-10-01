@@ -134,13 +134,10 @@ impl JsonDecoder {
                 self.decode_value(
                     ctx,
                     datagram.get("value").ok_or_else(|| {
-                        BadMessage(
-                            format!(
-                                "fire request does not have a value: {}",
-                                String::from_utf8_lossy(bytes)
-                            )
-                            .into(),
-                        )
+                        BadMessage(format!(
+                            "fire request does not have a value: {}",
+                            String::from_utf8_lossy(bytes)
+                        ))
                     })?,
                 )?,
             ),
@@ -150,13 +147,10 @@ impl JsonDecoder {
                 self.decode_value(
                     ctx,
                     datagram.get("value").ok_or_else(|| {
-                        BadMessage(
-                            format!(
-                                "set request does not have a value: {}",
-                                String::from_utf8_lossy(bytes)
-                            )
-                            .into(),
-                        )
+                        BadMessage(format!(
+                            "set request does not have a value: {}",
+                            String::from_utf8_lossy(bytes)
+                        ))
                     })?,
                 )?,
             ),

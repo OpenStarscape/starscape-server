@@ -3,7 +3,6 @@ use super::*;
 mod action_conduit;
 mod caching_conduit;
 mod component_list_conduit;
-#[allow(clippy::module_inception)]
 mod conduit;
 mod map_input_conduit;
 mod map_output_conduit;

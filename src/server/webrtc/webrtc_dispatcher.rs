@@ -158,7 +158,6 @@ mod tests {
         vec![value, value, value]
     }
 
-    #[allow(clippy::type_complexity)]
     fn new_test() -> (
         Receiver<Box<dyn SessionBuilder>>,
         tokio::sync::mpsc::Receiver<(SocketAddr, WebrtcMessage)>,
