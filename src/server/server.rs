@@ -46,21 +46,14 @@ impl Server {
                 warp_filter = warp_filter.or(filter).unify().boxed();
             }
 
-            if let Some(webrtc) = &http.webrtc_experimental {
+            if http.enable_webrtc_experimental {
                 // Firefox doesn't work when WebRTC is running on a loopback interface. This address is
                 // shared automatically by webrtc_unreliable.
-                if webrtc.loopback != Some(false) {
-                    warn!("non-loopback IP not requested for WebRTC server. If a loopback IP is selected, WebRTC may not work in Firefox");
-                }
-                let ip = get_ip(
-                    webrtc.interface_name.as_deref(),
-                    Some(IpVersion::V4),
-                    webrtc.loopback,
-                )?;
+                let ip = get_ip(None, Some(IpVersion::V4), Some(false))?;
                 if ip.is_loopback() {
                     warn!("loopback IP selected for WebRTC server, which may not work in Firefox");
                 }
-                let addr = SocketAddr::new(ip, webrtc.port.unwrap_or(DEFAULT_WEB_RTC_PORT));
+                let addr = SocketAddr::new(ip, DEFAULT_WEB_RTC_PORT);
                 let (rtc_warp_filter, webrtc) = WebrtcServer::new(addr, new_session_tx)
                     .map_err(|e| format!("failed to create WebrtcServer: {}", e))?;
                 components.push(Box::new(webrtc));
