@@ -98,7 +98,7 @@ impl HttpServer {
     }
 
     /// Create a new server that redirects all requests to HTTPS
-    pub fn new_https_redirect(socket_addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
+    pub fn new_http_to_https_redirect(socket_addr: SocketAddr) -> Result<Self, Box<dyn Error>> {
         let (shutdown_tx, shutdown_rx) = futures::channel::oneshot::channel();
         trace!("starting redirect-to-HTTPS server on {:?}", socket_addr);
         let (_addr, server) = warp::serve(
@@ -228,7 +228,7 @@ mod tests {
     fn tcp_stream_connects_to_https_redirect() {
         run_with_tokio(move || {
             let socket = provision_socket();
-            let _server = HttpServer::new_https_redirect(*socket).unwrap();
+            let _server = HttpServer::new_http_to_https_redirect(*socket).unwrap();
             let _stream = TcpStream::connect(*socket).unwrap();
         });
     }
