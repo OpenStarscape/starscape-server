@@ -14,7 +14,7 @@ impl WebsocketServer {
 
 impl Debug for WebsocketServer {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "WebsocketServer")
+        write!(f, "WebsocketServer (connected to via HTTP server)")
     }
 }
 

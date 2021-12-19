@@ -2,6 +2,7 @@
 
 use super::*;
 
+mod config;
 mod http;
 mod ip_addrs;
 mod server;
@@ -10,6 +11,7 @@ mod tcp;
 mod webrtc;
 mod websocket;
 
+pub use self::config::*;
 pub use server::Server;
 pub use session::{InboundBundleHandler, Session, SessionBuilder};
 
