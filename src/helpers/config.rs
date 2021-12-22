@@ -2,7 +2,6 @@ extern crate config;
 
 use super::*;
 use config::{Config, ConfigError, Environment, File};
-use std::path::Path;
 
 /// Configuration for the whole starscape-server program
 pub struct MasterConfig {
@@ -97,17 +96,6 @@ fn option_list() -> Vec<ConfigOption> {
                     addr.port = Some(56_560);
                     HttpServerType::Unencrypted(addr)
                 }
-            };
-            Ok(())
-        }),
-        ConfigOption::new_string("http_content", |conf, path| {
-            if let Some(http) = &mut conf.server.http {
-                if !Path::new(path).exists() {
-                    return Err(
-                        format!("requested HTTP content path {} does not exist", path).into(),
-                    );
-                }
-                http.static_content_path = Some(path.to_string());
             };
             Ok(())
         }),
