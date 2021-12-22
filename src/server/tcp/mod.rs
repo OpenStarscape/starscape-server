@@ -1,3 +1,5 @@
+#![allow(dyn_drop)]
+
 use super::*;
 
 mod mio_poll_thread;
