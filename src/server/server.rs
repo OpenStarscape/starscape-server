@@ -66,6 +66,7 @@ impl Server {
                         .map(|reply| Box::new(reply) as Box<dyn warp::Reply>)
                         .boxed();
                 warp_filter = warp_filter.or(static_content_filter).unify().boxed();
+                info!("serving static content in {} from HTTP server", static_content_path);
             }
 
             match &http.server_type {
