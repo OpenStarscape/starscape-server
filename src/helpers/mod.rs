@@ -3,7 +3,7 @@
 use super::*;
 
 mod color_rgb;
-pub mod config;
+mod config;
 mod datagram_splitter;
 mod initializable;
 mod metronome;
@@ -12,6 +12,7 @@ mod or_log;
 mod test_helpers;
 mod thin_ptr;
 
+pub use self::config::*;
 pub use color_rgb::ColorRGB;
 pub use datagram_splitter::DatagramSplitter;
 pub use initializable::Initializable;
