@@ -11,33 +11,61 @@ pub struct MasterConfig {
 
 /// Configuration option with function that will handle it. Name is lower case with underscores.
 enum ConfigOption {
-    Bool {
+    /// Can only be true or false
+    Flag {
         name: String,
         handler: Box<dyn Fn(&mut MasterConfig, bool) -> Result<(), Box<dyn Error>>>,
     },
-    String {
+    /// Has a string value
+    Value {
         name: String,
         handler: Box<dyn Fn(&mut MasterConfig, &str) -> Result<(), Box<dyn Error>>>,
     },
 }
 
 impl ConfigOption {
-    pub fn new_bool<F: Fn(&mut MasterConfig, bool) -> Result<(), Box<dyn Error>> + 'static>(
-        name: &str,
-        handler: F,
-    ) -> Self {
-        Self::Bool {
+    pub fn new_flag<F: Fn(&mut MasterConfig, bool) + 'static>(name: &str, handler: F) -> Self {
+        Self::Flag {
             name: name.to_string(),
-            handler: Box::new(handler),
+            handler: Box::new(move |conf, value| {
+                handler(conf, value);
+                Ok(())
+            }),
         }
     }
-    pub fn new_string<F: Fn(&mut MasterConfig, &str) -> Result<(), Box<dyn Error>> + 'static>(
+
+    pub fn new_string<F: Fn(&mut MasterConfig, &str) + 'static>(name: &str, handler: F) -> Self {
+        Self::Value {
+            name: name.to_string(),
+            handler: Box::new(move |conf, value| {
+                handler(conf, value);
+                Ok(())
+            }),
+        }
+    }
+
+    pub fn new_parsed<
+        T,
+        U: Fn(&str) -> Result<T, Box<dyn Error>> + 'static,
+        F: Fn(&mut MasterConfig, T) + 'static,
+    >(
         name: &str,
+        parser: U,
         handler: F,
     ) -> Self {
-        Self::String {
+        Self::Value {
             name: name.to_string(),
-            handler: Box::new(handler),
+            handler: Box::new(move |conf, value| {
+                handler(conf, parser(value)?);
+                Ok(())
+            }),
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        match self {
+            Self::Flag { name, handler: _ } => name,
+            Self::Value { name, handler: _ } => name,
         }
     }
 }
@@ -61,27 +89,24 @@ fn default_config() -> MasterConfig {
 /// specifies them. An option's handler will not be called if is not specified by the user.
 fn option_list() -> Vec<ConfigOption> {
     vec![
-        ConfigOption::new_bool("tcp", |conf, enable| {
+        ConfigOption::new_flag("tcp", |conf, enable| {
             conf.server.tcp = if enable {
                 Some(SocketAddrConfig::new_loopback())
             } else {
                 None
             };
-            Ok(())
         }),
-        ConfigOption::new_bool("websockets", |conf, enable| {
+        ConfigOption::new_flag("websockets", |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.enable_websockets = enable;
             };
-            Ok(())
         }),
-        ConfigOption::new_bool("webrtc", |conf, enable| {
+        ConfigOption::new_flag("webrtc", |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.enable_webrtc_experimental = enable;
             };
-            Ok(())
         }),
-        ConfigOption::new_bool("https", |conf, enable| {
+        ConfigOption::new_flag("https", |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.server_type = if enable {
                     HttpServerType::Encrypted {
@@ -97,18 +122,19 @@ fn option_list() -> Vec<ConfigOption> {
                     HttpServerType::Unencrypted(addr)
                 }
             };
-            Ok(())
         }),
         ConfigOption::new_string("http_content", |conf, path| {
             if let Some(http) = &mut conf.server.http {
                 http.static_content_path = Some(path.to_string());
             };
-            Ok(())
         }),
-        ConfigOption::new_string("max_game_time", |conf, time| {
-            conf.max_game_time = time.parse::<f64>()?;
-            Ok(())
-        }),
+        ConfigOption::new_parsed(
+            "max_game_time",
+            |time_str| time_str.parse::<f64>().map_err(Into::into),
+            |conf, time| {
+                conf.max_game_time = time;
+            },
+        ),
     ]
 }
 
@@ -128,12 +154,12 @@ pub fn get() -> Result<MasterConfig, Box<dyn Error>> {
     let mut conf = default_config();
     for option in option_list() {
         match option {
-            ConfigOption::Bool { name, handler } => match loaded.get_bool(&name) {
+            ConfigOption::Flag { name, handler } => match loaded.get_bool(&name) {
                 Ok(value) => handler(&mut conf, value)?,
                 Err(ConfigError::NotFound(_)) => (),
                 Err(e) => return Err(e.into()),
             },
-            ConfigOption::String { name, handler } => match loaded.get_str(&name) {
+            ConfigOption::Value { name, handler } => match loaded.get_str(&name) {
                 Ok(value) => handler(&mut conf, &value)?,
                 Err(ConfigError::NotFound(_)) => (),
                 Err(e) => return Err(e.into()),
