@@ -2,7 +2,7 @@ use super::*;
 
 /// These options will be called in order of returned vec (NOT in the order the user specifies the options) if the user
 /// specifies them. An option's handler will not be called if is not specified by the user.
-pub fn option_list() -> Vec<ConfigOption> {
+pub fn option_list() -> ConfigOptionSchema {
     vec![
         ConfigOption::new_flag("tcp", |conf, enable| {
             conf.server.tcp = if enable {
