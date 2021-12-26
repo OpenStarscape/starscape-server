@@ -40,7 +40,11 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
         }),
         <dyn ConfigEntry>::new_string("http_content", "", |conf, path| {
             if let Some(http) = &mut conf.server.http {
-                http.static_content_path = Some(path.to_string());
+                http.static_content_path = if path.len() > 0 {
+                    Some(path.to_string())
+                } else {
+                    None
+                };
             };
         }),
         <dyn ConfigEntry>::new_float("max_game_time", 60.0 * 60.0, |conf, time| {
