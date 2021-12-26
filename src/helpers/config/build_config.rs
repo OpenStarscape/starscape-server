@@ -8,30 +8,11 @@ pub fn build_config() -> Result<MasterConfig, Box<dyn Error>> {
     // TODO: accumulate multiple config errors
     // TODO: IPv6 config???
     // TODO: verify the final config is valid (paths exist, etc)
-    let mut values = HashMap::new();
+    let mut builder = ConfigBuilder::new(config_entries());
     if std::path::Path::new(DEFAULT_TOML_PATH).is_file() {
-        values.extend(load_toml(DEFAULT_TOML_PATH)?);
+        load_toml(DEFAULT_TOML_PATH, &mut builder)?;
     }
-    let mut conf = default_master();
-    for option in option_list() {
-        if let Some(value) = values.get(option.name()) {
-            match option {
-                ConfigOption::Flag { name, handler } => {
-                    if let ConfigOptionValue::Bool(v) = value {
-                        handler(&mut conf, *v)?;
-                    } else {
-                        return Err(format!("{} has invalid type", name).into());
-                    }
-                }
-                ConfigOption::Value { name, handler } => {
-                    if let ConfigOptionValue::String(v) = value {
-                        handler(&mut conf, v)?;
-                    } else {
-                        return Err(format!("{} has invalid type", name).into());
-                    }
-                }
-            }
-        }
-    }
+    let mut conf = MasterConfig::default();
+    builder.apply_to(&mut conf)?;
     Ok(conf)
 }

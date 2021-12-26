@@ -4,26 +4,51 @@ use super::*;
 
 pub const DEFAULT_TOML_PATH: &str = "starscape.toml";
 
-fn value_to_config_value(value: toml::Value) -> Result<ConfigOptionValue, Box<dyn Error>> {
-    match value {
-        toml::Value::String(s) => Ok(ConfigOptionValue::String(s)),
-        toml::Value::Integer(i) => Ok(ConfigOptionValue::String(i.to_string())),
-        toml::Value::Float(f) => Ok(ConfigOptionValue::String(f.to_string())),
-        toml::Value::Boolean(b) => Ok(ConfigOptionValue::Bool(b)),
-        v @ _ => Err(format!("{:?} is not a valid config option", v).into()),
+pub fn try_set(
+    builder: &mut ConfigBuilder,
+    name: &str,
+    value: toml::Value,
+) -> Result<(), Box<dyn Error>> {
+    if let Some(mut setter) = builder.entry(name) {
+        match &mut setter {
+            ConfigEntrySetter::Bool(ref mut s) => {
+                if let toml::Value::Boolean(v) = value {
+                    return s(v);
+                }
+            }
+            ConfigEntrySetter::String(ref mut s) => {
+                if let toml::Value::String(v) = value {
+                    return s(v);
+                }
+            }
+            ConfigEntrySetter::Int(ref mut s) => {
+                if let toml::Value::Integer(v) = value {
+                    return s(v);
+                }
+            }
+            ConfigEntrySetter::Float(ref mut s) => {
+                if let toml::Value::Float(v) = value {
+                    return s(v);
+                }
+            }
+        }
+        Err(format!("{} is not valid for {} (expected: {})", value, name, setter).into())
+    } else {
+        Err(format!("{} is not a valid configuration option", name).into())
     }
 }
 
-pub fn load_toml(path: &str) -> Result<HashMap<String, ConfigOptionValue>, Box<dyn Error>> {
+pub fn load_toml(path: &str, builder: &mut ConfigBuilder) -> Result<(), Box<dyn Error>> {
     let contents = std::fs::read_to_string(path)?;
     let parsed = contents.parse::<toml::Value>()?;
     match parsed {
         toml::Value::Table(table) => {
-            let mut result = HashMap::new();
             for (name, value) in table {
-                result.insert(name, value_to_config_value(value)?);
+                try_set(builder, &name, value)
+                    .map_err(|e| format!("{} option in {}: {}", name, path, e))?;
+                // TODO: accumulate errors instead of returning on the first one
             }
-            Ok(result)
+            Ok(())
         }
         _ => Err(format!("toplevel value of {} is not a table", path).into()),
     }
