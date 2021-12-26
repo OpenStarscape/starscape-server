@@ -60,3 +60,10 @@ impl ConfigOption {
         }
     }
 }
+
+pub type ConfigOptionSchema = Vec<ConfigOption>;
+
+pub enum ConfigOptionValue {
+    Bool(bool),
+    String(String),
+}

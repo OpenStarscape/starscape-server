@@ -22,4 +22,4 @@ warp = { version = "0.2", features = ["tls"] }
 webrtc-unreliable = "0.5"
 get_if_addrs = "0.5"
 lazy_static = "1.4"
-config = "0.9"
+toml = "0.5"
