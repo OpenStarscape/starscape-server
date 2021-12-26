@@ -6,17 +6,16 @@ pub struct MasterConfig {
     pub server: ServerConfig,
 }
 
-pub fn default_master() -> MasterConfig {
-    MasterConfig {
-        max_game_time: 1200.0,
-        server: ServerConfig {
-            tcp: Some(SocketAddrConfig::new_loopback()),
-            http: Some(HttpServerConfig {
-                static_content_path: None,
-                enable_websockets: true,
-                enable_webrtc_experimental: false,
-                server_type: HttpServerType::Unencrypted(SocketAddrConfig::new_loopback()),
-            }),
-        },
+impl Default for MasterConfig {
+    /// NOTE: the true default configuration you get when you run starscape is determined by config_entries(), this is
+    /// just an empty struct
+    fn default() -> Self {
+        Self {
+            max_game_time: 0.0,
+            server: ServerConfig {
+                tcp: None,
+                http: None,
+            },
+        }
     }
 }

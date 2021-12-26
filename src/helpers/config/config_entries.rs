@@ -1,27 +1,27 @@
 use super::*;
 
-/// These options will be called in order of returned vec (NOT in the order the user specifies the options) if the user
-/// specifies them. An option's handler will not be called if is not specified by the user.
-pub fn option_list() -> ConfigOptionSchema {
+/// These entries will be applied in order of returned vec (NOT in the order the user specifies the entry). All entries
+/// Will always be applied.
+pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
     vec![
-        ConfigOption::new_flag("tcp", |conf, enable| {
+        <dyn ConfigEntry>::new_bool("tcp", false, |conf, enable| {
             conf.server.tcp = if enable {
                 Some(SocketAddrConfig::new_loopback())
             } else {
                 None
             };
         }),
-        ConfigOption::new_flag("websockets", |conf, enable| {
+        <dyn ConfigEntry>::new_bool("websockets", true, |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.enable_websockets = enable;
             };
         }),
-        ConfigOption::new_flag("webrtc", |conf, enable| {
+        <dyn ConfigEntry>::new_bool("webrtc", false, |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.enable_webrtc_experimental = enable;
             };
         }),
-        ConfigOption::new_flag("https", |conf, enable| {
+        <dyn ConfigEntry>::new_bool("https", false, |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.server_type = if enable {
                     HttpServerType::Encrypted {
@@ -38,17 +38,13 @@ pub fn option_list() -> ConfigOptionSchema {
                 }
             };
         }),
-        ConfigOption::new_string("http_content", |conf, path| {
+        <dyn ConfigEntry>::new_string("http_content", "", |conf, path| {
             if let Some(http) = &mut conf.server.http {
                 http.static_content_path = Some(path.to_string());
             };
         }),
-        ConfigOption::new_parsed(
-            "max_game_time",
-            |time_str| time_str.parse::<f64>().map_err(Into::into),
-            |conf, time| {
-                conf.max_game_time = time;
-            },
-        ),
+        <dyn ConfigEntry>::new_float("max_game_time", 60.0 * 60.0, |conf, time| {
+            conf.max_game_time = time;
+        }),
     ]
 }
