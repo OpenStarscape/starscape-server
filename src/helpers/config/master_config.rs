@@ -1,6 +1,7 @@
 use super::*;
 
 /// Configuration for the whole starscape-server program
+#[derive(Debug)]
 pub struct MasterConfig {
     pub max_game_time: f64,
     pub server: ServerConfig,
