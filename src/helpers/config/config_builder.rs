@@ -27,17 +27,19 @@ impl<'a> std::fmt::Display for ConfigEntrySetter<'a> {
 
 pub trait ConfigEntry {
     fn name(&self) -> &str;
+    fn help(&self) -> &str;
     fn setter(&mut self) -> ConfigEntrySetter;
     fn apply_to(&self, target: &mut MasterConfig) -> Result<(), Box<dyn Error>>;
 }
 
 impl dyn ConfigEntry {
-    pub fn new_bool<F: Fn(&mut MasterConfig, bool) + 'static>(
+    pub fn new_bool<F: Fn(&mut MasterConfig, bool, Option<&str>) + 'static>(
         name: &str,
+        help: &str,
         default_value: bool,
         apply: F,
     ) -> Box<Self> {
-        ConfigEntryImpl::new(name, default_value, apply, |target| {
+        ConfigEntryImpl::new(name, help, default_value, apply, |target| {
             ConfigEntrySetter::Bool(Box::new(move |value, source| {
                 target.value = value;
                 target.source = Some(source);
@@ -46,12 +48,13 @@ impl dyn ConfigEntry {
         })
     }
 
-    pub fn new_string<F: Fn(&mut MasterConfig, String) + 'static>(
+    pub fn new_string<F: Fn(&mut MasterConfig, String, Option<&str>) + 'static>(
         name: &str,
+        help: &str,
         default_value: &str,
         apply: F,
     ) -> Box<Self> {
-        ConfigEntryImpl::new(name, default_value.to_string(), apply, |target| {
+        ConfigEntryImpl::new(name, help, default_value.to_string(), apply, |target| {
             ConfigEntrySetter::String(Box::new(move |value, source| {
                 target.value = value;
                 target.source = Some(source);
@@ -61,12 +64,13 @@ impl dyn ConfigEntry {
     }
 
     #[allow(dead_code)]
-    pub fn new_int<F: Fn(&mut MasterConfig, i64) + 'static>(
+    pub fn new_int<F: Fn(&mut MasterConfig, i64, Option<&str>) + 'static>(
         name: &str,
+        help: &str,
         default_value: i64,
         apply: F,
     ) -> Box<Self> {
-        ConfigEntryImpl::new(name, default_value, apply, |target| {
+        ConfigEntryImpl::new(name, help, default_value, apply, |target| {
             ConfigEntrySetter::Int(Box::new(move |value, source| {
                 target.value = value;
                 target.source = Some(source);
@@ -75,12 +79,13 @@ impl dyn ConfigEntry {
         })
     }
 
-    pub fn new_float<F: Fn(&mut MasterConfig, f64) + 'static>(
+    pub fn new_float<F: Fn(&mut MasterConfig, f64, Option<&str>) + 'static>(
         name: &str,
+        help: &str,
         default_value: f64,
         apply: F,
     ) -> Box<Self> {
-        ConfigEntryImpl::new(name, default_value, apply, |target| {
+        ConfigEntryImpl::new(name, help, default_value, apply, |target| {
             ConfigEntrySetter::Float(Box::new(move |value, source| {
                 target.value = value;
                 target.source = Some(source);
@@ -98,25 +103,33 @@ struct SetterTarget<T> {
 
 struct ConfigEntryImpl<T> {
     name: String,
+    help: String,
     target: SetterTarget<T>,
-    apply_fn: Box<dyn Fn(&mut MasterConfig, T) -> Result<(), Box<dyn Error>>>,
+    apply_fn: Box<dyn Fn(&mut MasterConfig, T, Option<&str>) -> Result<(), Box<dyn Error>>>,
     setter_builder: Box<dyn Fn(&mut SetterTarget<T>) -> ConfigEntrySetter>,
 }
 
 impl<T> ConfigEntryImpl<T> {
-    pub fn new<F, B>(name: &str, default_value: T, apply: F, setter_builder: B) -> Box<Self>
+    pub fn new<F, B>(
+        name: &str,
+        help: &str,
+        default_value: T,
+        apply: F,
+        setter_builder: B,
+    ) -> Box<Self>
     where
-        F: Fn(&mut MasterConfig, T) + 'static,
+        F: Fn(&mut MasterConfig, T, Option<&str>) + 'static,
         B: Fn(&mut SetterTarget<T>) -> ConfigEntrySetter + 'static,
     {
         Box::new(ConfigEntryImpl {
             name: name.to_string(),
+            help: help.to_string(),
             target: SetterTarget {
                 value: default_value,
                 source: None,
             },
-            apply_fn: Box::new(move |conf, value| {
-                apply(conf, value);
+            apply_fn: Box::new(move |conf, value, source| {
+                apply(conf, value, source);
                 Ok(())
             }),
             setter_builder: Box::new(setter_builder),
@@ -129,12 +142,20 @@ impl<T: Clone> ConfigEntry for ConfigEntryImpl<T> {
         &self.name
     }
 
+    fn help(&self) -> &str {
+        &self.help
+    }
+
     fn setter(&mut self) -> ConfigEntrySetter {
         (self.setter_builder)(&mut self.target)
     }
 
     fn apply_to(&self, target: &mut MasterConfig) -> Result<(), Box<dyn Error>> {
-        (self.apply_fn)(target, self.target.value.clone())
+        (self.apply_fn)(
+            target,
+            self.target.value.clone(),
+            self.target.source.as_deref(),
+        )
     }
 }
 

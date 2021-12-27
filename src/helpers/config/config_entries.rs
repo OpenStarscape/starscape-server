@@ -1,27 +1,29 @@
 use super::*;
 
+fn warn_disabled_http(source: Option<&str>) {
+    if let Some(source) = source {
+        warn!("{} ignored because HTTP server is disabled", source);
+    }
+}
+
+fn warn_disabled_http_encryption(source: Option<&str>) {
+    if let Some(source) = source {
+        warn!("{} ignored because HTTPS encryption is disabled", source);
+    }
+}
+
 /// These entries will be applied in order of returned vec (NOT in the order the user specifies the entry). All entries
 /// Will always be applied.
 pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
     vec![
-        <dyn ConfigEntry>::new_bool("tcp", false, |conf, enable| {
+        <dyn ConfigEntry>::new_bool("tcp", "accept/reject TCP sessions", false, |conf, enable, _| {
             conf.server.tcp = if enable {
                 Some(SocketAddrConfig::new_loopback())
             } else {
                 None
             };
         }),
-        <dyn ConfigEntry>::new_bool("websockets", true, |conf, enable| {
-            if let Some(http) = &mut conf.server.http {
-                http.enable_websockets = enable;
-            };
-        }),
-        <dyn ConfigEntry>::new_bool("webrtc", false, |conf, enable| {
-            if let Some(http) = &mut conf.server.http {
-                http.enable_webrtc_experimental = enable;
-            };
-        }),
-        <dyn ConfigEntry>::new_bool("http_server", true, |conf, enable| {
+        <dyn ConfigEntry>::new_bool("http_server", "enable/disable the HTTP server (required for WebSockets, WebRTC or the web frontend)", true, |conf, enable, _| {
             if enable {
                 conf.server.http = Some(HttpServerConfig {
                     static_content_path: None,
@@ -33,7 +35,21 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
                 conf.server.http = None;
             }
         }),
-        <dyn ConfigEntry>::new_bool("https", false, |conf, enable| {
+        <dyn ConfigEntry>::new_bool("websockets", "", true, |conf, enable, source| {
+            if let Some(http) = &mut conf.server.http {
+                http.enable_websockets = enable;
+            } else {
+                warn_disabled_http(source);
+            }
+        }),
+        <dyn ConfigEntry>::new_bool("webrtc", "accept/reject WebRTC sessions. WARNING: WebRTC sessions may experience bugs due to dropped packets", false, |conf, enable, source| {
+            if let Some(http) = &mut conf.server.http {
+                http.enable_webrtc_experimental = enable;
+            } else {
+                warn_disabled_http(source);
+            }
+        }),
+        <dyn ConfigEntry>::new_bool("https", "enable/disable encryption on the server", false, |conf, enable, source| {
             if let Some(http) = &mut conf.server.http {
                 http.server_type = if enable {
                     HttpServerType::Encrypted(HttpsConfig {
@@ -48,33 +64,52 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
                     addr.port = Some(56_560);
                     HttpServerType::Unencrypted(addr)
                 }
-            };
+            } else {
+                warn_disabled_http(source);
+            }
         }),
-        <dyn ConfigEntry>::new_string("https_cert_path", "../ssl/cert.pem", |conf, path| {
+        <dyn ConfigEntry>::new_string("https_cert_path", "path to the certificate used for HTTPS", "../ssl/cert.pem", |conf, path, source| {
             if let Some(http) = &mut conf.server.http {
                 if let HttpServerType::Encrypted(https) = &mut http.server_type {
                     https.cert_path = path;
+                } else {
+                    warn_disabled_http_encryption(source);
                 }
-            };
+            } else {
+                warn_disabled_http(source);
+            }
         }),
-        <dyn ConfigEntry>::new_string("https_key_path", "../ssl/privkey.pem", |conf, path| {
+        <dyn ConfigEntry>::new_string("https_key_path", "path to the private key used for HTTPS", "../ssl/privkey.pem", |conf, path, source| {
             if let Some(http) = &mut conf.server.http {
                 if let HttpServerType::Encrypted(https) = &mut http.server_type {
                     https.key_path = path;
+                } else {
+                    warn_disabled_http_encryption(source);
                 }
-            };
+            } else {
+                warn_disabled_http(source);
+            }
         }),
-        <dyn ConfigEntry>::new_string("http_content", "", |conf, path| {
+        <dyn ConfigEntry>::new_string("http_content", "path to the directory where static content for the HTTP server is stored (such as the web frontent public/ directory)", "", |conf, path, source| {
             if let Some(http) = &mut conf.server.http {
                 http.static_content_path = if path.len() > 0 {
                     Some(path.to_string())
                 } else {
                     None
                 };
-            };
+            } else {
+                warn_disabled_http(source);
+            }
         }),
-        <dyn ConfigEntry>::new_float("max_game_time", 60.0 * 60.0, |conf, time| {
-            conf.max_game_time = time;
+        <dyn ConfigEntry>::new_float("max_game_time", "seconds to run the game before exiting, or 0 to run until process is killed", 60.0 * 60.0, |conf, time, source| {
+            if time > 0.0 {
+                conf.max_game_time = time;
+            } else {
+                if time < 0.0 {
+                    warn!("{} should not be negative", source.unwrap());
+                }
+                conf.max_game_time = 0.0;
+            }
         }),
     ]
 }
