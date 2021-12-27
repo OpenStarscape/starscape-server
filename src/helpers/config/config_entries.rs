@@ -24,12 +24,12 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
         <dyn ConfigEntry>::new_bool("https", false, |conf, enable| {
             if let Some(http) = &mut conf.server.http {
                 http.server_type = if enable {
-                    HttpServerType::Encrypted {
+                    HttpServerType::Encrypted(HttpsConfig {
                         socket_addr: SocketAddrConfig::new_non_loopback(),
                         cert_path: "../ssl/cert.pem".to_string(),
                         key_path: "../ssl/privkey.pem".to_string(),
                         enable_http_to_https_redirect: true,
-                    }
+                    })
                 } else {
                     // TODO: stop conflating unencrypted with loopback
                     let mut addr = SocketAddrConfig::new_loopback();

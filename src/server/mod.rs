@@ -2,17 +2,17 @@
 
 use super::*;
 
-mod config;
 mod http;
 mod ip_addrs;
 mod server;
+mod server_config;
 mod session;
 mod tcp;
 mod webrtc;
 mod websocket;
 
-pub use self::config::*;
 pub use server::Server;
+pub use server_config::*;
 pub use session::{InboundBundleHandler, Session, SessionBuilder};
 
 use http::*;

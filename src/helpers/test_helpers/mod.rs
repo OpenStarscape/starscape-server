@@ -9,6 +9,7 @@ use std::{
 
 mod attempt_any_to_string;
 mod mock_event_handler;
+mod mock_filesystem;
 mod mock_inbound_handler;
 mod mock_keys;
 mod mock_request_handler;
@@ -20,6 +21,7 @@ mod run_with_tokio;
 
 pub use attempt_any_to_string::*;
 pub use mock_event_handler::*;
+pub use mock_filesystem::*;
 pub use mock_inbound_handler::*;
 pub use mock_keys::*;
 pub use mock_request_handler::*;
