@@ -6,29 +6,31 @@ pub const DEFAULT_TOML_PATH: &str = "starscape.toml";
 
 pub fn try_set(
     builder: &mut ConfigBuilder,
+    file: &str,
     name: &str,
     value: toml::Value,
 ) -> Result<(), Box<dyn Error>> {
     if let Some(mut setter) = builder.entry(name) {
+        let message = format!("{} in {}", name, file);
         match &mut setter {
             ConfigEntrySetter::Bool(ref mut s) => {
                 if let toml::Value::Boolean(v) = value {
-                    return s(v);
+                    return s(v, message);
                 }
             }
             ConfigEntrySetter::String(ref mut s) => {
                 if let toml::Value::String(v) = value {
-                    return s(v);
+                    return s(v, message);
                 }
             }
             ConfigEntrySetter::Int(ref mut s) => {
                 if let toml::Value::Integer(v) = value {
-                    return s(v);
+                    return s(v, message);
                 }
             }
             ConfigEntrySetter::Float(ref mut s) => match value {
-                toml::Value::Float(v) => return s(v),
-                toml::Value::Integer(v) => return s(v as f64),
+                toml::Value::Float(v) => return s(v, message),
+                toml::Value::Integer(v) => return s(v as f64, message),
                 _ => (),
             },
         }
@@ -48,7 +50,7 @@ pub fn load_toml(
     match parsed {
         toml::Value::Table(table) => {
             for (name, value) in table {
-                try_set(builder, &name, value).map_err(|e| format!("{}: {}", path, e))?;
+                try_set(builder, path, &name, value).map_err(|e| format!("{}: {}", path, e))?;
                 // TODO: accumulate errors instead of returning on the first one
             }
             Ok(())
