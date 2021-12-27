@@ -26,15 +26,15 @@ pub fn try_set(
                     return s(v);
                 }
             }
-            ConfigEntrySetter::Float(ref mut s) => {
-                if let toml::Value::Float(v) = value {
-                    return s(v);
-                }
-            }
+            ConfigEntrySetter::Float(ref mut s) => match value {
+                toml::Value::Float(v) => return s(v),
+                toml::Value::Integer(v) => return s(v as f64),
+                _ => (),
+            },
         }
         Err(format!("{} is not valid for {} (expected: {})", value, name, setter).into())
     } else {
-        Err(format!("{} is not a valid configuration option", name).into())
+        Err(format!("{} is not a valid option", name).into())
     }
 }
 
@@ -48,8 +48,7 @@ pub fn load_toml(
     match parsed {
         toml::Value::Table(table) => {
             for (name, value) in table {
-                try_set(builder, &name, value)
-                    .map_err(|e| format!("{} option in {}: {}", name, path, e))?;
+                try_set(builder, &name, value).map_err(|e| format!("{}: {}", path, e))?;
                 // TODO: accumulate errors instead of returning on the first one
             }
             Ok(())

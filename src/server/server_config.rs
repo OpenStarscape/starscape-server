@@ -1,4 +1,5 @@
 /// Parameters to find an IP address and port
+#[derive(Debug)]
 pub struct SocketAddrConfig {
     /// The network interface to use such as `wlp3s0`, or None to use any network interface. You can get a list of
     /// interfaces on a Linux computer with `ip link show`
@@ -29,6 +30,7 @@ impl SocketAddrConfig {
 }
 
 /// Parameters for an encrypted HTTPS server
+#[derive(Debug)]
 pub struct HttpsConfig {
     pub socket_addr: SocketAddrConfig,
     /// Path to the certificate (often cert.pem)
@@ -41,6 +43,7 @@ pub struct HttpsConfig {
 }
 
 /// Parameters to create and HTTP or HTTPS server
+#[derive(Debug)]
 pub enum HttpServerType {
     /// An unencrypted HTTP server
     Unencrypted(SocketAddrConfig),
@@ -49,6 +52,7 @@ pub enum HttpServerType {
 }
 
 /// Parameters for an http server
+#[derive(Debug)]
 pub struct HttpServerConfig {
     /// Path to the frontend that will be served
     pub static_content_path: Option<String>,
@@ -61,6 +65,7 @@ pub struct HttpServerConfig {
 }
 
 /// Parameters to create a server
+#[derive(Debug)]
 pub struct ServerConfig {
     /// Parameters for TCP listener, or None to disable TCP connections
     pub tcp: Option<SocketAddrConfig>,

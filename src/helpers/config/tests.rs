@@ -22,6 +22,12 @@ fn can_config_max_game_time_with_int() {
 }
 
 #[test]
+fn can_not_config_max_game_time_with_string() {
+    let fs = MockFilesystem::new().add_file("starscape.toml", "max_game_time = \"44\"");
+    build_config_with(fs.boxed()).unwrap_err();
+}
+
+#[test]
 fn default_cert_and_key_paths() {
     let fs = MockFilesystem::new().add_file("starscape.toml", "https = true");
     let conf = build_config_with(fs.boxed()).unwrap();
