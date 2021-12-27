@@ -2,7 +2,7 @@ use super::*;
 
 pub struct Engine {
     should_quit: bool,
-    quit_after: f64,
+    quit_after: Option<f64>,
     /// In-game delta-time for each physics step
     physics_tick_delta: f64,
     pub state: State,
@@ -15,7 +15,7 @@ impl Engine {
     pub fn new<InitFn, TickFn>(
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
         physics_tick_delta: f64,
-        quit_after: f64,
+        quit_after: Option<f64>,
         init: InitFn,
         physics_tick: TickFn,
     ) -> Self
@@ -58,12 +58,14 @@ impl Engine {
         self.connections.flush_outbound_messages(&mut self.state);
 
         self.state.increment_physics(self.physics_tick_delta);
-        if self.state.time() > self.quit_after {
-            self.should_quit = true;
-            info!(
-                "engine has run for {:?}, stopping…",
-                Duration::from_secs_f64(self.quit_after)
-            )
+        if let Some(quit_after) = self.quit_after {
+            if self.state.time() > quit_after {
+                self.should_quit = true;
+                info!(
+                    "engine has run for {:?}, stopping…",
+                    Duration::from_secs_f64(quit_after)
+                )
+            }
         }
         !self.should_quit
     }

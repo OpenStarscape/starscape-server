@@ -4,21 +4,28 @@ use super::*;
 fn default_max_game_time() {
     let fs = MockFilesystem::new();
     let conf = build_config_with(fs.boxed()).unwrap();
-    assert!(conf.max_game_time > 0.0);
+    assert!(conf.max_game_time.unwrap() > 0.0);
 }
 
 #[test]
 fn can_config_max_game_time() {
     let fs = MockFilesystem::new().add_file("starscape.toml", "max_game_time = 44.0");
     let conf = build_config_with(fs.boxed()).unwrap();
-    assert_eq!(conf.max_game_time, 44.0);
+    assert_eq!(conf.max_game_time.unwrap(), 44.0);
 }
 
 #[test]
 fn can_config_max_game_time_with_int() {
     let fs = MockFilesystem::new().add_file("starscape.toml", "max_game_time = 44");
     let conf = build_config_with(fs.boxed()).unwrap();
-    assert_eq!(conf.max_game_time, 44.0);
+    assert_eq!(conf.max_game_time.unwrap(), 44.0);
+}
+
+#[test]
+fn zero_max_game_time_is_none() {
+    let fs = MockFilesystem::new().add_file("starscape.toml", "max_game_time = 0");
+    let conf = build_config_with(fs.boxed()).unwrap();
+    assert!(conf.max_game_time.is_none());
 }
 
 #[test]
