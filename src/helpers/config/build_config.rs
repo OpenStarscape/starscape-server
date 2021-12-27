@@ -8,7 +8,7 @@ pub fn build_config_with(fs: Filesystem) -> Result<MasterConfig, Box<dyn Error>>
     // TODO: IPv6 config???
     // TODO: verify the final config is valid (paths exist, etc)
     let mut builder = ConfigBuilder::new(config_entries());
-    if std::path::Path::new(DEFAULT_TOML_PATH).is_file() {
+    if fs.is_file(DEFAULT_TOML_PATH) {
         load_toml(DEFAULT_TOML_PATH, &mut builder, fs)?;
     }
     let mut conf = MasterConfig::default();

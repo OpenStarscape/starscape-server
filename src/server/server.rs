@@ -73,23 +73,23 @@ impl Server {
             }
 
             match &http.server_type {
-                HttpServerType::Encrypted {
-                    socket_addr: addr,
-                    cert_path,
-                    key_path,
-                    enable_http_to_https_redirect,
-                } => {
+                HttpServerType::Encrypted(https) => {
                     let ip = get_ip(
-                        addr.interface_name.as_deref(),
+                        https.socket_addr.interface_name.as_deref(),
                         Some(IpVersion::V4),
-                        addr.loopback,
+                        https.socket_addr.loopback,
                     )?;
-                    let https_addr = SocketAddr::new(ip, addr.port.unwrap_or(DEFAULT_HTTPS_PORT));
-                    let https_server =
-                        HttpServer::new_encrypted(warp_filter, https_addr, &cert_path, &key_path)?;
+                    let https_addr =
+                        SocketAddr::new(ip, https.socket_addr.port.unwrap_or(DEFAULT_HTTPS_PORT));
+                    let https_server = HttpServer::new_encrypted(
+                        warp_filter,
+                        https_addr,
+                        &https.cert_path,
+                        &https.key_path,
+                    )?;
                     components.push(Box::new(https_server));
 
-                    if *enable_http_to_https_redirect {
+                    if https.enable_http_to_https_redirect {
                         let http_addr = SocketAddr::new(ip, DEFAULT_HTTP_PORT);
                         let http_redirect_server =
                             HttpServer::new_http_to_https_redirect(http_addr)?;

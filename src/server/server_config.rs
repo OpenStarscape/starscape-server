@@ -28,21 +28,24 @@ impl SocketAddrConfig {
     }
 }
 
+/// Parameters for an encrypted HTTPS server
+pub struct HttpsConfig {
+    pub socket_addr: SocketAddrConfig,
+    /// Path to the certificate (often cert.pem)
+    pub cert_path: String,
+    /// Path to the private key (often privkey.pem)
+    pub key_path: String,
+    /// If to spin up an unencrypted HTTP server that redirects to HTTPS. Always runs on the same IP as the
+    /// encrypted server and on port 80.
+    pub enable_http_to_https_redirect: bool,
+}
+
 /// Parameters to create and HTTP or HTTPS server
 pub enum HttpServerType {
     /// An unencrypted HTTP server
     Unencrypted(SocketAddrConfig),
     /// An encrypted HTTPS server
-    Encrypted {
-        socket_addr: SocketAddrConfig,
-        /// Path to the certificate (often cert.pem)
-        cert_path: String,
-        /// Path to the private key (often privkey.pem)
-        key_path: String,
-        /// If to spin up an unencrypted HTTP server that redirects to HTTPS. Always runs on the same IP as the
-        /// encrypted server and on port 80.
-        enable_http_to_https_redirect: bool,
-    },
+    Encrypted(HttpsConfig),
 }
 
 /// Parameters for an http server
