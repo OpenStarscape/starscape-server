@@ -38,8 +38,12 @@ pub fn try_set(
     }
 }
 
-pub fn load_toml(path: &str, builder: &mut ConfigBuilder) -> Result<(), Box<dyn Error>> {
-    let contents = std::fs::read_to_string(path)?;
+pub fn load_toml(
+    path: &str,
+    builder: &mut ConfigBuilder,
+    fs: Filesystem,
+) -> Result<(), Box<dyn Error>> {
+    let contents = fs.read_to_string(path)?;
     let parsed = contents.parse::<toml::Value>()?;
     match parsed {
         toml::Value::Table(table) => {
