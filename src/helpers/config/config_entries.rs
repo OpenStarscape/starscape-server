@@ -103,12 +103,12 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
         }),
         <dyn ConfigEntry>::new_float("max_game_time", "seconds to run the game before exiting, or 0 to run until process is killed", 60.0 * 60.0, |conf, time, source| {
             if time > 0.0 {
-                conf.max_game_time = time;
+                conf.max_game_time = Some(time);
             } else {
                 if time < 0.0 {
                     warn!("{} should not be negative", source.unwrap());
                 }
-                conf.max_game_time = 0.0;
+                conf.max_game_time = None;
             }
         }),
     ]

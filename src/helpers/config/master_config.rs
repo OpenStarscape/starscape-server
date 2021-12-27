@@ -3,7 +3,7 @@ use super::*;
 /// Configuration for the whole starscape-server program
 #[derive(Debug)]
 pub struct MasterConfig {
-    pub max_game_time: f64,
+    pub max_game_time: Option<f64>,
     pub server: ServerConfig,
 }
 
@@ -12,7 +12,7 @@ impl Default for MasterConfig {
     /// just an empty struct
     fn default() -> Self {
         Self {
-            max_game_time: 0.0,
+            max_game_time: None,
             server: ServerConfig {
                 tcp: None,
                 http: None,
