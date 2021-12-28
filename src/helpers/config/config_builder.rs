@@ -33,12 +33,10 @@ pub trait ConfigEntry {
 }
 
 impl dyn ConfigEntry {
-    pub fn new_bool<F: Fn(&mut MasterConfig, bool, Option<&str>) + 'static>(
-        name: &str,
-        help: &str,
-        default_value: bool,
-        apply: F,
-    ) -> Box<Self> {
+    pub fn new_bool<F>(name: &str, help: &str, default_value: bool, apply: F) -> Box<Self>
+    where
+        F: Fn(&mut MasterConfig, bool, Option<&str>) -> Result<(), Box<dyn Error>> + 'static,
+    {
         ConfigEntryImpl::new(name, help, default_value, apply, |target| {
             ConfigEntrySetter::Bool(Box::new(move |value, source| {
                 target.value = value;
@@ -48,7 +46,9 @@ impl dyn ConfigEntry {
         })
     }
 
-    pub fn new_string<F: Fn(&mut MasterConfig, String, Option<&str>) + 'static>(
+    pub fn new_string<
+        F: Fn(&mut MasterConfig, String, Option<&str>) -> Result<(), Box<dyn Error>> + 'static,
+    >(
         name: &str,
         help: &str,
         default_value: &str,
@@ -63,13 +63,10 @@ impl dyn ConfigEntry {
         })
     }
 
-    #[allow(dead_code)]
-    pub fn new_int<F: Fn(&mut MasterConfig, i64, Option<&str>) + 'static>(
-        name: &str,
-        help: &str,
-        default_value: i64,
-        apply: F,
-    ) -> Box<Self> {
+    pub fn new_int<F>(name: &str, help: &str, default_value: i64, apply: F) -> Box<Self>
+    where
+        F: Fn(&mut MasterConfig, i64, Option<&str>) -> Result<(), Box<dyn Error>> + 'static,
+    {
         ConfigEntryImpl::new(name, help, default_value, apply, |target| {
             ConfigEntrySetter::Int(Box::new(move |value, source| {
                 target.value = value;
@@ -79,7 +76,9 @@ impl dyn ConfigEntry {
         })
     }
 
-    pub fn new_float<F: Fn(&mut MasterConfig, f64, Option<&str>) + 'static>(
+    pub fn new_float<
+        F: Fn(&mut MasterConfig, f64, Option<&str>) -> Result<(), Box<dyn Error>> + 'static,
+    >(
         name: &str,
         help: &str,
         default_value: f64,
@@ -95,16 +94,11 @@ impl dyn ConfigEntry {
     }
 
     pub fn new_enum(name: &str, help: &str, variants: Vec<ConfigEntryVariant>) -> Box<Self> {
-        // This gets into borrowchecker hell but it works
         assert!(variants.len() > 0);
         let mut help = help.to_string();
         for variant in &variants {
             help.push_str(&format!("\n  {}: {}", variant.name, variant.help))
         }
-        let names: Vec<String> = variants
-            .iter()
-            .map(|variant| variant.name.to_string())
-            .collect();
         ConfigEntryImpl::new(
             &name,
             &help,
@@ -113,35 +107,27 @@ impl dyn ConfigEntry {
                 for variant in &variants {
                     if variant.name == value {
                         (variant.apply_fn)(conf, source);
-                        return;
+                        return Ok(());
                     }
                 }
-                panic!(
-                    "{} is not a valid enum variant (should have been caught in setter)",
-                    value
-                );
+                Err(format!(
+                    "{} has invalid value {}, valid options are {}",
+                    source.expect("default config enum value invalid (should not be possible)"),
+                    value,
+                    variants
+                        .iter()
+                        .map(|v| v.name.clone())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                )
+                .into())
             },
-            {
-                let name = name.to_string();
-                move |target| {
-                    let names = names.clone();
-                    let name = name.clone();
-                    ConfigEntrySetter::String(Box::new(move |value, source| {
-                        if names.contains(&value) {
-                            target.value = value;
-                            target.source = Some(source);
-                            Ok(())
-                        } else {
-                            Err(format!(
-                                "{} is not valid for {}, valid options are {}",
-                                value,
-                                name,
-                                names.join(", ")
-                            )
-                            .into())
-                        }
-                    }))
-                }
+            |target| {
+                ConfigEntrySetter::String(Box::new(move |value, source| {
+                    target.value = value;
+                    target.source = Some(source);
+                    Ok(())
+                }))
             },
         )
     }
@@ -180,16 +166,16 @@ struct ConfigEntryImpl<T> {
 }
 
 impl<T> ConfigEntryImpl<T> {
-    pub fn new<F, B>(
+    pub fn new<APPLY, SETTER>(
         name: &str,
         help: &str,
         default_value: T,
-        apply: F,
-        setter_builder: B,
+        apply_fn: APPLY,
+        setter_builder: SETTER,
     ) -> Box<Self>
     where
-        F: Fn(&mut MasterConfig, T, Option<&str>) + 'static,
-        B: Fn(&mut SetterTarget<T>) -> ConfigEntrySetter + 'static,
+        APPLY: Fn(&mut MasterConfig, T, Option<&str>) -> Result<(), Box<dyn Error>> + 'static,
+        SETTER: Fn(&mut SetterTarget<T>) -> ConfigEntrySetter + 'static,
     {
         Box::new(ConfigEntryImpl {
             name: name.to_string(),
@@ -198,16 +184,13 @@ impl<T> ConfigEntryImpl<T> {
                 value: default_value,
                 source: None,
             },
-            apply_fn: Box::new(move |conf, value, source| {
-                apply(conf, value, source);
-                Ok(())
-            }),
+            apply_fn: Box::new(apply_fn),
             setter_builder: Box::new(setter_builder),
         })
     }
 }
 
-impl<T: Clone> ConfigEntry for ConfigEntryImpl<T> {
+impl<T: Clone + 'static> ConfigEntry for ConfigEntryImpl<T> {
     fn name(&self) -> &str {
         &self.name
     }

@@ -17,7 +17,7 @@ pub use session::{InboundBundleHandler, Session, SessionBuilder};
 
 use http::*;
 use ip_addrs::*;
-use server::ServerComponent;
+use server::*;
 use tcp::*;
 use webrtc::*;
 use websocket::*;

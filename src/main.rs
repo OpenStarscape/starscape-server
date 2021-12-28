@@ -37,6 +37,7 @@ use std::error::Error;
 use std::{
     any::{type_name, Any},
     collections::{HashMap, HashSet},
+    convert::TryFrom,
     f64::consts::TAU,
     fmt::{Debug, Formatter},
     marker::PhantomData,

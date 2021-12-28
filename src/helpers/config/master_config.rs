@@ -13,10 +13,7 @@ impl Default for MasterConfig {
     fn default() -> Self {
         Self {
             max_game_time: None,
-            server: ServerConfig {
-                tcp: None,
-                http: None,
-            },
+            server: ServerConfig::default(),
         }
     }
 }
