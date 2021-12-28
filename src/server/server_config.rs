@@ -24,7 +24,7 @@ impl Default for SocketAddrConfig {
 
 /// Parameters for an encrypted HTTPS server
 #[derive(Debug)]
-pub struct HttpsConfig {
+pub struct EncryptedHttpsConfig {
     pub socket_addr: SocketAddrConfig,
     /// Path to the certificate (often cert.pem)
     pub cert_path: String,
@@ -35,7 +35,7 @@ pub struct HttpsConfig {
     pub enable_http_to_https_redirect: bool,
 }
 
-impl Default for HttpsConfig {
+impl Default for EncryptedHttpsConfig {
     fn default() -> Self {
         Self {
             socket_addr: SocketAddrConfig::default(),
@@ -52,7 +52,7 @@ pub enum HttpServerType {
     /// An unencrypted HTTP server
     Unencrypted(SocketAddrConfig),
     /// An encrypted HTTPS server
-    Encrypted(HttpsConfig),
+    Encrypted(EncryptedHttpsConfig),
 }
 
 /// Parameters for an http server
@@ -104,231 +104,259 @@ fn warn_component_disabled(source: Option<&str>, component: &str) {
     }
 }
 
-fn ip_entries<F>(
-    prefix: &str,
-    loopback_help: &str,
-    port_help: &str,
-    default_port: u16,
-    callback: F,
-) -> Vec<Box<dyn ConfigEntry>>
+fn with_tcp_conf<F>(
+    conf: &mut MasterConfig,
+    source: Option<&str>,
+    cb: F,
+) -> Result<(), Box<dyn Error>>
 where
-    F: Fn(&mut MasterConfig, Option<&str>, &dyn Fn(&mut SocketAddrConfig)) + 'static,
+    F: Fn(&mut SocketAddrConfig) -> Result<(), Box<dyn Error>>,
 {
-    let callback = Arc::new(callback);
-    vec![
-        <dyn ConfigEntry>::new_bool(&format!("{}_loopback", prefix), loopback_help, false, {
-            let callback = callback.clone();
-            move |conf, enable, source| {
-                callback(conf, source, &|addr| {
-                    addr.loopback = Some(enable);
-                });
-                Ok(())
-            }
-        }),
-        <dyn ConfigEntry>::new_int(
-            &format!("{}_port", prefix),
-            port_help,
-            default_port as i64,
-            move |conf, port, source| {
-                let port = u16::try_from(port)
-                    .map_err(|_| format!("{} set to invalid port {}", source.unwrap(), port))?;
-                callback(conf, source, &|addr| {
-                    addr.port = port;
-                });
-                Ok(())
-            },
-        ),
-    ]
+    if let Some(tcp) = &mut conf.server.tcp {
+        cb(tcp)
+    } else {
+        warn_component_disabled(source, "TCP");
+        Ok(())
+    }
+}
+
+fn with_http_conf<F>(
+    conf: &mut MasterConfig,
+    source: Option<&str>,
+    cb: F,
+) -> Result<(), Box<dyn Error>>
+where
+    F: Fn(&mut HttpServerConfig) -> Result<(), Box<dyn Error>>,
+{
+    if let Some(http) = &mut conf.server.http {
+        cb(http)
+    } else {
+        warn_component_disabled(source, "HTTP server");
+        Ok(())
+    }
+}
+
+fn with_encrypted_conf<F>(
+    conf: &mut MasterConfig,
+    source: Option<&str>,
+    cb: F,
+) -> Result<(), Box<dyn Error>>
+where
+    F: Fn(&mut EncryptedHttpsConfig) -> Result<(), Box<dyn Error>>,
+{
+    with_http_conf(conf, source, |http| {
+        if let HttpServerType::Encrypted(https) = &mut http.server_type {
+            cb(https)
+        } else {
+            warn_component_disabled(source, "HTTPS encryption");
+            Ok(())
+        }
+    })
 }
 
 /// Applied in order of returned vec (NOT in the order the user specifies the entry). All entries are always be applied.
 pub fn server_config_entries() -> Vec<Box<dyn ConfigEntry>> {
-    // Pushing to a mutable vec gets us better code formatting than using vec![] and .chain()
-    let mut entries = Vec::new();
-    entries.push(<dyn ConfigEntry>::new_bool(
-        "enable_tcp",
-        "accept/reject TCP sessions",
-        false,
-        |conf, enable, _| {
-            conf.server.tcp = if enable {
-                Some(SocketAddrConfig::default())
-            } else {
-                None
-            };
-            Ok(())
-        },
-    ));
-    entries.append(&mut ip_entries(
-        "tcp",
-        "use loopback or externally accessible IP for TCP",
-        "TCP port",
-        DEFAULT_TCP_PORT,
-        |conf, source, callback| {
-            if let Some(tcp) = &mut conf.server.tcp {
-                callback(tcp);
-            } else {
-                warn_component_disabled(source, "TCP");
-            }
-        },
-    ));
     // We concat! long strings so the vec can be formatted by rustfmt (see https://github.com/rust-lang/rustfmt/issues/3863)
-    entries.push(<dyn ConfigEntry>::new_enum(
-        "http_type",
-        concat!(
-            "type of HTTP server to spin up",
-            " (used for WebSockets, WebRTC and serving the web frontend)"
+    vec![
+        <dyn ConfigEntry>::new_bool(
+            "enable_tcp",
+            "accept/reject TCP sessions",
+            false,
+            |conf, enable, _| {
+                conf.server.tcp = match enable {
+                    true => Some(SocketAddrConfig::default()),
+                    false => None,
+                };
+                Ok(())
+            },
         ),
-        vec![
-            <dyn ConfigEntry>::new_enum_variant("http", "unencrypted HTTP server", |conf, _| {
-                conf.server.http = Some({
-                    let mut http = HttpServerConfig::default();
-                    http.server_type = HttpServerType::Unencrypted(SocketAddrConfig::default());
-                    http
-                });
-            }),
-            <dyn ConfigEntry>::new_enum_variant("https", "encrypted HTTPS server", |conf, _| {
-                conf.server.http = Some({
-                    let mut http = HttpServerConfig::default();
-                    http.server_type = HttpServerType::Encrypted(HttpsConfig::default());
-                    http
-                });
-            }),
-            <dyn ConfigEntry>::new_enum_variant(
-                "none",
-                "do not spin up an HTTP server",
-                |conf, _| {
-                    conf.server.http = None;
-                },
+        <dyn ConfigEntry>::new_bool(
+            "tcp_loopback",
+            "use localhost for TCP instead of an externally accessible IP",
+            false,
+            |conf, enable, source| {
+                with_tcp_conf(conf, source, |tcp| {
+                    tcp.loopback = Some(enable);
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_int(
+            "tcp_port",
+            "TCP listener port",
+            DEFAULT_TCP_PORT as i64,
+            move |conf, port, source| {
+                let port = u16::try_from(port)
+                    .map_err(|_| format!("{} set to invalid port {}", source.unwrap(), port))?;
+                with_tcp_conf(conf, source, |tcp| {
+                    tcp.port = port;
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_enum(
+            "http_type",
+            concat!(
+                "type of HTTP server to spin up",
+                " (used for WebSockets, WebRTC and serving the web frontend)"
             ),
-        ],
-    ));
-    entries.push(<dyn ConfigEntry>::new_bool(
-        "enable_websockets",
-        "accept/reject WebSocket connections",
-        true,
-        |conf, enable, source| {
-            if let Some(http) = &mut conf.server.http {
-                http.enable_websockets = enable;
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-            Ok(())
-        },
-    ));
-    entries.push(<dyn ConfigEntry>::new_bool(
-        "enable_webrtc_experimental",
-        concat!(
-            "accept/reject WebRTC sessions.",
-            " WARNING: WebRTC sessions may experience bugs due to dropped packets"
+            vec![
+                <dyn ConfigEntry>::new_enum_variant(
+                    "http",
+                    "unencrypted HTTP server",
+                    |conf, _| {
+                        conf.server.http = Some({
+                            let mut http = HttpServerConfig::default();
+                            http.server_type =
+                                HttpServerType::Unencrypted(SocketAddrConfig::default());
+                            http
+                        });
+                    },
+                ),
+                <dyn ConfigEntry>::new_enum_variant(
+                    "https",
+                    "encrypted HTTPS server",
+                    |conf, _| {
+                        conf.server.http = Some({
+                            let mut http = HttpServerConfig::default();
+                            http.server_type =
+                                HttpServerType::Encrypted(EncryptedHttpsConfig::default());
+                            http
+                        });
+                    },
+                ),
+                <dyn ConfigEntry>::new_enum_variant(
+                    "none",
+                    "do not spin up an HTTP server",
+                    |conf, _| {
+                        conf.server.http = None;
+                    },
+                ),
+            ],
         ),
-        false,
-        |conf, enable, source| {
-            if let Some(http) = &mut conf.server.http {
-                http.enable_webrtc_experimental = enable;
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-            Ok(())
-        },
-    ));
-    entries.append(&mut ip_entries(
-        "http",
-        "use loopback or externally accessible IP for HTTP(S)",
-        &format!(
-            "HTTP(S) port (defaults to {} instead of {} when using HTTPS)",
-            DEFAULT_HTTPS_PORT, DEFAULT_HTTP_PORT
-        ),
-        DEFAULT_HTTP_PORT,
-        |conf, source, callback| {
-            if let Some(http) = &mut conf.server.http {
-                match &mut http.server_type {
-                    HttpServerType::Unencrypted(socket_addr) => callback(socket_addr),
-                    HttpServerType::Encrypted(https) => {
-                        if source.is_none() {
-                            // if this is the default value
-                            https.socket_addr.port = DEFAULT_HTTPS_PORT;
-                        } else {
-                            callback(&mut https.socket_addr);
+        <dyn ConfigEntry>::new_bool(
+            "http_loopback",
+            "use localhost for HTTP(S) instead of an externally accessible IP",
+            false,
+            |conf, enable, source| {
+                with_http_conf(conf, source, |http| {
+                    match &mut http.server_type {
+                        HttpServerType::Unencrypted(socket_addr) => {
+                            socket_addr.loopback = Some(enable)
+                        }
+                        HttpServerType::Encrypted(https) => {
+                            https.socket_addr.loopback = Some(enable)
                         }
                     }
-                }
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-        },
-    ));
-    entries.push(<dyn ConfigEntry>::new_string(
-        "https_cert_path",
-        "path to the certificate used for HTTPS",
-        "cert.pem",
-        |conf, path, source| {
-            if let Some(http) = &mut conf.server.http {
-                if let HttpServerType::Encrypted(https) = &mut http.server_type {
-                    https.cert_path = path;
-                } else {
-                    warn_component_disabled(source, "HTTPS encryption");
-                }
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-            Ok(())
-        },
-    ));
-    entries.push(<dyn ConfigEntry>::new_string(
-        "https_key_path",
-        "path to the private key used for HTTPS",
-        "privkey.pem",
-        |conf, path, source| {
-            if let Some(http) = &mut conf.server.http {
-                if let HttpServerType::Encrypted(https) = &mut http.server_type {
-                    https.key_path = path;
-                } else {
-                    warn_component_disabled(source, "HTTPS encryption");
-                }
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-            Ok(())
-        },
-    ));
-    entries.push(<dyn ConfigEntry>::new_string(
-        "http_static_content",
-        concat!(
-            "path to the directory of static content to be served over HTTP",
-            " (such as the web frontent public/ directory)"
+                    Ok(())
+                })
+            },
         ),
-        "",
-        |conf, path, source| {
-            if let Some(http) = &mut conf.server.http {
-                http.static_content_path = if path.len() > 0 {
-                    Some(path.to_string())
-                } else {
-                    None
-                };
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-            Ok(())
-        },
-    ));
-    entries.push(<dyn ConfigEntry>::new_bool(
-        "redirect_http_to_https",
-        "run an HTTP server that redirects to the HTTPS server",
-        true,
-        |conf, enable, source| {
-            if let Some(http) = &mut conf.server.http {
-                if let HttpServerType::Encrypted(https) = &mut http.server_type {
+        <dyn ConfigEntry>::new_int(
+            "http_port",
+            &format!(
+                "HTTP(S) server port (defaults to {} instead of {} if HTTPS is used)",
+                DEFAULT_HTTPS_PORT, DEFAULT_HTTP_PORT
+            ),
+            DEFAULT_HTTP_PORT as i64,
+            move |conf, port, source| {
+                let port = u16::try_from(port)
+                    .map_err(|_| format!("{} set to invalid port {}", source.unwrap(), port))?;
+                with_http_conf(conf, source, |http| {
+                    match &mut http.server_type {
+                        HttpServerType::Unencrypted(socket_addr) => socket_addr.port = port,
+                        HttpServerType::Encrypted(https) => {
+                            if source.is_none() {
+                                // If this is the default value, use the HTTPS port instead of the HTTP one
+                                assert_eq!(port, DEFAULT_HTTP_PORT);
+                                https.socket_addr.port = DEFAULT_HTTPS_PORT;
+                            } else {
+                                // Otherwise, accept the port the user gave
+                                https.socket_addr.port = port;
+                            }
+                        }
+                    }
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_string(
+            "http_static_content",
+            concat!(
+                "path to the directory of static content to be served over HTTP",
+                " (such as the web frontent public/ directory)"
+            ),
+            "",
+            |conf, path, source| {
+                with_http_conf(conf, source, |http| {
+                    http.static_content_path = if path.len() > 0 {
+                        Some(path.to_string())
+                    } else {
+                        None
+                    };
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_bool(
+            "enable_websockets",
+            "accept/reject WebSocket connections",
+            true,
+            |conf, enable, source| {
+                with_http_conf(conf, source, |http| {
+                    http.enable_websockets = enable;
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_bool(
+            "enable_webrtc_experimental",
+            concat!(
+                "accept/reject WebRTC sessions.",
+                " WARNING: WebRTC sessions may experience bugs due to dropped packets"
+            ),
+            false,
+            |conf, enable, source| {
+                with_http_conf(conf, source, |http| {
+                    http.enable_webrtc_experimental = enable;
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_string(
+            "https_cert_path",
+            "path to the certificate used for HTTPS",
+            "cert.pem",
+            |conf, path, source| {
+                with_encrypted_conf(conf, source, |https| {
+                    https.cert_path = path.clone();
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_string(
+            "https_key_path",
+            "path to the private key used for HTTPS",
+            "privkey.pem",
+            |conf, path, source| {
+                with_encrypted_conf(conf, source, |https| {
+                    https.key_path = path.clone();
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_bool(
+            "redirect_http_to_https",
+            "run an HTTP server that redirects to the HTTPS server",
+            true,
+            |conf, enable, source| {
+                with_encrypted_conf(conf, source, |https| {
                     https.enable_http_to_https_redirect = enable;
-                } else {
-                    warn_component_disabled(source, "HTTPS encryption");
-                }
-            } else {
-                warn_component_disabled(source, "HTTP server");
-            }
-            Ok(())
-        },
-    ));
-    entries
+                    Ok(())
+                })
+            },
+        ),
+    ]
 }
 
 #[cfg(test)]
@@ -451,6 +479,52 @@ mod tests {
         let conf = build_config_with(fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.port, 55),
+            _ => panic!(),
+        };
+    }
+
+    #[test]
+    fn http_loopback_disabled_by_default() {
+        let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"http\"");
+        let conf = build_config_with(fs.boxed()).unwrap();
+        match conf.server.http.unwrap().server_type {
+            HttpServerType::Unencrypted(addr) => assert_eq!(addr.loopback, Some(false)),
+            _ => panic!(),
+        };
+    }
+
+    #[test]
+    fn https_loopback_disabled_by_default() {
+        let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
+        let conf = build_config_with(fs.boxed()).unwrap();
+        match conf.server.http.unwrap().server_type {
+            HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.loopback, Some(false)),
+            _ => panic!(),
+        };
+    }
+
+    #[test]
+    fn can_set_http_loopback() {
+        let fs = MockFilesystem::new().add_file(
+            "starscape.toml",
+            "http_type = \"http\"\nhttp_loopback = true",
+        );
+        let conf = build_config_with(fs.boxed()).unwrap();
+        match conf.server.http.unwrap().server_type {
+            HttpServerType::Unencrypted(addr) => assert_eq!(addr.loopback, Some(true)),
+            _ => panic!(),
+        };
+    }
+
+    #[test]
+    fn can_set_https_loopback() {
+        let fs = MockFilesystem::new().add_file(
+            "starscape.toml",
+            "http_type = \"https\"\nhttp_loopback = true",
+        );
+        let conf = build_config_with(fs.boxed()).unwrap();
+        match conf.server.http.unwrap().server_type {
+            HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.loopback, Some(true)),
             _ => panic!(),
         };
     }
