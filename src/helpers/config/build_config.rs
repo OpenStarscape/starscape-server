@@ -1,6 +1,9 @@
 use super::*;
 
-pub fn build_config_with(fs: Filesystem) -> Result<MasterConfig, Box<dyn Error>> {
+pub fn build_config_with(
+    args: Vec<String>,
+    fs: Filesystem,
+) -> Result<MasterConfig, Box<dyn Error>> {
     // TODO: use environment variables
     // TODO: use command line arguments
     // TODO: do not allow unknown config options
@@ -14,6 +17,7 @@ pub fn build_config_with(fs: Filesystem) -> Result<MasterConfig, Box<dyn Error>>
     if fs.is_file(DEFAULT_TOML_PATH) {
         load_toml(DEFAULT_TOML_PATH, &mut builder, fs)?;
     }
+    parse_args(&mut builder, args)?;
     let mut conf = MasterConfig::default();
     builder.apply_to(&mut conf)?;
     Ok(conf)
@@ -21,5 +25,5 @@ pub fn build_config_with(fs: Filesystem) -> Result<MasterConfig, Box<dyn Error>>
 
 /// Build a configuration
 pub fn build_config() -> Result<MasterConfig, Box<dyn Error>> {
-    build_config_with(real_filesystem())
+    build_config_with(std::env::args().collect(), real_filesystem())
 }

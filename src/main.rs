@@ -90,7 +90,7 @@ async fn main() {
         Ok(ok) => ok,
         Err(e) => {
             error!("configuration error: {}", e);
-            return;
+            std::process::exit(1);
         }
     };
     let ctrlc_rx = init_ctrlc_handler();
@@ -100,10 +100,13 @@ async fn main() {
     // Create a server, which will spin up everything required to talk to clients. The server object
     // is not used directly but needs to be kept in scope for as long as the game runs.
     let (new_session_tx, new_session_rx) = channel();
-    let _server = Server::new(&master_conf.server, new_session_tx).unwrap_or_else(|e| {
-        error!("{}", e);
-        panic!("failed to create game");
-    });
+    let _server = match Server::new(&master_conf.server, new_session_tx) {
+        Ok(ok) => ok,
+        Err(e) => {
+            error!("error starting server: {}", e);
+            std::process::exit(1);
+        }
+    };
 
     // Create the game engine. The `init` and `physics_tick` callbacks are the entiry points into
     // the `game` module
