@@ -366,21 +366,21 @@ mod tests {
     #[test]
     fn tcp_disabled_by_default() {
         let fs = MockFilesystem::new();
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(conf.server.tcp.is_none());
     }
 
     #[test]
     fn can_enable_tcp() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "enable_tcp = true");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(conf.server.tcp.is_some());
     }
 
     #[test]
     fn tcp_loopback_disabled_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "enable_tcp = true");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(conf.server.tcp.unwrap().loopback, Some(false));
     }
 
@@ -388,14 +388,14 @@ mod tests {
     fn can_enable_tcp_loopback() {
         let fs = MockFilesystem::new()
             .add_file("starscape.toml", "enable_tcp = true\ntcp_loopback = true");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(conf.server.tcp.unwrap().loopback, Some(true));
     }
 
     #[test]
     fn tcp_uses_correct_port_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "enable_tcp = true");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(conf.server.tcp.unwrap().port, DEFAULT_TCP_PORT);
     }
 
@@ -403,7 +403,7 @@ mod tests {
     fn can_set_tcp_port() {
         let fs =
             MockFilesystem::new().add_file("starscape.toml", "enable_tcp = true\ntcp_port = 99");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(conf.server.tcp.unwrap().port, 99);
     }
 
@@ -411,13 +411,13 @@ mod tests {
     fn invalid_tcp_port_results_in_config_error() {
         let fs = MockFilesystem::new()
             .add_file("starscape.toml", "enable_tcp = true; tcp_port = 100000");
-        assert!(build_config_with(fs.boxed()).is_err());
+        assert!(build_config_with(vec![], fs.boxed()).is_err());
     }
 
     #[test]
     fn can_use_encrypted_https_server() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(_) => (),
             _ => panic!(),
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn can_use_unencrypted_http_server() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"http\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Unencrypted(_) => (),
             _ => panic!(),
@@ -437,14 +437,14 @@ mod tests {
     #[test]
     fn can_disable_http_server() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"none\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(conf.server.http.is_none());
     }
 
     #[test]
     fn http_uses_correct_port_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"http\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Unencrypted(addr) => assert_eq!(addr.port, 80),
             _ => panic!(),
@@ -454,7 +454,7 @@ mod tests {
     #[test]
     fn https_uses_correct_port_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.port, 443),
             _ => panic!(),
@@ -465,7 +465,7 @@ mod tests {
     fn can_set_http_port() {
         let fs = MockFilesystem::new()
             .add_file("starscape.toml", "http_type = \"http\"\nhttp_port = 44");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Unencrypted(addr) => assert_eq!(addr.port, 44),
             _ => panic!(),
@@ -476,7 +476,7 @@ mod tests {
     fn can_set_https_port() {
         let fs = MockFilesystem::new()
             .add_file("starscape.toml", "http_type = \"https\"\nhttp_port = 55");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.port, 55),
             _ => panic!(),
@@ -486,7 +486,7 @@ mod tests {
     #[test]
     fn http_loopback_disabled_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"http\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Unencrypted(addr) => assert_eq!(addr.loopback, Some(false)),
             _ => panic!(),
@@ -496,7 +496,7 @@ mod tests {
     #[test]
     fn https_loopback_disabled_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.loopback, Some(false)),
             _ => panic!(),
@@ -509,7 +509,7 @@ mod tests {
             "starscape.toml",
             "http_type = \"http\"\nhttp_loopback = true",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Unencrypted(addr) => assert_eq!(addr.loopback, Some(true)),
             _ => panic!(),
@@ -522,7 +522,7 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nhttp_loopback = true",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => assert_eq!(https.socket_addr.loopback, Some(true)),
             _ => panic!(),
@@ -532,7 +532,7 @@ mod tests {
     #[test]
     fn websockets_enabled_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(conf.server.http.unwrap().enable_websockets);
     }
 
@@ -542,14 +542,14 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nenable_websockets = false",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(!conf.server.http.unwrap().enable_websockets);
     }
 
     #[test]
     fn webrtc_disabled_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(!conf.server.http.unwrap().enable_webrtc_experimental);
     }
 
@@ -559,14 +559,14 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nenable_webrtc_experimental = true",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert!(conf.server.http.unwrap().enable_webrtc_experimental);
     }
 
     #[test]
     fn default_cert_and_key_paths() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => {
                 assert!(https.cert_path.contains("cert"));
@@ -582,7 +582,7 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nhttps_cert_path = \"foo.txt\"\nhttps_key_path = \"bar.txt\"",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => {
                 assert_eq!(https.cert_path, "foo.txt");
@@ -595,7 +595,7 @@ mod tests {
     #[test]
     fn http_to_https_redirect_on_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => {
                 assert!(https.enable_http_to_https_redirect);
@@ -610,7 +610,7 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nredirect_http_to_https = false",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         match conf.server.http.unwrap().server_type {
             HttpServerType::Encrypted(https) => {
                 assert!(!https.enable_http_to_https_redirect);
@@ -622,7 +622,7 @@ mod tests {
     #[test]
     fn static_content_none_by_default() {
         let fs = MockFilesystem::new().add_file("starscape.toml", "http_type = \"https\"");
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(conf.server.http.unwrap().static_content_path, None);
     }
 
@@ -632,7 +632,7 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nhttp_static_content = \"../foo\"",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(
             conf.server.http.unwrap().static_content_path,
             Some("../foo".to_owned())
@@ -645,7 +645,7 @@ mod tests {
             "starscape.toml",
             "http_type = \"https\"\nhttp_static_content = \"\"",
         );
-        let conf = build_config_with(fs.boxed()).unwrap();
+        let conf = build_config_with(vec![], fs.boxed()).unwrap();
         assert_eq!(conf.server.http.unwrap().static_content_path, None);
     }
 }
