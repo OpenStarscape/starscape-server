@@ -17,8 +17,23 @@ fn warn_disabled_http_encryption(source: Option<&str>) {
 pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
     // We concat! long strings so the vec can be formatted by rustfmt (see https://github.com/rust-lang/rustfmt/issues/3863)
     vec![
+        <dyn ConfigEntry>::new_float(
+            "max_game_seconds",
+            "seconds to run the game before exiting, or 0 to run until process is killed",
+            60.0 * 60.0,
+            |conf, time, source| {
+                if time > 0.0 {
+                    conf.max_game_time = Some(time);
+                } else {
+                    if time < 0.0 {
+                        warn!("{} should not be negative", source.unwrap());
+                    }
+                    conf.max_game_time = None;
+                }
+            },
+        ),
         <dyn ConfigEntry>::new_bool(
-            "tcp",
+            "enable_tcp",
             "accept/reject TCP sessions",
             false,
             |conf, enable, _| {
@@ -29,15 +44,14 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
                 };
             },
         ),
-        <dyn ConfigEntry>::new_bool(
-            "http_server",
+        <dyn ConfigEntry>::new_enum(
+            "http_type",
             concat!(
-                "enable/disable the HTTP server",
-                " (required for WebSockets, WebRTC or the web frontend)"
+                "type of HTTP server to spin up",
+                " (used for WebSockets, WebRTC and serving the web frontend)"
             ),
-            true,
-            |conf, enable, _| {
-                if enable {
+            vec![
+                ConfigEntryVariant::new("http", "unencrypted HTTP server", |conf, _| {
                     conf.server.http = Some(HttpServerConfig {
                         static_content_path: None,
                         enable_websockets: false,
@@ -46,10 +60,24 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
                             SocketAddrConfig::new_non_loopback(),
                         ),
                     });
-                } else {
+                }),
+                ConfigEntryVariant::new("https", "encrypted HTTPS server", |conf, _| {
+                    conf.server.http = Some(HttpServerConfig {
+                        static_content_path: None,
+                        enable_websockets: false,
+                        enable_webrtc_experimental: false,
+                        server_type: HttpServerType::Encrypted(HttpsConfig {
+                            socket_addr: SocketAddrConfig::new_non_loopback(),
+                            cert_path: String::new(),
+                            key_path: String::new(),
+                            enable_http_to_https_redirect: true,
+                        }),
+                    });
+                }),
+                ConfigEntryVariant::new("none", "do not spin up an HTTP server", |conf, _| {
                     conf.server.http = None;
-                }
-            },
+                }),
+            ],
         ),
         <dyn ConfigEntry>::new_bool(
             "websockets",
@@ -83,6 +111,9 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
             "enable/disable encryption on the server",
             false,
             |conf, enable, source| {
+                if source.is_none() {
+                    return;
+                }
                 if let Some(http) = &mut conf.server.http {
                     http.server_type = if enable {
                         HttpServerType::Encrypted(HttpsConfig {
@@ -150,21 +181,6 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
                     };
                 } else {
                     warn_disabled_http(source);
-                }
-            },
-        ),
-        <dyn ConfigEntry>::new_float(
-            "max_game_time",
-            "seconds to run the game before exiting, or 0 to run until process is killed",
-            60.0 * 60.0,
-            |conf, time, source| {
-                if time > 0.0 {
-                    conf.max_game_time = Some(time);
-                } else {
-                    if time < 0.0 {
-                        warn!("{} should not be negative", source.unwrap());
-                    }
-                    conf.max_game_time = None;
                 }
             },
         ),

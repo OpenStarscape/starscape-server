@@ -93,6 +93,77 @@ impl dyn ConfigEntry {
             }))
         })
     }
+
+    pub fn new_enum(name: &str, help: &str, variants: Vec<ConfigEntryVariant>) -> Box<Self> {
+        assert!(variants.len() > 0);
+        let mut help = help.to_string();
+        for variant in &variants {
+            help.push_str(&format!("\n  {}: {}", variant.name, variant.help))
+        }
+        let names: Vec<String> = variants
+            .iter()
+            .map(|variant| variant.name.to_string())
+            .collect();
+        ConfigEntryImpl::new(
+            &name,
+            &help,
+            variants[0].name.clone(),
+            move |conf, value, source| {
+                for variant in &variants {
+                    if variant.name == value {
+                        (variant.apply_fn)(conf, source);
+                        return;
+                    }
+                }
+                panic!(
+                    "{} is not a valid enum variant (should have been caught in setter)",
+                    value
+                );
+            },
+            {
+                let name = name.to_string();
+                move |target| {
+                    let names = names.clone();
+                    let name = name.clone();
+                    ConfigEntrySetter::String(Box::new(move |value, source| {
+                        if names.contains(&value) {
+                            target.value = value;
+                            target.source = Some(source);
+                            Ok(())
+                        } else {
+                            Err(format!(
+                                "{} is not valid for {}, valid options are {}",
+                                value,
+                                name,
+                                names.join(", ")
+                            )
+                            .into())
+                        }
+                    }))
+                }
+            },
+        )
+    }
+}
+
+pub struct ConfigEntryVariant {
+    pub name: String,
+    pub help: String,
+    pub apply_fn: Box<dyn Fn(&mut MasterConfig, Option<&str>)>,
+}
+
+impl ConfigEntryVariant {
+    pub fn new<F: Fn(&mut MasterConfig, Option<&str>) + 'static>(
+        name: &str,
+        help: &str,
+        apply: F,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            help: help.to_string(),
+            apply_fn: Box::new(apply),
+        }
+    }
 }
 
 struct SetterTarget<T> {
