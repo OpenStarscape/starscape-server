@@ -95,6 +95,7 @@ impl dyn ConfigEntry {
     }
 
     pub fn new_enum(name: &str, help: &str, variants: Vec<ConfigEntryVariant>) -> Box<Self> {
+        // This gets into borrowchecker hell but it works
         assert!(variants.len() > 0);
         let mut help = help.to_string();
         for variant in &variants {
@@ -144,26 +145,24 @@ impl dyn ConfigEntry {
             },
         )
     }
+
+    pub fn new_enum_variant<F: Fn(&mut MasterConfig, Option<&str>) + 'static>(
+        name: &str,
+        help: &str,
+        apply: F,
+    ) -> ConfigEntryVariant {
+        ConfigEntryVariant {
+            name: name.to_string(),
+            help: help.to_string(),
+            apply_fn: Box::new(apply),
+        }
+    }
 }
 
 pub struct ConfigEntryVariant {
     pub name: String,
     pub help: String,
     pub apply_fn: Box<dyn Fn(&mut MasterConfig, Option<&str>)>,
-}
-
-impl ConfigEntryVariant {
-    pub fn new<F: Fn(&mut MasterConfig, Option<&str>) + 'static>(
-        name: &str,
-        help: &str,
-        apply: F,
-    ) -> Self {
-        Self {
-            name: name.to_string(),
-            help: help.to_string(),
-            apply_fn: Box::new(apply),
-        }
-    }
 }
 
 struct SetterTarget<T> {
@@ -236,6 +235,12 @@ pub struct ConfigBuilder {
 
 impl ConfigBuilder {
     pub fn new(entries: Vec<Box<dyn ConfigEntry>>) -> Self {
+        let mut names = HashSet::new();
+        for entry in &entries {
+            if !names.insert(entry.name()) {
+                panic!("duplicate configuration entry {}", entry.name());
+            }
+        }
         Self { entries }
     }
 
