@@ -7,7 +7,10 @@ pub fn build_config_with(fs: Filesystem) -> Result<MasterConfig, Box<dyn Error>>
     // TODO: accumulate multiple config errors
     // TODO: IPv6 config???
     // TODO: verify the final config is valid (paths exist, etc)
-    let mut builder = ConfigBuilder::new(config_entries());
+    let mut entries = Vec::new();
+    entries.append(&mut config_entries());
+    entries.append(&mut server_config_entries());
+    let mut builder = ConfigBuilder::new(entries);
     if fs.is_file(DEFAULT_TOML_PATH) {
         load_toml(DEFAULT_TOML_PATH, &mut builder, fs)?;
     }

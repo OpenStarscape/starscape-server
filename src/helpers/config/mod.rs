@@ -9,9 +9,10 @@ mod master_config;
 mod tests;
 
 pub use build_config::build_config;
-
 #[cfg(test)]
-use build_config::*;
+pub use build_config::build_config_with;
+pub use config_builder::ConfigEntry;
+
 use config_builder::*;
 use config_entries::*;
 use load_toml::*;
