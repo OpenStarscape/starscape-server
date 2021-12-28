@@ -12,8 +12,8 @@ pub use build_config::build_config;
 #[cfg(test)]
 pub use build_config::build_config_with;
 pub use config_builder::ConfigEntry;
+pub use master_config::MasterConfig;
 
 use config_builder::*;
 use config_entries::*;
 use load_toml::*;
-use master_config::*;

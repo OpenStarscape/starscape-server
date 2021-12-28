@@ -1,9 +1,9 @@
 use super::*;
 
-const DEFAULT_HTTP_PORT: u16 = 80;
-const DEFAULT_HTTPS_PORT: u16 = 443;
-const DEFAULT_TCP_PORT: u16 = 56_550;
-const DEFAULT_WEB_RTC_PORT: u16 = DEFAULT_TCP_PORT + 1;
+pub const DEFAULT_HTTP_PORT: u16 = 80;
+pub const DEFAULT_HTTPS_PORT: u16 = 443;
+pub const DEFAULT_TCP_PORT: u16 = 56_550;
+pub const DEFAULT_WEB_RTC_PORT: u16 = DEFAULT_TCP_PORT + 1;
 
 /// Represents an object that lives for the lifetime of the server, such as a listener for a
 /// particular network protocol
@@ -27,7 +27,7 @@ impl Server {
                 Some(IpVersion::V4),
                 tcp.loopback,
             )?;
-            let addr = SocketAddr::new(ip, tcp.port.unwrap_or(DEFAULT_TCP_PORT));
+            let addr = SocketAddr::new(ip, tcp.port);
             let tcp = TcpListener::new(new_session_tx.clone(), addr)
                 .map_err(|e| format!("failed to create TcpListener: {}", e))?;
             components.push(Box::new(tcp));
@@ -79,8 +79,7 @@ impl Server {
                         Some(IpVersion::V4),
                         https.socket_addr.loopback,
                     )?;
-                    let https_addr =
-                        SocketAddr::new(ip, https.socket_addr.port.unwrap_or(DEFAULT_HTTPS_PORT));
+                    let https_addr = SocketAddr::new(ip, https.socket_addr.port);
                     let https_server = HttpServer::new_encrypted(
                         warp_filter,
                         https_addr,
@@ -105,7 +104,7 @@ impl Server {
                         addr.loopback,
                     )?;
 
-                    let http_addr = SocketAddr::new(ip, addr.port.unwrap_or(DEFAULT_HTTP_PORT));
+                    let http_addr = SocketAddr::new(ip, addr.port);
                     let http_server = HttpServer::new_unencrypted(warp_filter, http_addr)?;
                     components.push(Box::new(http_server));
                 }

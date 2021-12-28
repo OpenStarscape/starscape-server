@@ -11,11 +11,12 @@ pub fn config_entries() -> Vec<Box<dyn ConfigEntry>> {
         |conf, time, source| {
             if time > 0.0 {
                 conf.max_game_time = Some(time);
-            } else {
-                if time < 0.0 {
-                    warn!("{} should not be negative", source.unwrap());
-                }
+                Ok(())
+            } else if time == 0.0 {
                 conf.max_game_time = None;
+                Ok(())
+            } else {
+                Err(format!("{} should not be negative", source.unwrap()).into())
             }
         },
     )]
