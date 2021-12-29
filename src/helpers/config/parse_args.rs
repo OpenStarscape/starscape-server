@@ -58,13 +58,13 @@ fn try_set(
         match value_str {
             Some(value_str) => Err(format!(
                 "{} is not valid for {} (expected: {})",
-                value_str, name, setter
+                value_str, arg_name, setter
             )
             .into()),
             None => Err(format!("{} argument is required for {}", setter, name).into()),
         }
     } else {
-        Err(format!("{} is not a valid name", arg_name).into())
+        Err(format!("{} is not a valid command line option", arg_name).into())
     }
 }
 

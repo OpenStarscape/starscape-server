@@ -36,7 +36,7 @@ pub fn try_set(
         }
         Err(format!("{} is not valid for {} (expected: {})", value, name, setter).into())
     } else {
-        Err(format!("{} is not a valid name", name).into())
+        Err(format!("{} is not a valid key", name).into())
     }
 }
 
