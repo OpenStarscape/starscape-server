@@ -60,6 +60,8 @@ pub enum HttpServerType {
 pub struct HttpServerConfig {
     /// Path to the frontend that will be served
     pub static_content_path: Option<String>,
+    /// If to attempt to start a web browser locally
+    pub open_browser: bool,
     /// If to accept websocket connections. It's done through the HTTP server so no additional SocketAddr is required.
     pub enable_websockets: bool,
     ///If to accept WebRTC connections. WARNING: WebRTC is unreliable, and dropped packets are not correctly handled.
@@ -72,6 +74,7 @@ impl Default for HttpServerConfig {
     fn default() -> Self {
         Self {
             static_content_path: None,
+            open_browser: false,
             enable_websockets: false,
             enable_webrtc_experimental: false,
             server_type: HttpServerType::Unencrypted(SocketAddrConfig::default()),
@@ -294,6 +297,20 @@ pub fn server_config_entries() -> Vec<Box<dyn ConfigEntry>> {
                     } else {
                         None
                     };
+                    Ok(())
+                })
+            },
+        ),
+        <dyn ConfigEntry>::new_bool(
+            "open_browser",
+            "attempt to launch the default web browser locally to connect to the HTTP server",
+            false,
+            |conf, enable, source| {
+                with_http_conf(conf, source, |http| {
+                    http.open_browser = enable;
+                    if enable && http.static_content_path.is_none() {
+                        warn_component_disabled(source, "HTTP static content");
+                    }
                     Ok(())
                 })
             },

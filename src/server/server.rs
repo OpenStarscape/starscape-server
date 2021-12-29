@@ -72,14 +72,21 @@ impl Server {
                 );
             }
 
+            let ip;
+            let port;
+            let proto;
+
             match &http.server_type {
                 HttpServerType::Encrypted(https) => {
-                    let ip = get_ip(
+                    ip = get_ip(
                         https.socket_addr.interface_name.as_deref(),
                         Some(IpVersion::V4),
                         https.socket_addr.loopback,
                     )?;
-                    let https_addr = SocketAddr::new(ip, https.socket_addr.port);
+                    port = https.socket_addr.port;
+                    proto = "https";
+
+                    let https_addr = SocketAddr::new(ip, port);
                     let https_server = HttpServer::new_encrypted(
                         warp_filter,
                         https_addr,
@@ -98,15 +105,24 @@ impl Server {
                 HttpServerType::Unencrypted(addr) => {
                     // This should resolve to localhost for testing. We need to point the web app to this
                     // address (at time of writing that's done with a proxy rule in vue.config.js).
-                    let ip = get_ip(
+                    ip = get_ip(
                         addr.interface_name.as_deref(),
                         Some(IpVersion::V4),
                         addr.loopback,
                     )?;
+                    port = addr.port;
+                    proto = "http";
 
-                    let http_addr = SocketAddr::new(ip, addr.port);
+                    let http_addr = SocketAddr::new(ip, port);
                     let http_server = HttpServer::new_unencrypted(warp_filter, http_addr)?;
                     components.push(Box::new(http_server));
+                }
+            }
+
+            if http.open_browser {
+                let target = format!("{}://{}:{}", proto, ip, port);
+                if let Err(e) = webbrowser::open(&target) {
+                    warn!("opening browser to {} failed: {}", target, e);
                 }
             }
         }
