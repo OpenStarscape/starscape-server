@@ -93,6 +93,12 @@ async fn main() {
             std::process::exit(1);
         }
     };
+
+    if master_conf.happy_exit {
+        trace!("not starting server");
+        return;
+    }
+
     let ctrlc_rx = init_ctrlc_handler();
 
     info!("initializing game…");

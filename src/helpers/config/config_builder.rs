@@ -28,6 +28,7 @@ impl<'a> std::fmt::Display for ConfigEntrySetter<'a> {
 pub trait ConfigEntry {
     fn name(&self) -> &str;
     fn help(&self) -> &str;
+    fn default_value_to_string(&self) -> String;
     fn setter(&mut self) -> ConfigEntrySetter;
     fn apply_to(&self, target: &mut MasterConfig) -> Result<(), Box<dyn Error>>;
 }
@@ -159,13 +160,14 @@ struct SetterTarget<T> {
 
 struct ConfigEntryImpl<T> {
     name: String,
+    default_value: T,
     help: String,
     target: SetterTarget<T>,
     apply_fn: Box<dyn Fn(&mut MasterConfig, T, Option<&str>) -> Result<(), Box<dyn Error>>>,
     setter_builder: Box<dyn Fn(&mut SetterTarget<T>) -> ConfigEntrySetter>,
 }
 
-impl<T> ConfigEntryImpl<T> {
+impl<T: Clone> ConfigEntryImpl<T> {
     pub fn new<APPLY, SETTER>(
         name: &str,
         help: &str,
@@ -179,6 +181,7 @@ impl<T> ConfigEntryImpl<T> {
     {
         Box::new(ConfigEntryImpl {
             name: name.to_string(),
+            default_value: default_value.clone(),
             help: help.to_string(),
             target: SetterTarget {
                 value: default_value,
@@ -190,13 +193,17 @@ impl<T> ConfigEntryImpl<T> {
     }
 }
 
-impl<T: Clone + 'static> ConfigEntry for ConfigEntryImpl<T> {
+impl<T: Clone + std::fmt::Display + 'static> ConfigEntry for ConfigEntryImpl<T> {
     fn name(&self) -> &str {
         &self.name
     }
 
     fn help(&self) -> &str {
         &self.help
+    }
+
+    fn default_value_to_string(&self) -> String {
+        format!("{}", self.default_value)
     }
 
     fn setter(&mut self) -> ConfigEntrySetter {
@@ -212,8 +219,15 @@ impl<T: Clone + 'static> ConfigEntry for ConfigEntryImpl<T> {
     }
 }
 
+pub struct ConfigEntryHelpData {
+    pub name: String,
+    pub default_value: String,
+    pub help_text: String,
+}
+
 pub struct ConfigBuilder {
     entries: Vec<Box<dyn ConfigEntry>>,
+    happy_exit: bool,
 }
 
 impl ConfigBuilder {
@@ -224,7 +238,10 @@ impl ConfigBuilder {
                 panic!("duplicate configuration entry {}", entry.name());
             }
         }
-        Self { entries }
+        Self {
+            entries,
+            happy_exit: false,
+        }
     }
 
     pub fn entry(&mut self, name: &str) -> Option<ConfigEntrySetter> {
@@ -237,11 +254,32 @@ impl ConfigBuilder {
         None
     }
 
+    /// Returns a tuple of (name, value, help text) for each entry
+    pub fn help_data(&self) -> Vec<ConfigEntryHelpData> {
+        self.entries
+            .iter()
+            .map(|entry| ConfigEntryHelpData {
+                name: entry.name().to_owned(),
+                default_value: entry.default_value_to_string(),
+                help_text: entry.help().to_owned(),
+            })
+            .collect()
+    }
+
+    /// If this is called configs built with this builder will have happy_exit = true. Once set it cannot be unset.
+    pub fn set_happy_exit(&mut self) {
+        self.happy_exit = true;
+    }
+
     pub fn apply_to(&self, target: &mut MasterConfig) -> Result<(), Box<dyn Error>> {
-        for entry in &self.entries {
-            entry
-                .apply_to(target)
-                .map_err(|e| format!("{} configuration option: {}", entry.name(), e))?;
+        if self.happy_exit {
+            target.happy_exit = true;
+        } else {
+            for entry in &self.entries {
+                entry
+                    .apply_to(target)
+                    .map_err(|e| format!("{} configuration option: {}", entry.name(), e))?;
+            }
         }
         Ok(())
     }
