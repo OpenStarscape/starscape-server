@@ -216,6 +216,11 @@ impl<T: Clone + std::fmt::Display + 'static> ConfigEntry for ConfigEntryImpl<T> 
             self.target.value.clone(),
             self.target.source.as_deref(),
         )
+        .map(|()| {
+            if let Some(source) = &self.target.source {
+                info!("{}={} ({})", self.name, self.target.value, source)
+            }
+        })
     }
 }
 
