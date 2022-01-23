@@ -1,6 +1,6 @@
 use super::*;
 
-fn transform_arg_name(mut arg_name: &str) -> String {
+fn arg_name_to_entry_name(mut arg_name: &str) -> String {
     for _ in 0..2 {
         if arg_name.starts_with("-") {
             arg_name = &arg_name[1..]
@@ -9,12 +9,16 @@ fn transform_arg_name(mut arg_name: &str) -> String {
     arg_name.replace("-", "_")
 }
 
+fn entry_name_to_arg_name(entry_name: &str) -> String {
+    "--".to_owned() + &entry_name.replace("_", "-")
+}
+
 fn try_set(
     builder: &mut ConfigBuilder,
     arg_name: &str,
     value_str: &str,
 ) -> Result<(), Box<dyn Error>> {
-    let name = transform_arg_name(arg_name);
+    let name = arg_name_to_entry_name(arg_name);
     let message = format!("{} command line argument", arg_name);
     if let Some(mut setter) = builder.entry(&name) {
         match &mut setter {
@@ -50,11 +54,17 @@ fn try_set(
 
 struct Arg {
     pub name: String,
-    pub value: Option<String>,
+    pub value: String,
 }
 
-fn parse_list(args: &Vec<String>) -> Result<Vec<Arg>, Box<dyn Error>> {
+struct Parsed {
+    pub help: bool,
+    pub parsed: Vec<Arg>,
+}
+
+fn parse_list(args: &Vec<String>) -> Result<Parsed, Box<dyn Error>> {
     let mut parsed = Vec::new();
+    let mut help = false;
     for (i, arg) in args.iter().enumerate() {
         if i == 0 {
             if arg.starts_with("-") {
@@ -64,35 +74,69 @@ fn parse_list(args: &Vec<String>) -> Result<Vec<Arg>, Box<dyn Error>> {
                 )
                 .into());
             }
-        } else if arg.starts_with("-") {
-            if let Some(split) = arg.find('=') {
-                parsed.push(Arg {
-                    name: arg[..split].to_owned(),
-                    // + 1 should be safe because we always split on =, which is a 1 byte ASCII character
-                    value: Some(arg[split + 1..].to_owned()),
-                })
-            } else {
-                parsed.push(Arg {
-                    name: arg.to_owned(),
-                    value: None,
-                })
-            }
+        } else if arg == "-h" || arg == "--help" {
+            help = true;
+        } else if let (true, Some(split)) = (arg.starts_with("-"), arg.find('=')) {
+            parsed.push(Arg {
+                name: arg[..split].to_owned(),
+                // + 1 should be safe because we always split on =, which is a 1 byte ASCII character
+                value: arg[split + 1..].to_owned(),
+            })
         } else {
-            return Err(
-                format!("invalid command line argument {}, should start with --", i).into(),
-            );
+            return Err(format!(
+                "invalid command line argument {}, should look like --config-option=value",
+                i
+            )
+            .into());
         }
     }
-    Ok(parsed)
+    Ok(Parsed { help, parsed })
 }
 
 pub fn parse_args(builder: &mut ConfigBuilder, args: Vec<String>) -> Result<(), Box<dyn Error>> {
     let parsed = parse_list(&args)?;
-    for arg in &parsed {
-        if let Some(value) = &arg.value {
-            try_set(builder, &arg.name, value)?;
-        } else {
-            return Err(format!("command line argument {} does not have a value", arg.name).into());
+    if parsed.help {
+        let prog_name = args
+            .first()
+            .map(String::as_str)
+            .unwrap_or("starscape-server");
+        println!("OpenStarscape server");
+        println!();
+        println!("USAGE: {} --help", prog_name);
+        println!("       {} --config-option=value ...", prog_name);
+        println!();
+        println!("CONFIG OPTIONS:");
+        for entry in builder.help_data() {
+            let name = entry_name_to_arg_name(&entry.name);
+            let mut help = entry.help_text.clone();
+            if help.contains("\n") {
+                help += "\n";
+            } else {
+                help += " ";
+            }
+            help += &format!("(default: {})", entry.default_value);
+            help = help
+                .lines()
+                .enumerate()
+                .map(|(i, line)| match i {
+                    0 => line.to_owned(),
+                    _ => format!("\n{:<31}{}", " ", line),
+                })
+                .collect();
+            println!("  {:<26} {} ", format!("{}=_", name), help);
+            println!();
+        }
+        println!("CONFIG FILE:");
+        println!(
+            "  Config options may also be specified in a config file named {}",
+            DEFAULT_TOML_PATH
+        );
+        println!("  Options set in this file are in the format config_option=\"value\"");
+        println!("  Strings (but not numbers and bools) must be quoted, -- is not used and _ is used instead of -");
+        builder.set_happy_exit();
+    } else {
+        for arg in &parsed.parsed {
+            try_set(builder, &arg.name, &arg.value)?;
         }
     }
     Ok(())
