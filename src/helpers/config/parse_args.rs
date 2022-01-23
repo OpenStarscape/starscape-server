@@ -12,44 +12,36 @@ fn transform_arg_name(mut arg_name: &str) -> String {
 fn try_set(
     builder: &mut ConfigBuilder,
     arg_name: &str,
-    value_str: Option<&str>,
+    value_str: &str,
 ) -> Result<(), Box<dyn Error>> {
     let name = transform_arg_name(arg_name);
     let message = format!("{} command line argument", arg_name);
     if let Some(mut setter) = builder.entry(&name) {
-        match (&mut setter, value_str) {
-            (ConfigEntrySetter::Bool(ref mut set), Some(value_str)) => {
-                match value_str {
-                    "true" => return set(true, message),
-                    "false" => return set(false, message),
-                    _ => (),
-                }
-            }
-            (ConfigEntrySetter::Bool(ref mut set), None) => {
-                return set(true, message);
-            }
-            (ConfigEntrySetter::String(ref mut set), Some(value_str)) => {
-                return set(value_str.to_owned(), message);
-            }
-            (ConfigEntrySetter::Int(ref mut set), Some(value_str)) => {
+        match &mut setter {
+            ConfigEntrySetter::Bool(ref mut set) => match value_str {
+                "true" => set(true, message),
+                "false" => set(false, message),
+                _ => Err(format!(
+                    "{} value {} is not a valid bool (true or false)",
+                    arg_name, value_str
+                )
+                .into()),
+            },
+            ConfigEntrySetter::String(ref mut set) => set(value_str.to_owned(), message),
+            ConfigEntrySetter::Int(ref mut set) => {
                 if let Ok(i) = value_str.parse::<i64>() {
-                    return set(i, message);
+                    set(i, message)
+                } else {
+                    Err(format!("{} value {} is not a valid int", arg_name, value_str).into())
                 }
             }
-            (ConfigEntrySetter::Float(ref mut set), Some(value_str)) => {
+            ConfigEntrySetter::Float(ref mut set) => {
                 if let Ok(f) = value_str.parse::<f64>() {
-                    return set(f, message);
+                    set(f, message)
+                } else {
+                    Err(format!("{} value {} is not a valid float", arg_name, value_str).into())
                 }
             }
-            (_, None) => (),
-        }
-        match value_str {
-            Some(value_str) => Err(format!(
-                "{} is not valid for {} (expected: {})",
-                value_str, arg_name, setter
-            )
-            .into()),
-            None => Err(format!("{} argument is required for {}", setter, name).into()),
         }
     } else {
         Err(format!("{} is not a valid command line option", arg_name).into())
@@ -57,9 +49,8 @@ fn try_set(
 }
 
 struct Arg {
-    pub index: usize,
     pub name: String,
-    pub values: Vec<String>,
+    pub value: Option<String>,
 }
 
 fn parse_list(args: &Vec<String>) -> Result<Vec<Arg>, Box<dyn Error>> {
@@ -74,19 +65,22 @@ fn parse_list(args: &Vec<String>) -> Result<Vec<Arg>, Box<dyn Error>> {
                 .into());
             }
         } else if arg.starts_with("-") {
-            parsed.push(Arg {
-                index: i,
-                name: arg.to_owned(),
-                values: Vec::new(),
-            });
-        } else if let Some(last) = parsed.last_mut() {
-            last.values.push(arg.to_owned());
+            if let Some(split) = arg.find('=') {
+                parsed.push(Arg {
+                    name: arg[..split].to_owned(),
+                    // + 1 should be safe because we always split on =, which is a 1 byte ASCII character
+                    value: Some(arg[split + 1..].to_owned()),
+                })
+            } else {
+                parsed.push(Arg {
+                    name: arg.to_owned(),
+                    value: None,
+                })
+            }
         } else {
-            return Err(format!(
-                "first command line argument {} is a value not an --option-name",
-                arg
-            )
-            .into());
+            return Err(
+                format!("invalid command line argument {}, should start with --", i).into(),
+            );
         }
     }
     Ok(parsed)
@@ -94,18 +88,11 @@ fn parse_list(args: &Vec<String>) -> Result<Vec<Arg>, Box<dyn Error>> {
 
 pub fn parse_args(builder: &mut ConfigBuilder, args: Vec<String>) -> Result<(), Box<dyn Error>> {
     let parsed = parse_list(&args)?;
-    for arg in parsed {
-        if arg.values.len() > 1 {
-            return Err(format!(
-                "command line argument {} has multiple values: {}",
-                arg.index,
-                arg.values.join(" ")
-            )
-            .into());
-        } else if arg.values.len() == 1 {
-            try_set(builder, &arg.name, Some(&arg.values[0]))?;
+    for arg in &parsed {
+        if let Some(value) = &arg.value {
+            try_set(builder, &arg.name, value)?;
         } else {
-            try_set(builder, &arg.name, None)?;
+            return Err(format!("command line argument {} does not have a value", arg.name).into());
         }
     }
     Ok(())
@@ -166,7 +153,41 @@ mod tests {
                     Ok(())
                 },
             )],
-            vec!["--foo", "xyz"],
+            vec!["--foo=xyz"],
+        )
+    }
+
+    #[test]
+    fn rejects_string_without_argument() {
+        assert_parse_fail(
+            vec![<dyn ConfigEntry>::new_string(
+                "foo",
+                "",
+                "abc",
+                move |_, _, _| {
+                    panic!();
+                },
+            )],
+            vec!["--foo"],
+        )
+    }
+
+    #[test]
+    fn accepts_string_with_empty_argument() {
+        let foo_oneshot = OneshotBeforeDrop::new();
+        assert_success(
+            vec![<dyn ConfigEntry>::new_string(
+                "foo",
+                "",
+                "abc",
+                move |_, value, source| {
+                    assert!(source.is_some());
+                    assert_eq!(value, "");
+                    foo_oneshot.fire();
+                    Ok(())
+                },
+            )],
+            vec!["--foo="],
         )
     }
 
@@ -185,27 +206,28 @@ mod tests {
                     Ok(())
                 },
             )],
-            vec!["--foo", "7"],
+            vec!["--foo=7"],
         )
     }
 
-    /*
     #[test]
     fn accepts_negative_int() {
         let foo_oneshot = OneshotBeforeDrop::new();
         assert_success(
-            vec![
-                <dyn ConfigEntry>::new_int("foo", "", 0, move |_, value, source| {
+            vec![<dyn ConfigEntry>::new_int(
+                "foo",
+                "",
+                0,
+                move |_, value, source| {
                     assert!(source.is_some());
                     assert_eq!(value, -12);
                     foo_oneshot.fire();
                     Ok(())
-                }),
-            ],
-            vec!["--foo", "-12"],
+                },
+            )],
+            vec!["--foo=-12"],
         )
     }
-    */
 
     #[test]
     fn rejects_invalid_int() {
@@ -213,7 +235,7 @@ mod tests {
             vec![<dyn ConfigEntry>::new_int("foo", "", 0, move |_, _, _| {
                 panic!();
             })],
-            vec!["--foo", "abc"],
+            vec!["--foo=abc"],
         )
     }
 
@@ -232,7 +254,7 @@ mod tests {
                     Ok(())
                 },
             )],
-            vec!["--foo", "32.5"],
+            vec!["--foo=32.5"],
         )
     }
 
@@ -251,7 +273,7 @@ mod tests {
                     Ok(())
                 },
             )],
-            vec!["--foo", "32"],
+            vec!["--foo=32"],
         )
     }
 
@@ -266,7 +288,7 @@ mod tests {
                     panic!();
                 },
             )],
-            vec!["--foo", "abc"],
+            vec!["--foo=abc"],
         )
     }
 
@@ -276,7 +298,7 @@ mod tests {
             vec![<dyn ConfigEntry>::new_int("foo", "", 0, move |_, _, _| {
                 panic!();
             })],
-            vec!["--foo", "32.5"],
+            vec!["--foo=32.5"],
         )
     }
 
@@ -299,7 +321,7 @@ mod tests {
                     Ok(())
                 }),
             ],
-            vec!["--bar", "7", "--foo", "xyz"],
+            vec!["--bar=7", "--foo=xyz"],
         )
     }
 
@@ -322,7 +344,37 @@ mod tests {
                     Ok(())
                 }),
             ],
-            vec!["--foo", "true", "--bar", "false"],
+            vec!["--foo=true", "--bar=false"],
+        )
+    }
+
+    #[test]
+    fn rejects_bool_without_argument() {
+        assert_parse_fail(
+            vec![<dyn ConfigEntry>::new_bool(
+                "foo",
+                "",
+                false,
+                move |_, _, _| {
+                    panic!();
+                },
+            )],
+            vec!["--foo"],
+        )
+    }
+
+    #[test]
+    fn rejects_bool_with_empty_argument() {
+        assert_parse_fail(
+            vec![<dyn ConfigEntry>::new_bool(
+                "foo",
+                "",
+                false,
+                move |_, _, _| {
+                    panic!();
+                },
+            )],
+            vec!["--foo="],
         )
     }
 
@@ -337,7 +389,7 @@ mod tests {
                     panic!();
                 },
             )],
-            vec!["--foo", "1"],
+            vec!["--foo=1"],
         )
     }
 
@@ -361,7 +413,7 @@ mod tests {
                     }),
                 ],
             )],
-            vec!["--foo", "xyz"],
+            vec!["--foo=xyz"],
         )
     }
 
@@ -383,7 +435,7 @@ mod tests {
                     }),
                 ],
             )],
-            vec!["--foo", "bar"],
+            vec!["--foo=bar"],
         )
     }
 
@@ -402,17 +454,22 @@ mod tests {
                     Ok(())
                 },
             )],
-            vec!["--foo-bar", "7"],
+            vec!["--foo-bar=7"],
         )
     }
 
     #[test]
     fn rejects_underscore_version_of_name() {
         assert_parse_fail(
-            vec![<dyn ConfigEntry>::new_int("foo_bar", "", 0, move |_, _, _| {
-                panic!();
-            })],
-            vec!["--foo_bar", "32.5"],
+            vec![<dyn ConfigEntry>::new_int(
+                "foo_bar",
+                "",
+                0,
+                move |_, _, _| {
+                    panic!();
+                },
+            )],
+            vec!["--foo_bar=32.5"],
         )
     }
 }

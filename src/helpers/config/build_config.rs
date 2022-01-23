@@ -5,11 +5,8 @@ pub fn build_config_with(
     fs: Filesystem,
 ) -> Result<MasterConfig, Box<dyn Error>> {
     // TODO: use environment variables
-    // TODO: use command line arguments
-    // TODO: do not allow unknown config options
     // TODO: accumulate multiple config errors
     // TODO: IPv6 config???
-    // TODO: verify the final config is valid (paths exist, etc)
     let mut entries = Vec::new();
     entries.append(&mut config_entries());
     entries.append(&mut server_config_entries());
