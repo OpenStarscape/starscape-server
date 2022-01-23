@@ -1,19 +1,5 @@
 use super::*;
 
-pub fn parse_bool(value_str: &str) -> Option<bool> {
-    match value_str {
-        "true" => Some(true),
-        "yes" => Some(true),
-        "on" => Some(true),
-        "1" => Some(true),
-        "false" => Some(false),
-        "no" => Some(false),
-        "off" => Some(false),
-        "0" => Some(false),
-        _ => None,
-    }
-}
-
 fn transform_arg_name(mut arg_name: &str) -> String {
     for _ in 0..2 {
         if arg_name.starts_with("-") {
@@ -33,8 +19,10 @@ fn try_set(
     if let Some(mut setter) = builder.entry(&name) {
         match (&mut setter, value_str) {
             (ConfigEntrySetter::Bool(ref mut set), Some(value_str)) => {
-                if let Some(b) = parse_bool(value_str) {
-                    return set(b, message);
+                match value_str {
+                    "true" => return set(true, message),
+                    "false" => return set(false, message),
+                    _ => (),
                 }
             }
             (ConfigEntrySetter::Bool(ref mut set), None) => {
