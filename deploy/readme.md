@@ -9,20 +9,27 @@ The layout I'm using is:
 - `~/starscape/server/deploy/starscape.service`: service file, which is symlinked to `/etc/systemd/system/starscape.service`
 - `~/starscape/server/`: working directory of the service (relative paths specified in the server are relative to this)
 - `~/starscape/server/starscape-server`: server binary run by the service, copied from `~/starscape/server/target/release/starscape-server`
-- `~/starscape/server/web-build`: the web frontend built for production (I haven't been able to build it on the server, so I'm building locally and transferring the tarball)
-- `/root/starscape/server/ssl/cert.pem`: SSL certificate
-- `/root/starscape/server/ssl/privkey.pem`: SSL private key
+- `~/starscape/web/public`: the web frontend, built for production
+- `/root/starscape/server/tls/cert.pem`: TLS certificate
+- `/root/starscape/server/tls/privkey.pem`: TLS private key
 
 ## Setting up the server
 - `mkdir ~/starscape && cd ~/starscape`
 - `git clone https://github.com/OpenStarscape/starscape-server.git server`
 - `ln -sf ~/starscape/server/deploy/starscape.service /etc/systemd/system/starscape.service`
 - `cp ~/starscape/server/deploy/starscape.toml ~/starscape/server/`
-- `vim ~/starscape/server/starscape.toml`:
-```
-tcp = true
-http_content = "../web-build"
-```
+- `./starscape-server` check if it works
+
+## Setting up the frontend
+- `cd ~/starscape`
+- `git clone https://github.com/OpenStarscape/starscape-web.git web`
+- `apt install npm && npm install --global yarn`
+- `yarn`
+- `yarn prod-build`
+
+## Turning it on
+- `systemctl enable --now starscape.service`
+- `systemctl status starscape.service`
 
 ## TLS
 - [useful guide](https://shirshak55.github.io/articles/deploying-warp-in-cloud/)
@@ -35,9 +42,9 @@ http_content = "../web-build"
 - Agree to ToS
 - Enter domain name (ex `starscape.wmww.sh`)
 - It will tell you where it put the cert and key
-- Create `starscape/ssl/` if needed and move them into it
-- Example: `ln -s /etc/letsencrypt/live/starscape.wmww.sh/fullchain.pem ~/starscape/ssl/cert.pem`
-- Example: `ln -s /etc/letsencrypt/live/starscape.wmww.sh/privkey.pem ~/starscape/ssl/privkey.pem`
+- Create `starscape/tls/` if needed and move them into it
+- Example: `ln -s /etc/letsencrypt/live/starscape.wmww.sh/fullchain.pem ~/starscape/tls/cert.pem`
+- Example: `ln -s /etc/letsencrypt/live/starscape.wmww.sh/privkey.pem ~/starscape/tls/privkey.pem`
 
 ## Renew Certificate
 - Because we roll our own webserver, certbot can't integrate with us
@@ -59,12 +66,8 @@ http_content = "../web-build"
 - `systemctl start starscape.service`
 
 ## To update frontend
-- __on local machine__ (because server doesn't have enough memory to run babel 🙃)
-- `cd starscape/web`
-- `npm run build`
-- `tar -czvf starscape-web.tar.gz ./build`
-- `scp ./starscape-web.tar.gz root@0.0.0.0:/root/starscape` # with the real server IP substituted in
-- __on server__
-- `tar -xvf ~/starscape/starscape-web.tar.gz`
-- `rm -Rf ~/starscape/web-build`
-- `mv ./build/ ~/starscape/web-build`
+- `cd ~/starscape/web`
+- `git pull`
+- `yarn`
+- `yarn prod-build`
+- `systemctl restart starscape.service`
