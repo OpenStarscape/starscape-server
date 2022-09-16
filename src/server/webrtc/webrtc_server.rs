@@ -55,13 +55,19 @@ async fn send_outbound(
                             "could not send message to {}, closing session: {}",
                             addr, err
                         );
-                        webrtc_server.disconnect(&addr);
+                        webrtc_server
+                            .disconnect(&addr)
+                            .await
+                            .or_log_error("closing WebRTC server");
                         dispatcher.close_session(&addr);
                         closed_sessions.insert(addr);
                     }
                 }
                 WebrtcMessage::Close => {
-                    webrtc_server.disconnect(&addr);
+                    webrtc_server
+                        .disconnect(&addr)
+                        .await
+                        .or_log_error("closing WebRTC server");
                     dispatcher.close_session(&addr);
                     closed_sessions.insert(addr);
                 }
