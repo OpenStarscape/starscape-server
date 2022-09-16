@@ -44,4 +44,6 @@ impl<T> From<ComponentKey<T>> for slotmap::KeyData {
     }
 }
 
-impl<T: Sized> slotmap::Key for ComponentKey<T> {}
+/// All that is required for safety is that "all methods must behave exactly as if we’re operating
+/// on a KeyData directly"
+unsafe impl<T: Sized> slotmap::Key for ComponentKey<T> {}
