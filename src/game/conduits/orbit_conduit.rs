@@ -122,11 +122,8 @@ impl OrbitConduit {
     }
 
     /// Ensures we are subscribed to the properties of the currently correct parent, and returns it
-    fn update_parent(&self, state: &State) -> EntityKey {
-        let parent = *state
-            .component::<Body>(self.body)
-            .expect("OrbitConduit body does not exist")
-            .gravity_parent;
+    fn update_parent(&self, state: &State) -> RequestResult<EntityKey> {
+        let parent = *state.component::<Body>(self.body)?.gravity_parent;
         let mut cached_parent = self.cached_parent.lock().unwrap();
         if parent != *cached_parent {
             let _ = Self::for_each_parent_subscribable(state, *cached_parent, &|s| {
@@ -137,13 +134,13 @@ impl OrbitConduit {
                 self.subscribers.subscribe_all(state, s);
             });
         }
-        *cached_parent
+        Ok(*cached_parent)
     }
 }
 
 impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
     fn output(&self, state: &State) -> RequestResult<Option<OrbitData>> {
-        let parent = self.update_parent(state);
+        let parent = self.update_parent(state)?;
         let body = state.component::<Body>(self.body)?;
         if let Ok(parent_body) = state.component::<Body>(parent) {
             let gm = GRAVITATIONAL_CONSTANT * *parent_body.mass;
@@ -249,7 +246,7 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
 impl Subscribable for OrbitConduit {
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
         // If the parent isn't initialized, we could miss notifications if we don't set it up here
-        self.update_parent(state);
+        self.update_parent(state)?;
         self.for_each_subscribable(state, &|s| {
             s.subscribe(state, subscriber)
                 .or_log_error("subscribing to OrbitConduit");
