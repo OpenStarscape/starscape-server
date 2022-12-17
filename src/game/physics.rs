@@ -133,9 +133,34 @@ fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> 
     None
 }
 
-/// Handles body collisions
-pub fn apply_collisions(state: &State, dt: f64) {
+struct Collision {
+    #[allow(dead_code)]
+    time_until: f64,
+    our_key: EntityKey,
+    other_key: EntityKey,
+}
+
+fn handle_collision(state: &mut State, collision: &Collision) -> Result<(), Box<dyn Error>> {
+    let our_body = state.component::<Body>(collision.our_key)?;
+    let other_body = state.component::<Body>(collision.other_key)?;
+    let rel_vel = *other_body.velocity - *our_body.velocity;
+    let mass_ratio = *other_body.mass / (*our_body.mass + *other_body.mass);
+    let vel_change = rel_vel * mass_ratio;
+    let max_vel_change = our_body.shape.radius() * 2.5;
+    if vel_change.magnitude2() > max_vel_change * max_vel_change {
+        state.destroy_entity(collision.our_key)?
+    } else {
+        *state
+            .component_mut::<Body>(collision.our_key)?
+            .velocity
+            .get_mut() += vel_change;
+    }
+    Ok(())
+}
+
+fn find_collisions(state: &State, dt: f64) -> Vec<Collision> {
     // TODO: sort bodies and don't compare bodies that can not touch
+    let mut collisions = Vec::new();
     state.components_iter::<Body>().for_each(|(key1, body1)| {
         let _ = state
             .components_iter::<Body>()
@@ -146,17 +171,30 @@ pub fn apply_collisions(state: &State, dt: f64) {
                     Err(())
                 } else {
                     if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
-                        body1
-                            .collision_handler
-                            .collision(state, &Collision::new(time_until, key2));
-                        body2
-                            .collision_handler
-                            .collision(state, &Collision::new(time_until, key1));
+                        collisions.push(Collision {
+                            time_until,
+                            our_key: key1,
+                            other_key: key2,
+                        });
+                        collisions.push(Collision {
+                            time_until,
+                            our_key: key2,
+                            other_key: key1,
+                        });
                     }
                     Ok(())
                 }
             });
     });
+    collisions
+}
+
+/// Handles body collisions
+pub fn apply_collisions(state: &mut State, dt: f64) {
+    let collisions = find_collisions(state, dt);
+    for collision in &collisions {
+        handle_collision(state, collision).or_log_warn("handling collision");
+    }
 }
 
 /// Applies thrust of all ships to their velocity
@@ -362,122 +400,75 @@ mod gravity_tests {
 mod collision_tests {
     use super::*;
 
-    struct MockController {
-        collisions: Vec<Collision>,
-    }
-
-    impl MockController {
-        fn new() -> Arc<RwLock<MockController>> {
-            Arc::new(RwLock::new(MockController {
-                collisions: Vec::new(),
-            }))
-        }
-    }
-
-    impl CollisionHandler for Arc<RwLock<MockController>> {
-        fn collision(&self, _state: &State, collision: &Collision) {
-            let mut vec = self.write().unwrap();
-            vec.collisions.push(collision.clone());
-        }
-    }
-
-    fn two_body_test(
-        body1: Body,
-        body2: Body,
-    ) -> (EntityKey, EntityKey, Vec<Collision>, Vec<Collision>) {
+    fn two_body_test(body1: Body, body2: Body) -> (EntityKey, EntityKey, Vec<Collision>) {
         let mut state = State::new();
-        let c1 = MockController::new();
-        let c2 = MockController::new();
         let b1 = state.create_entity();
-        state.install_component(b1, body1.with_collision_handler(Box::new(c1.clone())));
+        state.install_component(b1, body1);
         let b2 = state.create_entity();
-        state.install_component(b2, body2.with_collision_handler(Box::new(c2.clone())));
-        apply_collisions(&state, 1.0);
-        let col1 = c1.read().unwrap().collisions.clone();
-        let col2 = c2.read().unwrap().collisions.clone();
-        (b1, b2, col1, col2)
-    }
-
-    fn create_body_entity(state: &mut State, body: Body) {
-        let entity = state.create_entity();
-        state.install_component(entity, body);
+        state.install_component(b2, body2);
+        let collisions = find_collisions(&state, 1.0);
+        (b1, b2, collisions)
     }
 
     fn assert_do_not_collide(body1: Body, body2: Body) {
-        let (_, _, col1, col2) = two_body_test(body1, body2);
-        assert_eq!(col1, vec![]);
-        assert_eq!(col2, vec![]);
+        let (_, _, col) = two_body_test(body1, body2);
+        assert_eq!(col.len(), 0);
     }
 
     fn assert_collides(body1: Body, body2: Body, time: f64) {
-        let (b1, b2, col1, col2) = two_body_test(body1, body2);
-        assert_eq!(col1.len(), 1);
-        assert_eq!(col2.len(), 1);
-        assert_eq!(col1[0].body, b2);
-        assert_eq!(col2[0].body, b1);
-        assert_eq!(col1[0].time_until, col2[0].time_until);
-        assert_ulps_eq!(col1[0].time_until - time, 0.0, epsilon = 0.0001);
+        let (b1, b2, col) = two_body_test(body1, body2);
+        assert_eq!(col.len(), 2);
+        assert!(col
+            .iter()
+            .any(|col| col.our_key == b1 && col.other_key == b2));
+        assert!(col
+            .iter()
+            .any(|col| col.our_key == b2 && col.other_key == b1));
+        assert_ulps_eq!(col[0].time_until, col[1].time_until, epsilon = 0.0001);
+        assert_ulps_eq!(col[0].time_until, time, epsilon = 0.0001);
+    }
+
+    fn assert_signle_does_not_collide(body: Body) {
+        let mut state = State::new();
+        let entity = state.create_entity();
+        state.install_component(entity, body);
+        let cols = find_collisions(&state, 1.0);
+        assert_eq!(cols.len(), 0);
     }
 
     #[test]
     fn no_collisions_for_single_point() {
-        let mut state = State::new();
-        let c1 = MockController::new();
-        create_body_entity(
-            &mut state,
-            Body::new().with_collision_handler(Box::new(c1.clone())),
-        );
-        apply_collisions(&state, 1.0);
-        assert_eq!(c1.read().unwrap().collisions, vec![]);
+        assert_signle_does_not_collide(Body::new());
     }
 
     #[test]
     fn no_collisions_for_single_sphere() {
-        let mut state = State::new();
-        let c1 = MockController::new();
-        create_body_entity(
-            &mut state,
-            Body::new()
-                .with_sphere_shape(1.0)
-                .with_collision_handler(Box::new(c1.clone())),
-        );
-        apply_collisions(&state, 1.0);
-        assert_eq!(c1.read().unwrap().collisions, vec![]);
+        assert_signle_does_not_collide(Body::new().with_sphere_shape(1.0));
     }
 
     #[test]
     fn no_collisions_for_single_moving_sphere() {
-        let mut state = State::new();
-        let c1 = MockController::new();
-        create_body_entity(
-            &mut state,
+        assert_signle_does_not_collide(
             Body::new()
                 .with_velocity(Vector3::new(3.0, 0.5, -2.0))
-                .with_sphere_shape(1.0)
-                .with_collision_handler(Box::new(c1.clone())),
+                .with_sphere_shape(1.0),
         );
-        apply_collisions(&state, 1.0);
-        assert_eq!(c1.read().unwrap().collisions, vec![]);
     }
 
     #[test]
     fn respects_delta_time() {
         let mut state = State::new();
-        let c1 = MockController::new();
-        create_body_entity(
-            &mut state,
-            Body::new()
-                .with_sphere_shape(1.0)
-                .with_collision_handler(Box::new(c1.clone())),
-        );
-        create_body_entity(
-            &mut state,
+        let b0 = state.create_entity();
+        state.install_component(b0, Body::new().with_sphere_shape(1.0));
+        let b1 = state.create_entity();
+        state.install_component(
+            b1,
             Body::new()
                 .with_position(Point3::new(2.0, 0.0, 0.0))
                 .with_velocity(Vector3::new(-2.0, 0.0, 0.0)),
         );
-        apply_collisions(&state, 0.25);
-        assert_eq!(c1.read().unwrap().collisions, vec![]);
+        let collisions = find_collisions(&state, 0.25);
+        assert_eq!(collisions.len(), 0);
     }
 
     #[test]
@@ -547,9 +538,9 @@ mod collision_tests {
     #[test]
     fn moving_point_collides_with_sphere() {
         assert_collides(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_sphere_shape(2.0),
             Body::new()
-                .with_position(Point3::new(1.5, 0.0, 0.0))
+                .with_position(Point3::new(2.5, 0.0, 0.0))
                 .with_velocity(Vector3::new(-1.0, 0.0, 0.0)),
             0.5,
         );
@@ -558,11 +549,11 @@ mod collision_tests {
     #[test]
     fn moving_sphere_collides_with_stationary_sphere() {
         assert_collides(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_sphere_shape(0.3),
             Body::new()
-                .with_position(Point3::new(3.0, 0.0, 0.0))
-                .with_velocity(Vector3::new(-2.0, 0.0, 0.0))
-                .with_sphere_shape(1.0),
+                .with_position(Point3::new(1.0, 0.0, 0.0))
+                .with_velocity(Vector3::new(-1.0, 0.0, 0.0))
+                .with_sphere_shape(0.2),
             0.5,
         );
     }

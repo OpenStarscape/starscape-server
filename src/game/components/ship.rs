@@ -56,20 +56,6 @@ impl Ship {
     }
 }
 
-struct ShipBodyController {
-    ship: EntityKey,
-}
-
-impl CollisionHandler for ShipBodyController {
-    fn collision(&self, state: &State, _collision: &Collision) {
-        if let Ok(_ship) = state.component::<Ship>(self.ship) {
-            // TODO: destroy ship?
-        } else {
-            error!("colliding ship {:?} does not exist", self.ship);
-        }
-    }
-}
-
 pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> EntityKey {
     let entity = state.create_entity();
 
@@ -77,8 +63,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         .with_class(BodyClass::Ship)
         .with_position(position)
         .with_velocity(velocity)
-        .with_sphere_shape(1.0)
-        .with_collision_handler(Box::new(ShipBodyController { ship: entity }))
+        .with_sphere_shape(0.00001)
         .install(state, entity);
 
     state.install_component(entity, Ship::new(1.0)); // 100G (too much)
@@ -171,7 +156,7 @@ mod tests {
         let ship = create_ship(&mut state, Point3::new(1.0, 2.0, 3.0), Vector3::zero());
         assert_eq!(
             *state.component::<Body>(ship).unwrap().shape,
-            body::Shape::Sphere { radius: 1.0 }
+            body::Shape::Sphere { radius: 0.00001 }
         );
     }
 }

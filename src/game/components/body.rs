@@ -55,8 +55,6 @@ pub struct Body {
     /// in a nice tree. For example, a ship's parent might be Luna, Luna's parent would be Earth and Earth's parent
     /// would be Sol.
     pub gravity_parent: Element<EntityKey>,
-    /// The interface the physics system uses to talk to the controller of this object
-    pub collision_handler: Box<dyn CollisionHandler>,
 }
 
 impl Default for Body {
@@ -70,7 +68,6 @@ impl Default for Body {
             color: Element::new(None),
             name: Element::new(None),
             gravity_parent: Element::new(EntityKey::null()),
-            collision_handler: Box::new(()),
         }
     }
 }
@@ -113,11 +110,6 @@ impl Body {
 
     pub fn with_name(mut self, name: String) -> Self {
         self.name = Element::new(Some(name));
-        self
-    }
-
-    pub fn with_collision_handler(mut self, controller: Box<dyn CollisionHandler>) -> Self {
-        self.collision_handler = controller;
         self
     }
 
@@ -189,26 +181,4 @@ impl Body {
         })
         .install_property(state, entity, "size");
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub struct Collision {
-    /// The time from now until the collision will occur
-    pub time_until: f64,
-    pub body: EntityKey,
-}
-
-impl Collision {
-    pub fn new(time_until: f64, body: EntityKey) -> Collision {
-        Collision { time_until, body }
-    }
-}
-
-pub trait CollisionHandler {
-    /// note that there is no guarantee collisions come in in order
-    fn collision(&self, state: &State, collision: &Collision);
-}
-
-impl CollisionHandler for () {
-    fn collision(&self, _state: &State, _collision: &Collision) {}
 }
