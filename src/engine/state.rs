@@ -348,6 +348,12 @@ impl State {
     }
 }
 
+impl AsRef<dyn Any> for State {
+    fn as_ref(&self) -> &dyn Any {
+        self
+    }
+}
+
 impl RequestHandler for State {
     fn fire_action(
         &mut self,
@@ -388,7 +394,7 @@ impl RequestHandler for State {
         connection: ConnectionKey,
         entity_key: EntityKey,
         name: Option<&str>,
-    ) -> RequestResult<Box<dyn Any + Send + Sync>> {
+    ) -> RequestResult<Box<dyn Subscription>> {
         let conduit = if let Some(name) = name {
             self.conduit(connection, entity_key, name)?
         } else {
@@ -399,15 +405,8 @@ impl RequestHandler for State {
             let conduit = entity.destroyed_signal(&self.notif_queue);
             DestructionConduit::new(connection, entity_key, conduit)
         };
-        let subscription = Subscription::new(self, conduit)?;
+        let subscription = SubscriptionImpl::new(self, conduit)?;
         Ok(Box::new(subscription))
-    }
-
-    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()> {
-        let subscription: Box<Subscription> = subscription
-            .downcast()
-            .map_err(|_| InternalError("downcast to Subscription failed".into()))?;
-        subscription.unsubscribe(self)
     }
 }
 

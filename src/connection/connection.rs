@@ -26,7 +26,7 @@ pub struct ConnectionImpl {
     session: Mutex<Box<dyn Session>>,
     request_rx: Receiver<Request>,
     pending_get_requests: HashSet<(EntityKey, String)>,
-    subscriptions: HashMap<(EntityKey, String), Box<dyn Any>>,
+    subscriptions: HashMap<(EntityKey, String), Box<dyn Subscription>>,
     should_close: AtomicBool,
 }
 
@@ -98,7 +98,7 @@ impl ConnectionImpl {
             RequestMethod::Unsubscribe => {
                 let key = (entity, property.to_string());
                 match self.subscriptions.remove(&key) {
-                    Some(entry) => handler.unsubscribe(entry)?,
+                    Some(entry) => entry.finalize(handler)?,
                     None => {
                         return Err(BadRequest(
                             "tried to unsubscribe when not subscribed".into(),
@@ -194,7 +194,7 @@ impl Connection for ConnectionImpl {
         info!("finalized connection {:?} on {:?}", self.self_key, session,);
         session.close();
         for ((entity, prop), subscription) in self.subscriptions.drain() {
-            if let Err(e) = handler.unsubscribe(subscription) {
+            if let Err(e) = subscription.finalize(handler) {
                 warn!(
                     "failed to unsubscribe from {:?}.{} during finalization of {:?}: {}",
                     entity, prop, self.self_key, e
