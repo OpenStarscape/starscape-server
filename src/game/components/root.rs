@@ -1,13 +1,13 @@
 use super::*;
 
-pub struct God {
+pub struct Root {
     pub time: Element<f64>,
     ship_created: Signal<EntityKey>,
     max_connections: Element<u64>,
     current_connections: Element<u64>,
 }
 
-impl Default for God {
+impl Default for Root {
     fn default() -> Self {
         Self {
             time: Element::new(0.0),
@@ -18,8 +18,8 @@ impl Default for God {
     }
 }
 
-impl God {
-    /// Installs the god as the root entity, must only be called once per state
+impl Root {
+    /// Installs the root entity, must only be called once per state
     pub fn install(mut self, state: &mut State) {
         let entity = state.root_entity();
 
@@ -28,19 +28,19 @@ impl God {
             .install_signal(state, entity, "ship_created");
         ActionConduit::new(move |state, (position, velocity)| {
             let ship = create_ship(state, position, velocity);
-            state.component_mut::<God>(entity)?.ship_created.fire(ship);
+            state.component_mut::<Self>(entity)?.ship_created.fire(ship);
             Ok(())
         })
         .install_action(state, entity, "create_ship");
 
-        ROConduit::new(move |state| Ok(&state.component::<God>(entity)?.time))
+        ROConduit::new(move |state| Ok(&state.component::<Self>(entity)?.time))
             .install_property(state, entity, "time");
 
         RWConduit::new(
-            move |state| Ok(&state.component::<God>(entity)?.max_connections),
+            move |state| Ok(&state.component::<Self>(entity)?.max_connections),
             move |state, value| {
                 Ok(state
-                    .component_mut::<God>(entity)?
+                    .component_mut::<Self>(entity)?
                     .max_connections
                     .set(value))
             },
@@ -48,10 +48,10 @@ impl God {
         .install_property(state, entity, "max_conn_count");
 
         RWConduit::new(
-            move |state| Ok(&state.component::<God>(entity)?.current_connections),
+            move |state| Ok(&state.component::<Self>(entity)?.current_connections),
             move |state, value| {
                 Ok(state
-                    .component_mut::<God>(entity)?
+                    .component_mut::<Self>(entity)?
                     .current_connections
                     .set(value))
             },

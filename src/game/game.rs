@@ -139,7 +139,7 @@ fn init_solar_system(state: &mut State, scale: f64) {
 }
 
 pub fn init(state: &mut State) {
-    God::default().install(state);
+    Root::default().install(state);
 
     init_solar_system(state, 0.000001);
 }
@@ -147,7 +147,7 @@ pub fn init(state: &mut State) {
 pub fn physics_tick(state: &mut State, delta: f64) {
     let time = state.time();
     state
-        .component_mut::<God>(state.root_entity())
+        .component_mut::<Root>(state.root_entity())
         .expect("failed to get root")
         .time
         .set(time);
