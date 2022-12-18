@@ -13,7 +13,7 @@ impl Connection for StubConnection {
         error!("StubConnection::flush() called");
         Err(())
     }
-    fn finalize(&mut self, _: &mut dyn RequestHandler) {
+    fn finalize(&mut self, _: &dyn RequestHandler) {
         error!("StubConnection::finalize() called");
     }
 }
@@ -47,7 +47,7 @@ impl RequestHandler for NullRequestHandler {
         Ok(Value::Null)
     }
     fn subscribe(
-        &mut self,
+        &self,
         _: ConnectionKey,
         _: EntityKey,
         _: Option<&str>,
@@ -250,7 +250,7 @@ mod tests {
                 Err(())
             }
         }
-        fn finalize(&mut self, _: &mut dyn RequestHandler) {}
+        fn finalize(&mut self, _: &dyn RequestHandler) {}
     }
 
     #[test]

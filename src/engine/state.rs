@@ -390,7 +390,7 @@ impl RequestHandler for State {
     }
 
     fn subscribe(
-        &mut self,
+        &self,
         connection: ConnectionKey,
         entity_key: EntityKey,
         name: Option<&str>,
