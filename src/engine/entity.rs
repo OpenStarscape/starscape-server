@@ -75,7 +75,7 @@ impl Entity {
     }
 
     pub fn destroyed_signal(
-        &mut self,
+        &self,
         notif_queue: &NotifQueue,
     ) -> impl Conduit<Vec<()>, SignalsDontTakeInputSilly> {
         self.destroyed.conduit(notif_queue)

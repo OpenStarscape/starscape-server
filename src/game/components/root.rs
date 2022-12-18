@@ -20,7 +20,7 @@ impl Default for Root {
 
 impl Root {
     /// Installs the root entity, must only be called once per state
-    pub fn install(mut self, state: &mut State) {
+    pub fn install(self, state: &mut State) {
         let entity = state.root_entity();
 
         self.ship_created
