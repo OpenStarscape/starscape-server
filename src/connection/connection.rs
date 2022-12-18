@@ -33,15 +33,16 @@ pub struct ConnectionImpl {
 impl ConnectionImpl {
     pub fn new(
         self_key: ConnectionKey,
+        handler: &dyn RequestHandler,
         root_entity: EntityKey,
         session_builder: Box<dyn SessionBuilder>,
     ) -> Result<Self, Box<dyn Error>> {
         let obj_map = Arc::new(ObjectMapImpl::new(self_key));
-        let root_obj_id = obj_map.get_or_create_object(root_entity);
-        if root_obj_id != 1 {
+        let root_obj_id = obj_map.get_or_create_object(handler, root_entity);
+        if root_obj_id.is_err() || root_obj_id.as_ref().unwrap() != &1 {
             // should never happen
             error!(
-                "root ObjectID for {:?} is {} instead of 1",
+                "root ObjectID for {:?} is {:?} instead of Ok(1)",
                 self_key, root_obj_id
             );
         }
@@ -163,14 +164,11 @@ impl Connection for ConnectionImpl {
         self.queue_message(buffer);
 
         if let Event::Destroyed(entity) = event {
-            self.obj_map.remove_entity(entity);
+            self.obj_map.remove_entity(handler, entity);
         }
     }
 
     fn flush(&mut self, handler: &mut dyn RequestHandler) -> Result<(), ()> {
-        // Subscribe to the destruction of any entities we're newly tracking, and unsub from
-        // destroyed ones
-        self.obj_map.update_destruction_subscriptions(handler);
         let get_requests = std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in get_requests.into_iter() {
             // When a client subscribes to a signal, we have no way of knowing it's a signal and
@@ -245,7 +243,11 @@ mod test_common {
             panic!("unexpected call");
         }
 
-        fn get_or_create_object(&self, _: EntityKey) -> ObjectId {
+        fn get_or_create_object(
+            &self,
+            _: &dyn RequestHandler,
+            _: EntityKey,
+        ) -> RequestResult<ObjectId> {
             panic!("unexpected call");
         }
 
@@ -253,11 +255,9 @@ mod test_common {
             panic!("unexpected call");
         }
 
-        fn remove_entity(&self, _: EntityKey) -> Option<ObjectId> {
+        fn remove_entity(&self, _: &dyn RequestHandler, _: EntityKey) -> Option<ObjectId> {
             panic!("unexpected call");
         }
-
-        fn update_destruction_subscriptions(&self, _handler: &dyn RequestHandler) {}
 
         fn finalize(&self, _handler: &dyn RequestHandler) {}
     }

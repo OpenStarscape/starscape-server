@@ -149,10 +149,15 @@ impl ConnectionCollection {
                 builder
             );
             // Build a temporary connection in order to report the error to the client
-            match ConnectionImpl::new(ConnectionKey::null(), self.root_entity, builder) {
+            match ConnectionImpl::new(
+                ConnectionKey::null(),
+                &mut NullRequestHandler,
+                self.root_entity,
+                builder,
+            ) {
                 Ok(mut conn) => {
                     conn.send_event(
-                        handler,
+                        &mut NullRequestHandler,
                         Event::FatalError(format!(
                             "server full (max {} connections)",
                             self.max_connections
@@ -171,7 +176,7 @@ impl ConnectionCollection {
         let mut failed_to_build = false;
         let root_entity = self.root_entity;
         let key = self.connections.insert_with_key(|key| {
-            match ConnectionImpl::new(key, root_entity, builder) {
+            match ConnectionImpl::new(key, handler, root_entity, builder) {
                 Ok(conn) => Box::new(conn),
                 Err(e) => {
                     failed_to_build = true;
