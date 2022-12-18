@@ -7,7 +7,7 @@ pub type ObjectId = u64;
 /// A two-directional mapping between EntityKeys and ObjectIds. There is an object map for each client.
 /// The implementation hides any mutex locking, exposing an interface that does not require mutable
 /// access.
-pub trait ObjectMap: Send + Sync {
+pub trait ObjectMap: DecodeCtx + Send + Sync {
     /// Returns the corresponding object ID if the entity is known
     fn get_object(&self, entity: EntityKey) -> Option<ObjectId>;
     /// Returns the corrosponding object ID, or creates a new object ID associated with entity
@@ -19,25 +19,23 @@ pub trait ObjectMap: Send + Sync {
     /// recycled.
     fn remove_entity(&self, entity: EntityKey) -> Option<ObjectId>;
     /// Subscribe and unsubscribe from entity's destruction callbacks as needed
-    fn update_destruction_subscriptions(&self, handler: &mut dyn RequestHandler);
-    /// Just needs to return self, only required because Rust is stupid
-    fn as_encode_ctx(&self) -> &dyn EncodeCtx;
-    /// Just needs to return self, only required because Rust is stupid
-    fn as_decode_ctx(&self) -> &dyn DecodeCtx;
+    fn update_destruction_subscriptions(&self, handler: &dyn RequestHandler);
     /// Unsubscribes from entity destruction
-    fn finalize(&self, handler: &mut dyn RequestHandler);
+    fn finalize(&self, handler: &dyn RequestHandler);
 }
 
-impl<T: ObjectMap> EncodeCtx for T {
+struct EncodeCtxImpl<'a> {
+    map: &'a dyn ObjectMap,
+}
+
+impl<'a> EncodeCtx for EncodeCtxImpl<'a> {
     fn object_for(&self, entity: EntityKey) -> ObjectId {
-        self.get_or_create_object(entity)
+        self.map.get_or_create_object(entity)
     }
 }
 
-impl<T: ObjectMap> DecodeCtx for T {
-    fn entity_for(&self, object: ObjectId) -> RequestResult<EntityKey> {
-        self.get_entity(object).ok_or(BadObject(object))
-    }
+pub fn new_encode_ctx<'a>(map: &'a dyn ObjectMap) -> impl EncodeCtx + 'a {
+    EncodeCtxImpl { map }
 }
 
 enum EntityChange {
@@ -63,6 +61,12 @@ impl ObjectMapImpl {
             pending_changes: Vec::new(),
             next_id: 1,
         })
+    }
+}
+
+impl DecodeCtx for RwLock<ObjectMapImpl> {
+    fn entity_for(&self, object: ObjectId) -> RequestResult<EntityKey> {
+        self.get_entity(object).ok_or(BadObject(object))
     }
 }
 
@@ -120,7 +124,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
         locked.map.remove_by_left(&entity).map(|(_, o)| o)
     }
 
-    fn update_destruction_subscriptions(&self, handler: &mut dyn RequestHandler) {
+    fn update_destruction_subscriptions(&self, handler: &dyn RequestHandler) {
         use std::collections::hash_map::Entry;
         let mut locked = self.write().expect("failed to lock object map");
         let connection = locked.connection;
@@ -156,15 +160,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
         }
     }
 
-    fn as_encode_ctx(&self) -> &dyn EncodeCtx {
-        self
-    }
-
-    fn as_decode_ctx(&self) -> &dyn DecodeCtx {
-        self
-    }
-
-    fn finalize(&self, handler: &mut dyn RequestHandler) {
+    fn finalize(&self, handler: &dyn RequestHandler) {
         let mut locked = self.write().expect("failed to lock object map");
         let connection = locked.connection;
         for (entity, subscription) in locked.subscription_map.drain() {

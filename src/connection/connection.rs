@@ -15,7 +15,7 @@ pub trait Connection {
     /// Called at the end of each network tick to send any pending bundles. If it returns
     fn flush(&mut self, handler: &mut dyn RequestHandler) -> Result<(), ()>;
     /// Called just after connection is removed from the connection map before it is dropped
-    fn finalize(&mut self, handler: &mut dyn RequestHandler);
+    fn finalize(&mut self, handler: &dyn RequestHandler);
 }
 
 /// The main Connection implementation
@@ -151,10 +151,8 @@ impl Connection for ConnectionImpl {
     }
 
     fn send_event(&self, event: Event) {
-        let buffer = match self
-            .encoder
-            .encode_event(self.obj_map.as_encode_ctx(), &event)
-        {
+        let encode_ctx = new_encode_ctx(&*self.obj_map);
+        let buffer = match self.encoder.encode_event(&encode_ctx, &event) {
             Ok(buffer) => buffer,
             Err(e) => {
                 error!("failed to encode {:?}: {}", event, e);
@@ -189,7 +187,7 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn finalize(&mut self, handler: &mut dyn RequestHandler) {
+    fn finalize(&mut self, handler: &dyn RequestHandler) {
         let mut session = self.session.lock().unwrap();
         info!("finalized connection {:?} on {:?}", self.self_key, session,);
         session.close();
@@ -236,6 +234,12 @@ mod test_common {
 
     pub struct MockObjectMap;
 
+    impl DecodeCtx for MockObjectMap {
+        fn entity_for(&self, _: ObjectId) -> RequestResult<EntityKey> {
+            panic!("unexpected call");
+        }
+    }
+
     impl ObjectMap for MockObjectMap {
         fn get_object(&self, _: EntityKey) -> Option<ObjectId> {
             panic!("unexpected call");
@@ -253,17 +257,9 @@ mod test_common {
             panic!("unexpected call");
         }
 
-        fn update_destruction_subscriptions(&self, _handler: &mut dyn RequestHandler) {}
+        fn update_destruction_subscriptions(&self, _handler: &dyn RequestHandler) {}
 
-        fn as_encode_ctx(&self) -> &dyn EncodeCtx {
-            self
-        }
-
-        fn as_decode_ctx(&self) -> &dyn DecodeCtx {
-            self
-        }
-
-        fn finalize(&self, _handler: &mut dyn RequestHandler) {}
+        fn finalize(&self, _handler: &dyn RequestHandler) {}
     }
 
     pub fn setup(

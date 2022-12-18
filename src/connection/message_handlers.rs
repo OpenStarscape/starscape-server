@@ -30,7 +30,7 @@ pub trait RequestHandler: AsRef<dyn Any> {
     /// If Ok, the returned Any should later be sent to unsubscribe(). The name may refer to either
     /// a property or a signal. If the name is None, the entity's destruction signal is subscribed.
     fn subscribe(
-        &mut self,
+        &self,
         connection: ConnectionKey,
         entity: EntityKey,
         name: Option<&str>,

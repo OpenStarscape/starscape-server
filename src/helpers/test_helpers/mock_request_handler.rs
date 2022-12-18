@@ -74,7 +74,7 @@ impl RequestHandler for MockRequestHandler {
     }
 
     fn subscribe(
-        &mut self,
+        &self,
         _: ConnectionKey,
         e: EntityKey,
         n: Option<&str>,

@@ -18,7 +18,7 @@ pub use connection::{Connection, ConnectionImpl, ConnectionKey};
 pub use connection_collection::ConnectionCollection;
 pub use event::{Event, EventMethod};
 pub use message_handlers::{EventHandler, RequestHandler, Subscription};
-pub use object_map::{ObjectId, ObjectMap};
+pub use object_map::{new_encode_ctx, ObjectId, ObjectMap};
 pub use request::{Request, RequestMethod};
 pub use request_error::{RequestError, RequestError::*, RequestResult};
 
