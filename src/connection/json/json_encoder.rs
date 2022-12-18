@@ -30,7 +30,12 @@ impl<'a> Serialize for Contextualized<'a, Value> {
             Value::Entity(entity) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;
-                outer.serialize_element(&self.ctx.object_for(*entity))?;
+                outer.serialize_element(
+                    &self
+                        .ctx
+                        .object_for(*entity)
+                        .map_err(serde::ser::Error::custom)?,
+                )?;
                 outer.end()
             }
             Value::Array(list) => {
@@ -80,13 +85,13 @@ impl Encoder for JsonEncoder {
                         EventMethod::Signal => "event",
                     },
                 )?;
-                message.serialize_field("object", &ctx.object_for(*entity))?;
+                message.serialize_field("object", &ctx.object_for(*entity)?)?;
                 message.serialize_field("property", member)?;
                 message.serialize_field("value", &Contextualized::new(value, ctx))?;
             }
             Event::Destroyed(entity) => {
                 message.serialize_field("mtype", "destroyed")?;
-                message.serialize_field("object", &ctx.object_for(*entity))?;
+                message.serialize_field("object", &ctx.object_for(*entity)?)?;
             }
             Event::FatalError(text) => {
                 message.serialize_field("mtype", "error")?;
@@ -107,8 +112,8 @@ mod encodable_tests {
     struct MockEncodeCtx;
 
     impl EncodeCtx for MockEncodeCtx {
-        fn object_for(&self, _entity: EntityKey) -> ObjectId {
-            MOCK_OBJ_ID
+        fn object_for(&self, _entity: EntityKey) -> RequestResult<ObjectId> {
+            Ok(MOCK_OBJ_ID)
         }
     }
 
@@ -181,8 +186,8 @@ mod message_tests {
     struct MockEncoderCtx;
 
     impl EncodeCtx for MockEncoderCtx {
-        fn object_for(&self, _entity: EntityKey) -> ObjectId {
-            42
+        fn object_for(&self, _entity: EntityKey) -> RequestResult<ObjectId> {
+            Ok(42)
         }
     }
 
