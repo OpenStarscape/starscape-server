@@ -18,50 +18,6 @@ impl Connection for StubConnection {
     }
 }
 
-struct NullRequestHandler;
-impl AsRef<dyn Any> for NullRequestHandler {
-    fn as_ref(&self) -> &dyn Any {
-        self
-    }
-}
-impl RequestHandler for NullRequestHandler {
-    fn fire_action(
-        &mut self,
-        _: ConnectionKey,
-        _: EntityKey,
-        _: &str,
-        _: Value,
-    ) -> RequestResult<()> {
-        Ok(())
-    }
-    fn set_property(
-        &mut self,
-        _: ConnectionKey,
-        _: EntityKey,
-        _: &str,
-        _: Value,
-    ) -> RequestResult<()> {
-        Ok(())
-    }
-    fn get_property(&self, _: ConnectionKey, _: EntityKey, _: &str) -> RequestResult<Value> {
-        Ok(Value::Null)
-    }
-    fn subscribe(
-        &self,
-        _: ConnectionKey,
-        _: EntityKey,
-        _: Option<&str>,
-    ) -> RequestResult<Box<dyn Subscription>> {
-        struct NullSubscription;
-        impl Subscription for NullSubscription {
-            fn finalize(self: Box<Self>, _handler: &dyn RequestHandler) -> RequestResult<()> {
-                Ok(())
-            }
-        }
-        Ok(Box::new(NullSubscription))
-    }
-}
-
 /// Holds all the active connections for a game. process_requests() should be called by the game
 /// once per network tick.
 pub struct ConnectionCollection {
@@ -149,21 +105,16 @@ impl ConnectionCollection {
                 builder
             );
             // Build a temporary connection in order to report the error to the client
-            match ConnectionImpl::new(
-                ConnectionKey::null(),
-                &mut NullRequestHandler,
-                self.root_entity,
-                builder,
-            ) {
+            match ConnectionImpl::new(ConnectionKey::null(), handler, self.root_entity, builder) {
                 Ok(mut conn) => {
                     conn.send_event(
-                        &mut NullRequestHandler,
+                        handler,
                         Event::FatalError(format!(
                             "server full (max {} connections)",
                             self.max_connections
                         )),
                     );
-                    conn.finalize(&mut NullRequestHandler);
+                    conn.finalize(handler);
                 }
                 Err(e) => error!("failed to build connection: {}", e),
             };
