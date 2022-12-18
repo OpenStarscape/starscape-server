@@ -11,7 +11,7 @@ pub trait Connection {
     /// Called at the start of the tick, process all inbound messages
     fn process_requests(&mut self, handler: &mut dyn RequestHandler);
     /// Send an event to the client, may not go through until flush()
-    fn send_event(&self, event: Event);
+    fn send_event(&self, handler: &dyn RequestHandler, event: Event);
     /// Called at the end of each network tick to send any pending bundles. If it returns
     fn flush(&mut self, handler: &mut dyn RequestHandler) -> Result<(), ()>;
     /// Called just after connection is removed from the connection map before it is dropped
@@ -150,8 +150,8 @@ impl Connection for ConnectionImpl {
         }
     }
 
-    fn send_event(&self, event: Event) {
-        let encode_ctx = new_encode_ctx(&*self.obj_map);
+    fn send_event(&self, handler: &dyn RequestHandler, event: Event) {
+        let encode_ctx = new_encode_ctx(&*self.obj_map, handler);
         let buffer = match self.encoder.encode_event(&encode_ctx, &event) {
             Ok(buffer) => buffer,
             Err(e) => {
@@ -177,7 +177,7 @@ impl Connection for ConnectionImpl {
             // not a property, so it goes in the pending get requests list and is processed here.
             // That fails, and so we simply ignore errors here. There's probably a better way.
             if let Ok(value) = handler.get_property(self.self_key, entity, &property) {
-                self.send_event(Event::value(entity, property, value));
+                self.send_event(handler, Event::value(entity, property, value));
             }
         }
         if self.should_close.load(SeqCst) {
@@ -295,7 +295,7 @@ mod event_tests {
         let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
-        conn.send_event(ev.clone());
+        conn.send_event(&handler, ev.clone());
         conn.flush(&mut handler).unwrap();
         // MockEncoder encodes the bundle using format!() as well, so this should pass as long as
         // everything's wired up correctly.
@@ -309,7 +309,7 @@ mod event_tests {
         let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
-        conn.send_event(ev);
+        conn.send_event(&handler, ev);
         assert!(conn.flush(&mut handler).is_err());
     }
 
@@ -320,7 +320,7 @@ mod event_tests {
         let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
-        conn.send_event(ev);
+        conn.send_event(&handler, ev);
         assert!(conn.flush(&mut handler).is_err());
     }
 
@@ -333,9 +333,9 @@ mod event_tests {
         let ev2 = Event::signal(e[0], "baz".to_string(), ().into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
-        conn.send_event(ev0.clone());
-        conn.send_event(ev1);
-        conn.send_event(ev2);
+        conn.send_event(&handler, ev0.clone());
+        conn.send_event(&handler, ev1);
+        conn.send_event(&handler, ev2);
         assert!(conn.flush(&mut handler).is_err());
         // should only have the first request
         sesh.assert_bundles_eq(vec![format!("{:?}", ev0)]);

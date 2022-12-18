@@ -26,6 +26,7 @@ pub trait ObjectMap: DecodeCtx + Send + Sync {
 
 struct EncodeCtxImpl<'a> {
     map: &'a dyn ObjectMap,
+    _handler: &'a dyn RequestHandler,
 }
 
 impl<'a> EncodeCtx for EncodeCtxImpl<'a> {
@@ -34,8 +35,14 @@ impl<'a> EncodeCtx for EncodeCtxImpl<'a> {
     }
 }
 
-pub fn new_encode_ctx<'a>(map: &'a dyn ObjectMap) -> impl EncodeCtx + 'a {
-    EncodeCtxImpl { map }
+pub fn new_encode_ctx<'a>(
+    map: &'a dyn ObjectMap,
+    handler: &'a dyn RequestHandler,
+) -> impl EncodeCtx + 'a {
+    EncodeCtxImpl {
+        map,
+        _handler: handler,
+    }
 }
 
 enum EntityChange {

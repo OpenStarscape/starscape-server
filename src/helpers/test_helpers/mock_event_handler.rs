@@ -9,7 +9,7 @@ impl MockEventHandler {
 }
 
 impl EventHandler for MockEventHandler {
-    fn event(&self, connection: ConnectionKey, event: Event) {
+    fn event(&self, _handler: &dyn RequestHandler, connection: ConnectionKey, event: Event) {
         self.0.borrow_mut().push((connection, event));
     }
 }

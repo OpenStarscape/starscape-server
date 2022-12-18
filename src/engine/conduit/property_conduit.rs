@@ -43,6 +43,7 @@ where
             }
         };
         handler.event(
+            state,
             self.connection,
             Event::update(self.entity, self.name.to_string(), value),
         );

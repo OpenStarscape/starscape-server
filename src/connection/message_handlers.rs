@@ -40,5 +40,5 @@ pub trait RequestHandler: AsRef<dyn Any> {
 /// Allows sending property updates and other messages to clients. Implemented by
 /// ConnectionCollection and used by the engine.
 pub trait EventHandler {
-    fn event(&self, connection: ConnectionKey, event: Event);
+    fn event(&self, handler: &dyn RequestHandler, connection: ConnectionKey, event: Event);
 }
