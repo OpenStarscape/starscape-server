@@ -294,7 +294,8 @@ impl State {
             && self.entities.get(self.root).is_some()
     }
 
-    /// Returns the conduit for the property, signal or action with the given name.
+    /// Returns the conduit for the property, signal or action with the given name, or the entitiy's
+    /// destruction signal if name is None
     fn conduit(
         &self,
         connection: ConnectionKey,
@@ -385,10 +386,19 @@ impl RequestHandler for State {
     fn subscribe(
         &mut self,
         connection: ConnectionKey,
-        entity: EntityKey,
-        name: &str,
-    ) -> RequestResult<Box<dyn Any>> {
-        let conduit = self.conduit(connection, entity, name)?;
+        entity_key: EntityKey,
+        name: Option<&str>,
+    ) -> RequestResult<Box<dyn Any + Send + Sync>> {
+        let conduit = if let Some(name) = name {
+            self.conduit(connection, entity_key, name)?
+        } else {
+            let entity = self
+                .entities
+                .get_mut(entity_key)
+                .ok_or(BadEntity(entity_key))?;
+            let conduit = entity.destroyed_signal(&self.notif_queue);
+            DestructionConduit::new(connection, entity_key, conduit)
+        };
         let subscription = Subscription::new(self, conduit)?;
         Ok(Box::new(subscription))
     }

@@ -36,7 +36,7 @@ impl ConnectionImpl {
         root_entity: EntityKey,
         session_builder: Box<dyn SessionBuilder>,
     ) -> Result<Self, Box<dyn Error>> {
-        let obj_map = Arc::new(ObjectMapImpl::new());
+        let obj_map = Arc::new(ObjectMapImpl::new(self_key));
         let root_obj_id = obj_map.get_or_create_object(root_entity);
         if root_obj_id != 1 {
             // should never happen
@@ -89,7 +89,7 @@ impl ConnectionImpl {
                         return Err(BadRequest("tried to subscribe multiple times".into()))
                     }
                     Entry::Vacant(entry) => {
-                        let sub = handler.subscribe(self.self_key, entity, property)?;
+                        let sub = handler.subscribe(self.self_key, entity, Some(property))?;
                         entry.insert(sub);
                         self.pending_get_requests.insert((entity, property.into()));
                     }
@@ -170,6 +170,9 @@ impl Connection for ConnectionImpl {
     }
 
     fn flush(&mut self, handler: &mut dyn RequestHandler) -> Result<(), ()> {
+        // Subscribe to the destruction of any entities we're newly tracking, and unsub from
+        // destroyed ones
+        self.obj_map.update_destruction_subscriptions(handler);
         let get_requests = std::mem::replace(&mut self.pending_get_requests, HashSet::new());
         for (entity, property) in get_requests.into_iter() {
             // When a client subscribes to a signal, we have no way of knowing it's a signal and
@@ -198,6 +201,7 @@ impl Connection for ConnectionImpl {
                 );
             }
         }
+        self.obj_map.finalize(handler);
     }
 }
 
@@ -249,6 +253,8 @@ mod test_common {
             panic!("unexpected call");
         }
 
+        fn update_destruction_subscriptions(&self, _handler: &mut dyn RequestHandler) {}
+
         fn as_encode_ctx(&self) -> &dyn EncodeCtx {
             self
         }
@@ -256,6 +262,8 @@ mod test_common {
         fn as_decode_ctx(&self) -> &dyn DecodeCtx {
             self
         }
+
+        fn finalize(&self, _handler: &mut dyn RequestHandler) {}
     }
 
     pub fn setup(

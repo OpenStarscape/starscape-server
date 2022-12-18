@@ -5,6 +5,7 @@ type ConduitBuilder = Box<dyn Fn(ConnectionKey) -> RequestResult<Box<dyn Conduit
 /// Conceptual owner of the various components in the state that make up a single "thing"
 pub struct Entity {
     self_key: EntityKey,
+    destroyed: Signal<()>,
     components: AnyMap,
     component_cleanup: Vec<Box<dyn FnOnce(&mut State)>>,
     conduit_builders: HashMap<&'static str, ConduitBuilder>,
@@ -14,6 +15,7 @@ impl Entity {
     pub fn new(self_key: EntityKey) -> Self {
         Self {
             self_key,
+            destroyed: Signal::new(),
             components: AnyMap::new(),
             component_cleanup: Vec::new(),
             conduit_builders: HashMap::new(),
@@ -72,13 +74,20 @@ impl Entity {
             .map(|builder| builder(connection))
     }
 
+    pub fn destroyed_signal(
+        &mut self,
+        notif_queue: &NotifQueue,
+    ) -> impl Conduit<Vec<()>, SignalsDontTakeInputSilly> {
+        self.destroyed.conduit(notif_queue)
+    }
+
     /// Remove all components of this entity from the state
     pub fn finalize(&mut self, state: &mut State) {
         for cleanup in self.component_cleanup.drain(..) {
             cleanup(state);
         }
         self.components.clear();
-        // TODO: register disconnected from connections
+        self.destroyed.fire(());
     }
 }
 

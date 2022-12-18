@@ -61,13 +61,17 @@ impl RequestHandler for MockRequestHandler {
         &mut self,
         _: ConnectionKey,
         e: EntityKey,
-        n: &str,
-    ) -> RequestResult<Box<dyn Any>> {
+        n: Option<&str>,
+    ) -> RequestResult<Box<dyn Any + Send + Sync>> {
         let mut lock = self.0.lock().unwrap();
-        lock.requests.push(Request::subscribe(e, n.to_string()));
-        lock.should_return
-            .clone()
-            .map(|()| Box::new(MockSub(e, n.to_string())) as Box<dyn Any>)
+        lock.requests.push(Request::subscribe(
+            e,
+            n.unwrap_or("<destroyed signal>").to_string(),
+        ));
+        lock.should_return.clone().map(|()| {
+            Box::new(MockSub(e, n.unwrap_or("<destroyed signal>").to_string()))
+                as Box<dyn Any + Send + Sync>
+        })
     }
 
     fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()> {

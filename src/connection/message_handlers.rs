@@ -24,13 +24,13 @@ pub trait RequestHandler {
         name: &str,
     ) -> RequestResult<Value>;
     /// If Ok, the returned Any should later be sent to unsubscribe(). The name may refer to either
-    /// a property or a signal.
+    /// a property or a signal. If the name is None, the entity's destruction signal is subscribed.
     fn subscribe(
         &mut self,
         connection: ConnectionKey,
         entity: EntityKey,
-        name: &str,
-    ) -> RequestResult<Box<dyn Any>>;
+        name: Option<&str>,
+    ) -> RequestResult<Box<dyn Any + Send + Sync>>;
     /// Takes a subscription that was previously returned from subscribe()
     fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()>;
 }
