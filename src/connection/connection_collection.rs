@@ -45,8 +45,8 @@ impl RequestHandler for NullRequestHandler {
         &mut self,
         _: ConnectionKey,
         _: EntityKey,
-        _: &str,
-    ) -> RequestResult<Box<dyn Any>> {
+        _: Option<&str>,
+    ) -> RequestResult<Box<dyn Any + Send + Sync>> {
         Ok(Box::new(()))
     }
     fn unsubscribe(&mut self, _: Box<dyn Any>) -> RequestResult<()> {

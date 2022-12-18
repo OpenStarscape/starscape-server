@@ -18,10 +18,14 @@ pub trait ObjectMap: Send + Sync {
     /// returns None, and future calls to get_or_create_object() creates a new ID. IDs are not
     /// recycled.
     fn remove_entity(&self, entity: EntityKey) -> Option<ObjectId>;
+    /// Subscribe and unsubscribe from entity's destruction callbacks as needed
+    fn update_destruction_subscriptions(&self, handler: &mut dyn RequestHandler);
     /// Just needs to return self, only required because Rust is stupid
     fn as_encode_ctx(&self) -> &dyn EncodeCtx;
     /// Just needs to return self, only required because Rust is stupid
     fn as_decode_ctx(&self) -> &dyn DecodeCtx;
+    /// Unsubscribes from entity destruction
+    fn finalize(&self, handler: &mut dyn RequestHandler);
 }
 
 impl<T: ObjectMap> EncodeCtx for T {
@@ -36,16 +40,27 @@ impl<T: ObjectMap> DecodeCtx for T {
     }
 }
 
+enum EntityChange {
+    Added(EntityKey),
+    Removed(EntityKey),
+}
+
 /// A RwLock of this type is the normal ObjectMap implementation
 pub struct ObjectMapImpl {
+    connection: ConnectionKey,
     map: BiHashMap<EntityKey, ObjectId>,
+    subscription_map: HashMap<EntityKey, Box<dyn Any + Send + Sync>>,
+    pending_changes: Vec<EntityChange>,
     next_id: ObjectId,
 }
 
 impl ObjectMapImpl {
-    pub fn new() -> RwLock<Self> {
+    pub fn new(connection: ConnectionKey) -> RwLock<Self> {
         RwLock::new(ObjectMapImpl {
+            connection,
             map: BiHashMap::new(),
+            subscription_map: HashMap::new(),
+            pending_changes: Vec::new(),
             next_id: 1,
         })
     }
@@ -77,6 +92,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
                 match write.map.get_by_left(&entity) {
                     Some(obj) => *obj,
                     None => {
+                        write.pending_changes.push(EntityChange::Added(entity));
                         let id = write.next_id;
                         write.next_id += 1;
                         let overwitten = write.map.insert(entity, id);
@@ -99,11 +115,45 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
     }
 
     fn remove_entity(&self, entity: EntityKey) -> Option<ObjectId> {
-        self.write()
-            .expect("failed to lock object map")
-            .map
-            .remove_by_left(&entity)
-            .map(|(_, o)| o)
+        let mut locked = self.write().expect("failed to lock object map");
+        locked.pending_changes.push(EntityChange::Removed(entity));
+        locked.map.remove_by_left(&entity).map(|(_, o)| o)
+    }
+
+    fn update_destruction_subscriptions(&self, handler: &mut dyn RequestHandler) {
+        use std::collections::hash_map::Entry;
+        let mut locked = self.write().expect("failed to lock object map");
+        let connection = locked.connection;
+        let pending_changes = std::mem::replace(&mut locked.pending_changes, Vec::new());
+        for change in pending_changes {
+            match change {
+                EntityChange::Added(entity) => {
+                    if let Entry::Vacant(entry) = locked.subscription_map.entry(entity) {
+                        match handler.subscribe(connection, entity, None) {
+                            Ok(subscription) => {
+                                entry.insert(subscription);
+                            }
+                            Err(e) => {
+                                error!(
+                                    "{:?} failed to subscribe to {:?} destruction: {}",
+                                    connection, entity, e
+                                );
+                            }
+                        }
+                    }
+                }
+                EntityChange::Removed(entity) => {
+                    if let Some(subscription) = locked.subscription_map.remove(&entity) {
+                        if let Err(e) = handler.unsubscribe(subscription) {
+                            warn!(
+                                "{:?} failed to unsubscribe from {:?} destruction: {}",
+                                connection, entity, e
+                            );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn as_encode_ctx(&self) -> &dyn EncodeCtx {
@@ -113,15 +163,33 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
     fn as_decode_ctx(&self) -> &dyn DecodeCtx {
         self
     }
+
+    fn finalize(&self, handler: &mut dyn RequestHandler) {
+        let mut locked = self.write().expect("failed to lock object map");
+        let connection = locked.connection;
+        for (entity, subscription) in locked.subscription_map.drain() {
+            if let Err(e) = handler.unsubscribe(subscription) {
+                warn!(
+                    "failed to unsubscribe from {:?} destruction during finalization of {:?}: {}",
+                    entity, connection, e
+                );
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod objects_tests {
     use super::*;
 
+    fn new_object_map_impl() -> RwLock<ObjectMapImpl> {
+        let c = mock_keys(1);
+        ObjectMapImpl::new(c[0])
+    }
+
     #[test]
     fn objects_can_be_created_and_looked_up() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
@@ -135,7 +203,7 @@ mod objects_tests {
 
     #[test]
     fn object_ids_count_up_from_1() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
@@ -151,7 +219,7 @@ mod objects_tests {
 
     #[test]
     fn nonexistant_entities_return_null() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(2);
         assert_eq!(map.get_object(e[0]), None);
         map.get_or_create_object(e[0]);
@@ -160,7 +228,7 @@ mod objects_tests {
 
     #[test]
     fn nonexistant_objects_return_null() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(1);
         let o = 47;
         assert_eq!(map.get_entity(o), None);
@@ -170,7 +238,7 @@ mod objects_tests {
 
     #[test]
     fn entity_can_be_removed() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(3);
         map.get_or_create_object(e[0]);
         let o = map.get_or_create_object(e[1]);
@@ -181,7 +249,7 @@ mod objects_tests {
 
     #[test]
     fn object_and_entity_null_after_removal() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(2);
         let o: Vec<ObjectId> = e
             .iter()
@@ -194,7 +262,7 @@ mod objects_tests {
 
     #[test]
     fn get_or_create_object_is_idempotent() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(1);
         let o = map.get_or_create_object(e[0]);
         assert_eq!(map.get_or_create_object(e[0]), o);
@@ -204,7 +272,7 @@ mod objects_tests {
 
     #[test]
     fn same_entity_given_new_id_after_being_removed() {
-        let map = ObjectMapImpl::new();
+        let map = new_object_map_impl();
         let e = mock_keys(1);
         let o = map.get_or_create_object(e[0]);
         assert_eq!(map.remove_entity(e[0]), Some(o));

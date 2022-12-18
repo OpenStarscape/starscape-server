@@ -18,7 +18,6 @@ pub enum Event {
     /// entity and name).
     Method(EntityKey, String, EventMethod, Value),
     /// Notify the client that an object has been destroyed and wont be used any more
-    #[allow(dead_code)]
     Destroyed(EntityKey),
     /// Some problem has caused the server or connection to fail. This should be the last event
     /// before the session is closed. The message should be user-readable.
