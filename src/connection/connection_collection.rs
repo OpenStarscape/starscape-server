@@ -6,7 +6,7 @@ impl Connection for StubConnection {
     fn process_requests(&mut self, _: &mut dyn RequestHandler) {
         error!("StubConnection::process_requests() called");
     }
-    fn send_event(&self, _: Event) {
+    fn send_event(&self, _: &dyn RequestHandler, _: Event) {
         error!("StubConnection::send_event() called");
     }
     fn flush(&mut self, _: &mut dyn RequestHandler) -> Result<(), ()> {
@@ -104,7 +104,7 @@ impl ConnectionCollection {
         }
         // Build sessions for any new clients that are trying to connect
         while let Ok(session_builder) = self.new_session_rx.try_recv() {
-            self.try_to_build_connection(session_builder);
+            self.try_to_build_connection(handler, session_builder);
             handler
                 .set_property(
                     ConnectionKey::null(),
@@ -137,7 +137,11 @@ impl ConnectionCollection {
         }
     }
 
-    fn try_to_build_connection(&mut self, builder: Box<dyn SessionBuilder>) {
+    fn try_to_build_connection(
+        &mut self,
+        handler: &dyn RequestHandler,
+        builder: Box<dyn SessionBuilder>,
+    ) {
         if self.connections.len() >= self.max_connections {
             error!(
                 "maximum {} connections reached, new connection {:?} will not be added",
@@ -147,10 +151,13 @@ impl ConnectionCollection {
             // Build a temporary connection in order to report the error to the client
             match ConnectionImpl::new(ConnectionKey::null(), self.root_entity, builder) {
                 Ok(mut conn) => {
-                    conn.send_event(Event::FatalError(format!(
-                        "server full (max {} connections)",
-                        self.max_connections
-                    )));
+                    conn.send_event(
+                        handler,
+                        Event::FatalError(format!(
+                            "server full (max {} connections)",
+                            self.max_connections
+                        )),
+                    );
                     conn.finalize(&mut NullRequestHandler);
                 }
                 Err(e) => error!("failed to build connection: {}", e),
@@ -180,7 +187,10 @@ impl ConnectionCollection {
 
     pub fn finalize(&mut self, handler: &mut dyn RequestHandler) {
         for (_, mut connection) in self.connections.drain() {
-            connection.send_event(Event::FatalError("server has shut down".to_string()));
+            connection.send_event(
+                handler,
+                Event::FatalError("server has shut down".to_string()),
+            );
             let _ = connection.flush(handler);
             connection.finalize(handler);
         }
@@ -188,9 +198,9 @@ impl ConnectionCollection {
 }
 
 impl EventHandler for ConnectionCollection {
-    fn event(&self, connection: ConnectionKey, event: Event) {
+    fn event(&self, handler: &dyn RequestHandler, connection: ConnectionKey, event: Event) {
         if let Some(connection) = self.connections.get(connection) {
-            connection.send_event(event);
+            connection.send_event(handler, event);
         } else {
             error!(
                 "{:?} does not exist, could not send {:?}",
@@ -242,7 +252,7 @@ mod tests {
 
     impl Connection for MockConnection {
         fn process_requests(&mut self, _: &mut dyn RequestHandler) {}
-        fn send_event(&self, _: Event) {}
+        fn send_event(&self, _: &dyn RequestHandler, _: Event) {}
         fn flush(&mut self, _: &mut dyn RequestHandler) -> Result<(), ()> {
             if self.flush_succeeds {
                 Ok(())

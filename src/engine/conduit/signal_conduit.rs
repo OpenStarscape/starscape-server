@@ -44,6 +44,7 @@ where
         };
         for value in values {
             handler.event(
+                state,
                 self.connection,
                 Event::signal(self.entity, self.name.to_string(), value),
             );

@@ -43,7 +43,7 @@ where
                     "dispatching destruction event for {:?} and {:?}",
                     self.connection, self.entity
                 );
-                handler.event(self.connection, Event::Destroyed(self.entity));
+                handler.event(state, self.connection, Event::Destroyed(self.entity));
             }
         }
     }
