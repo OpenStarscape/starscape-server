@@ -62,12 +62,9 @@ impl From<SignalsDontTakeInputSilly> for RequestResult<SignalsDontTakeInputSilly
     }
 }
 
-impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak<Dispatcher<T>> {
+impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Arc<Dispatcher<T>> {
     fn output(&self, _: &State) -> RequestResult<Vec<T>> {
-        let dispatcher = self
-            .upgrade()
-            .ok_or_else(|| InternalError("signal no longer exists".into()))?;
-        let pending = dispatcher.pending.lock().unwrap();
+        let pending = self.pending.lock().unwrap();
         // We have to clone because there might be mutliple subscribers
         Ok(pending.signal_events.clone())
     }
@@ -77,20 +74,14 @@ impl<T: Clone + Send + Sync> Conduit<Vec<T>, SignalsDontTakeInputSilly> for Weak
     }
 }
 
-impl<T: Clone + Send + Sync> Subscribable for Weak<Dispatcher<T>> {
+impl<T: Clone + Send + Sync> Subscribable for Arc<Dispatcher<T>> {
     fn subscribe(&self, _: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
-        let dispatcher = self
-            .upgrade()
-            .ok_or_else(|| InternalError("signal no longer exists".into()))?;
-        dispatcher.subscribers.add(subscriber)?;
+        self.subscribers.add(subscriber)?;
         Ok(())
     }
 
     fn unsubscribe(&self, _: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
-        let dispatcher = self
-            .upgrade()
-            .ok_or_else(|| InternalError("signal no longer exists".into()))?;
-        dispatcher.subscribers.remove(subscriber)?;
+        self.subscribers.remove(subscriber)?;
         Ok(())
     }
 }
@@ -137,7 +128,7 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
             .state_notif_queue
             .try_init_with_clone(notif_queue)
             .or_log_error("problem creating signal conduit");
-        Arc::downgrade(&dispatcher)
+        dispatcher.clone()
     }
 }
 
