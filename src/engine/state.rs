@@ -398,10 +398,7 @@ impl RequestHandler for State {
         let conduit = if let Some(name) = name {
             self.conduit(connection, entity_key, name)?
         } else {
-            let entity = self
-                .entities
-                .get_mut(entity_key)
-                .ok_or(BadEntity(entity_key))?;
+            let entity = self.entities.get(entity_key).ok_or(BadEntity(entity_key))?;
             let conduit = entity.destroyed_signal(&self.notif_queue);
             DestructionConduit::new(connection, entity_key, conduit)
         };

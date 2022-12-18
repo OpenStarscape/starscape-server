@@ -88,47 +88,43 @@ impl<T: Clone + Send + Sync> Subscribable for Arc<Dispatcher<T>> {
 
 /// Similar to `Element<T>`, except it allows the game to fire signals.
 pub struct Signal<T> {
-    dispatcher: Option<Arc<Dispatcher<T>>>,
+    dispatcher: Arc<Dispatcher<T>>,
 }
 
 impl<T: Clone + Send + Sync + 'static> Signal<T> {
     pub fn new() -> Self {
-        Self { dispatcher: None }
+        Self {
+            dispatcher: Arc::new(Dispatcher::new()),
+        }
     }
 
     /// Fire a signal. Requires mut conceptually even though it could be implemented without it.
     pub fn fire(&mut self, data: T) {
-        if let Some(dispatcher) = &self.dispatcher {
-            let mut pending = dispatcher.pending.lock().unwrap();
-            // Only add the dispatcher to the notification queue for the first signal fired
-            if pending.signal_events.is_empty() {
-                match pending.state_notif_queue.get() {
-                    Ok(notif_queue) => notif_queue
-                        .extend(std::iter::once(
-                            Arc::downgrade(&dispatcher) as Weak<dyn Subscriber>
-                        )),
-                    Err(e) => error!("failed to fire signal: {}", e),
-                }
+        let mut pending = self.dispatcher.pending.lock().unwrap();
+        // Only add the dispatcher to the notification queue for the first signal fired
+        if pending.signal_events.is_empty() {
+            match pending.state_notif_queue.get() {
+                Ok(notif_queue) => notif_queue
+                    .extend(std::iter::once(
+                        Arc::downgrade(&self.dispatcher) as Weak<dyn Subscriber>
+                    )),
+                Err(e) => error!("failed to fire signal: {}", e),
             }
-            pending.signal_events.push(data);
         }
+        pending.signal_events.push(data);
     }
 
     /// Send notifications to the given subscriber when the inner value changes
     pub fn conduit(
-        &mut self,
+        &self,
         notif_queue: &NotifQueue,
     ) -> impl Conduit<Vec<T>, SignalsDontTakeInputSilly> + Clone {
-        if self.dispatcher.is_none() {
-            self.dispatcher = Some(Arc::new(Dispatcher::new()));
-        }
-        let dispatcher = self.dispatcher.as_ref().unwrap();
-        let mut pending = dispatcher.pending.lock().unwrap();
+        let mut pending = self.dispatcher.pending.lock().unwrap();
         pending
             .state_notif_queue
             .try_init_with_clone(notif_queue)
             .or_log_error("problem creating signal conduit");
-        dispatcher.clone()
+        self.dispatcher.clone()
     }
 }
 
@@ -153,7 +149,7 @@ mod tests {
         State,
         impl Conduit<Vec<i32>, SignalsDontTakeInputSilly> + Clone,
     ) {
-        let mut signal = Signal::new();
+        let signal = Signal::new();
         let state = State::new();
         let conduit = signal.conduit(&state.notif_queue);
         (signal, state, conduit)
