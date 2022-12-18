@@ -1,8 +1,12 @@
 use super::*;
 
+pub trait Subscription: Send + Sync {
+    fn finalize(self: Box<Self>, handler: &dyn RequestHandler) -> RequestResult<()>;
+}
+
 /// Processes requests from a client. Implemented by State in the engine and used by
 /// ConnectionCollection.
-pub trait RequestHandler {
+pub trait RequestHandler: AsRef<dyn Any> {
     fn fire_action(
         &mut self,
         connection: ConnectionKey,
@@ -30,9 +34,7 @@ pub trait RequestHandler {
         connection: ConnectionKey,
         entity: EntityKey,
         name: Option<&str>,
-    ) -> RequestResult<Box<dyn Any + Send + Sync>>;
-    /// Takes a subscription that was previously returned from subscribe()
-    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()>;
+    ) -> RequestResult<Box<dyn Subscription>>;
 }
 
 /// Allows sending property updates and other messages to clients. Implemented by

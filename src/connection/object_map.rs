@@ -49,7 +49,7 @@ enum EntityChange {
 pub struct ObjectMapImpl {
     connection: ConnectionKey,
     map: BiHashMap<EntityKey, ObjectId>,
-    subscription_map: HashMap<EntityKey, Box<dyn Any + Send + Sync>>,
+    subscription_map: HashMap<EntityKey, Box<dyn Subscription>>,
     pending_changes: Vec<EntityChange>,
     next_id: ObjectId,
 }
@@ -144,7 +144,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
                 }
                 EntityChange::Removed(entity) => {
                     if let Some(subscription) = locked.subscription_map.remove(&entity) {
-                        if let Err(e) = handler.unsubscribe(subscription) {
+                        if let Err(e) = subscription.finalize(handler) {
                             warn!(
                                 "{:?} failed to unsubscribe from {:?} destruction: {}",
                                 connection, entity, e
@@ -168,7 +168,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
         let mut locked = self.write().expect("failed to lock object map");
         let connection = locked.connection;
         for (entity, subscription) in locked.subscription_map.drain() {
-            if let Err(e) = handler.unsubscribe(subscription) {
+            if let Err(e) = subscription.finalize(handler) {
                 warn!(
                     "failed to unsubscribe from {:?} destruction during finalization of {:?}: {}",
                     entity, connection, e

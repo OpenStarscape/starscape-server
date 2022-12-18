@@ -19,6 +19,11 @@ impl Connection for StubConnection {
 }
 
 struct NullRequestHandler;
+impl AsRef<dyn Any> for NullRequestHandler {
+    fn as_ref(&self) -> &dyn Any {
+        self
+    }
+}
 impl RequestHandler for NullRequestHandler {
     fn fire_action(
         &mut self,
@@ -46,11 +51,14 @@ impl RequestHandler for NullRequestHandler {
         _: ConnectionKey,
         _: EntityKey,
         _: Option<&str>,
-    ) -> RequestResult<Box<dyn Any + Send + Sync>> {
-        Ok(Box::new(()))
-    }
-    fn unsubscribe(&mut self, _: Box<dyn Any>) -> RequestResult<()> {
-        Ok(())
+    ) -> RequestResult<Box<dyn Subscription>> {
+        struct NullSubscription;
+        impl Subscription for NullSubscription {
+            fn finalize(self: Box<Self>, _handler: &dyn RequestHandler) -> RequestResult<()> {
+                Ok(())
+            }
+        }
+        Ok(Box::new(NullSubscription))
     }
 }
 

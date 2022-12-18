@@ -14,7 +14,7 @@ mod state;
 mod subscribable;
 mod subscriber;
 mod subscriber_list;
-mod subscription;
+mod subscription_impl;
 mod sync_subscriber_list;
 mod value;
 
@@ -36,4 +36,4 @@ use component_key::ComponentKey;
 use conduit::*;
 use entity::Entity;
 use signal::SignalsDontTakeInputSilly;
-use subscription::Subscription;
+use subscription_impl::SubscriptionImpl;

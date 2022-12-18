@@ -7,6 +7,16 @@ struct MockRequestHandlerInner {
 
 struct MockSub(EntityKey, String);
 
+impl Subscription for MockSub {
+    fn finalize(self: Box<Self>, handler: &dyn RequestHandler) -> RequestResult<()> {
+        let handler: &MockRequestHandler = (handler.as_ref() as &dyn Any).downcast_ref().unwrap();
+        let mut lock = handler.0.lock().unwrap();
+        lock.requests
+            .push(Request::unsubscribe(self.0, self.1.to_string()));
+        lock.should_return.clone()
+    }
+}
+
 #[derive(Clone)]
 pub struct MockRequestHandler(Arc<Mutex<MockRequestHandlerInner>>);
 
@@ -21,6 +31,12 @@ impl MockRequestHandler {
 
     pub fn assert_requests_eq(&self, expected: Vec<Request>) {
         assert_eq!(self.0.lock().unwrap().requests, expected);
+    }
+}
+
+impl AsRef<dyn Any> for MockRequestHandler {
+    fn as_ref(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -62,7 +78,7 @@ impl RequestHandler for MockRequestHandler {
         _: ConnectionKey,
         e: EntityKey,
         n: Option<&str>,
-    ) -> RequestResult<Box<dyn Any + Send + Sync>> {
+    ) -> RequestResult<Box<dyn Subscription>> {
         let mut lock = self.0.lock().unwrap();
         lock.requests.push(Request::subscribe(
             e,
@@ -70,15 +86,7 @@ impl RequestHandler for MockRequestHandler {
         ));
         lock.should_return.clone().map(|()| {
             Box::new(MockSub(e, n.unwrap_or("<destroyed signal>").to_string()))
-                as Box<dyn Any + Send + Sync>
+                as Box<dyn Subscription>
         })
-    }
-
-    fn unsubscribe(&mut self, subscription: Box<dyn Any>) -> RequestResult<()> {
-        let mut lock = self.0.lock().unwrap();
-        let sub: Box<MockSub> = subscription.downcast().unwrap();
-        lock.requests
-            .push(Request::unsubscribe(sub.0, sub.1.to_string()));
-        lock.should_return.clone()
     }
 }
