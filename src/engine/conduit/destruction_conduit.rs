@@ -16,10 +16,6 @@ where
         entity: EntityKey,
         inner: C,
     ) -> Box<dyn Conduit<Value, Value>> {
-        info!(
-            "destruction conduit created for {:?} and {:?}",
-            connection, entity
-        );
         Box::new(Arc::new(Self {
             connection,
             entity,
@@ -33,16 +29,8 @@ where
     C: Conduit<Vec<()>, SignalsDontTakeInputSilly> + 'static,
 {
     fn notify(&self, state: &State, handler: &dyn EventHandler) {
-        info!(
-            "destruction conduit notified for {:?} and {:?}",
-            self.connection, self.entity
-        );
         if let Ok(vec) = self.inner.output(state) {
             if !vec.is_empty() {
-                info!(
-                    "dispatching destruction event for {:?} and {:?}",
-                    self.connection, self.entity
-                );
                 handler.event(state, self.connection, Event::Destroyed(self.entity));
             }
         }
