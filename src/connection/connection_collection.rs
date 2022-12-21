@@ -22,7 +22,7 @@ impl Connection for StubConnection {
 /// once per network tick.
 pub struct ConnectionCollection {
     root_entity: EntityKey,
-    connections: DenseSlotMap<ConnectionKey, Box<dyn Connection>>,
+    connections: HopSlotMap<ConnectionKey, Box<dyn Connection>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     max_connections: usize,
     set_max_connections: bool,
@@ -36,7 +36,7 @@ impl ConnectionCollection {
     ) -> Self {
         Self {
             root_entity,
-            connections: DenseSlotMap::with_key(),
+            connections: HopSlotMap::with_key(),
             new_session_rx,
             max_connections,
             set_max_connections: true,
