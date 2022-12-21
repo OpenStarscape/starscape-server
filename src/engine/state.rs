@@ -6,7 +6,7 @@ new_key_type! {
     pub struct EntityKey;
 }
 
-type ComponentMap<T> = DenseSlotMap<ComponentKey<T>, (EntityKey, T)>;
+type ComponentMap<T> = HopSlotMap<ComponentKey<T>, (EntityKey, T)>;
 type ComponentElement<T> = (PhantomData<T>, Element<()>);
 
 /// Every game has one state. It owns all entities and components. Most code that uses the state
@@ -18,7 +18,7 @@ pub struct State {
     /// Monotonic clock that goes up with each physics tick
     physics_tick: u64,
     root: EntityKey,
-    entities: DenseSlotMap<EntityKey, Entity>,
+    entities: HopSlotMap<EntityKey, Entity>,
     components: AnyMap,
     component_list_elements: Mutex<AnyMap>, // TODO: change to subscription trackers
     pub notif_queue: NotifQueue,
@@ -30,7 +30,7 @@ impl Default for State {
             time: 0.0,
             physics_tick: 0,
             root: EntityKey::null(),
-            entities: DenseSlotMap::with_key(),
+            entities: HopSlotMap::with_key(),
             components: AnyMap::new(),
             component_list_elements: Mutex::new(AnyMap::new()),
             notif_queue: NotifQueue::new(),
@@ -101,7 +101,7 @@ impl State {
         let map: &mut ComponentMap<T> = self
             .components
             .entry()
-            .or_insert_with(DenseSlotMap::with_key);
+            .or_insert_with(HopSlotMap::with_key);
         let key = map.insert((entity, component));
         e.register_component(key, move |state| state.remove_component(key));
         self.trigger_component_list_element_update::<T>();
