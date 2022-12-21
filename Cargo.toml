@@ -1,20 +1,21 @@
 [package]
 name = "starscape-server"
 version = "0.1.0"
-authors = ["William Wold <wm@wmww.sh>"]
+authors = ["Sophie Winter <so@phie.me>"]
 edition = "2018"
 
 [dependencies]
 log = "0.4"
-env_logger = "0.8"
-slotmap = "0.4"
+env_logger = "0.10"
+slotmap = "1.0"
+derivative = "2.2"
 anymap = "0.12"
-bimap = "0.4"
+bimap = "0.6"
 weak-self = "1.0"
-cgmath = "0.17"
+cgmath = "0.18"
 serde_json = "1.0"
 serde = "1.0"
-ctrlc = "3.1"
+ctrlc = "3.2"
 mio = "0.6"
 futures = "0.3"
 tokio = { version = "0.2", features = ["full"] }
