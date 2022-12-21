@@ -13,6 +13,8 @@
 #[macro_use]
 extern crate log;
 
+extern crate derivative;
+
 #[macro_use(new_key_type)]
 extern crate slotmap;
 
