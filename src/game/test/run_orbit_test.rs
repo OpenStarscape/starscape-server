@@ -72,28 +72,28 @@ pub fn static_orbit_test(
     let mut state = State::new();
     state.increment_physics(at_time);
     let parent_mass = grav_param / GRAVITATIONAL_CONSTANT;
-    orbit.parent = state.create_entity();
-    Body::new()
+    orbit.parent = Body::new()
         .with_class(BodyClass::Celestial)
         .with_position(position_offset)
         .with_velocity(velocity_offset)
         .with_mass(parent_mass)
         .with_name("parent".to_string())
-        .install(&mut state, orbit.parent);
-    let body = state.create_entity();
-    Body::new()
+        .install(&mut state);
+    let body = Body::new()
         .with_class(BodyClass::Celestial)
         .with_position(position_offset + position.to_vec())
         .with_velocity(velocity_offset + velocity)
         .with_mass(parent_mass / 10.0)
         .with_name("body".to_string())
-        .install(&mut state, body);
+        .install(&mut state);
     state
-        .component_mut::<Body>(body)
+        .get_mut(body)
         .unwrap()
         .gravity_parent
         .set(orbit.parent);
-    let orbit_value = state.get_property(ConnectionKey::null(), body, "orbit");
+    panic!("TODO: implement");
+    let body_key = EntityKey::null();
+    let orbit_value = state.get_property(ConnectionKey::null(), body_key, "orbit");
     match orbit_value {
         Ok(value) => {
             if value.is_null() {
@@ -134,28 +134,26 @@ pub fn dynamic_orbit_test(
     let start_velocity = rotation.rotate_vector(Vector3::new(0.0, start_speed, 0.0));
     let mut state = State::new();
     let parent_mass = grav_param / GRAVITATIONAL_CONSTANT;
-    let parent = state.create_entity();
-    Body::new()
+    let parent = Body::new()
         .with_class(BodyClass::Celestial)
         .with_mass(parent_mass)
         .with_name("parent".to_string())
-        .install(&mut state, parent);
-    let body = state.create_entity();
-    Body::new()
+        .install(&mut state);
+    let body = Body::new()
         .with_class(BodyClass::Celestial)
         .with_position(start_position)
         .with_velocity(start_velocity)
         .with_mass(parent_mass / 100000.0)
         .with_name("body".to_string())
-        .install(&mut state, body);
+        .install(&mut state);
     let delta = orbit.period_time * DYNAMIC_TEST_RELATIVE_DELTA_TIME;
     while state.time() < run_time {
         apply_gravity(&mut state, delta);
         apply_motion(&mut state, delta);
         state.increment_physics(delta);
     }
-    let actual_position = *state.component::<Body>(body).unwrap().position;
-    let actual_velocity = *state.component::<Body>(body).unwrap().velocity;
+    let actual_position = *state.get(body).unwrap().position;
+    let actual_velocity = *state.get(body).unwrap().velocity;
     let position_delta = actual_position.distance(position);
     let velocity_delta = actual_velocity.distance(velocity);
     let position_threshold = orbit.semi_major * DYNAMIC_TEST_POSITION_RELATIVE_THRESHOLD;

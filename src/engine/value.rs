@@ -10,6 +10,7 @@ pub enum Value {
     Integer(i64),
     Text(String),
     Entity(EntityKey),
+    Object(GenericId),
     Array(Vec<Value>),
     Null,
     // TODO: add boolean
@@ -81,6 +82,26 @@ impl From<EntityKey> for Value {
             Value::Null
         } else {
             Value::Entity(entity)
+        }
+    }
+}
+
+impl From<GenericId> for Value {
+    fn from(id: GenericId) -> Self {
+        if id.is_null() {
+            Value::Null
+        } else {
+            Value::Object(id)
+        }
+    }
+}
+
+impl<T: 'static> From<Id<T>> for Value {
+    fn from(id: Id<T>) -> Self {
+        if id.is_null() {
+            Value::Null
+        } else {
+            Value::Object(id.into())
         }
     }
 }
@@ -328,6 +349,26 @@ impl From<Value> for DecodeResult<EntityKey> {
         match value {
             Value::Entity(value) => Ok(value),
             Value::Null => Ok(EntityKey::null()),
+            _ => Err(BadRequest(format!("{:?} is not an entity", value))),
+        }
+    }
+}
+
+impl From<Value> for DecodeResult<GenericId> {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Object(value) => Ok(value),
+            Value::Null => Ok(GenericId::null()),
+            _ => Err(BadRequest(format!("{:?} is not an object", value))),
+        }
+    }
+}
+
+impl<T: 'static> From<Value> for DecodeResult<Id<T>> {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Object(value) => value.into(),
+            Value::Null => Ok(Id::null()),
             _ => Err(BadRequest(format!("{:?} is not an object", value))),
         }
     }

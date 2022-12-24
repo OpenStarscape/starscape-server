@@ -4,12 +4,11 @@ use super::*;
 const GRAVITY_BODY_THRESH: f64 = 100_000.0;
 
 /// The type of object
-#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum BodyClass {
     /// Stars, planets, moons and asteroids
     Celestial,
     /// Ships that may have thrust and be controlled
-    Ship,
+    Ship(Ship),
 }
 
 /// Collision shape
@@ -35,7 +34,7 @@ pub struct GravityBody;
 /// Any physics object in space
 pub struct Body {
     /// Type of body
-    pub class: Element<BodyClass>,
+    pub class: BodyClass,
     /// Location of the object (kilometers)
     /// (0, 0, 0) is generally the center of the solar system
     /// +Z is considered "up" from the orbital plane
@@ -54,20 +53,21 @@ pub struct Body {
     /// influence of (https://en.wikipedia.org/wiki/Sphere_of_influence_(astrodynamics)). This logic generally results
     /// in a nice tree. For example, a ship's parent might be Luna, Luna's parent would be Earth and Earth's parent
     /// would be Sol.
-    pub gravity_parent: Element<EntityKey>,
+    pub gravity_parent: Element<Id<Body>>,
 }
 
 impl Default for Body {
     fn default() -> Self {
         Self {
-            class: Element::new(BodyClass::Celestial),
+            /// Must not be changed once body installed
+            class: BodyClass::Celestial,
             position: Element::new(Point3::origin()),
             velocity: Element::new(Vector3::zero()),
             shape: Element::new(Shape::Point),
             mass: Element::new(1.0),
             color: Element::new(None),
             name: Element::new(None),
-            gravity_parent: Element::new(EntityKey::null()),
+            gravity_parent: Element::new(Id::null()),
         }
     }
 }
@@ -78,7 +78,7 @@ impl Body {
     }
 
     pub fn with_class(mut self, class: BodyClass) -> Self {
-        self.class = Element::new(class);
+        self.class = class;
         self
     }
 
@@ -115,70 +115,108 @@ impl Body {
 
     /// Attaches the body to the given entty, and adds a gravity body if the mass is at least
     /// GRAVITY_BODY_THRESH
-    pub fn install(self, state: &mut State, entity: EntityKey) {
-        if *self.mass >= GRAVITY_BODY_THRESH {
-            state.install_component(entity, GravityBody);
-        }
-        state.install_component(entity, self);
+    pub fn install(self, state: &mut State) -> Id<Body> {
+        let class_name = match self.class {
+            BodyClass::Celestial => "celestial".to_string(),
+            BodyClass::Ship(_) => "ship".to_string(),
+        };
 
-        ROConduit::new(move |state| Ok(&state.component::<Body>(entity)?.class))
-            .map_output(|class| {
-                Ok(match class {
-                    BodyClass::Celestial => "celestial".to_string(),
-                    BodyClass::Ship => "ship".to_string(),
-                })
+        let (id, obj) = state.add_with_object(self);
+
+        obj.add_property(
+            "class",
+            ConstConduit::new(class_name).map_into::<Value, Value>(),
+        );
+
+        obj.add_property(
+            "position",
+            RWConduit::new(
+                move |state| Ok(&state.get(id)?.position),
+                move |state, value| Ok(state.get_mut(id)?.position.set(value)),
+            )
+            .map_into::<Value, Value>(),
+        );
+
+        obj.add_property(
+            "velocity",
+            RWConduit::new(
+                move |state| Ok(&state.get(id)?.velocity),
+                move |state, value| Ok(state.get_mut(id)?.velocity.set(value)),
+            )
+            .map_into::<Value, Value>(),
+        );
+
+        obj.add_property(
+            "mass",
+            RWConduit::new(
+                move |state| Ok(&state.get(id)?.mass),
+                move |state, value| Ok(state.get_mut(id)?.mass.set(value)),
+            )
+            .map_into::<Value, Value>(),
+        );
+
+        obj.add_property("orbit", OrbitConduit::new(id).map_into::<Value, Value>());
+
+        obj.add_property(
+            "color",
+            RWConduit::new(
+                move |state| Ok(&state.get(id)?.color),
+                move |state, value| Ok(state.get_mut(id)?.color.set(value)),
+            )
+            .map_into::<Value, Value>(),
+        );
+
+        obj.add_property(
+            "name",
+            RWConduit::new(
+                move |state| Ok(&state.get(id)?.name),
+                move |state, value| Ok(state.get_mut(id)?.name.set(value)),
+            )
+            .map_into::<Value, Value>(),
+        );
+
+        obj.add_property(
+            "grav_parent",
+            ROConduit::new(move |state| Ok(&state.get(id)?.gravity_parent))
+                .map_into::<Value, Value>(),
+        );
+
+        obj.add_property(
+            "size",
+            RWConduit::new(
+                move |state| Ok(&state.get(id)?.shape),
+                move |state, value| Ok(state.get_mut(id)?.shape.set(value)),
+            )
+            .map_output(|shape| Ok(shape.radius()))
+            .map_input(|radius| {
+                if radius == 0.0 {
+                    Ok(Shape::Point)
+                } else if radius > 0.0 {
+                    Ok(Shape::Sphere { radius })
+                } else {
+                    Err(BadRequest("size must be >= 0".into()))
+                }
             })
-            .install_property(state, entity, "class");
+            .map_into::<Value, Value>(),
+        );
+        id
+    }
 
-        RWConduit::new(
-            move |state| Ok(&state.component::<Body>(entity)?.position),
-            move |state, value| Ok(state.component_mut::<Body>(entity)?.position.set(value)),
-        )
-        .install_property(state, entity, "position");
+    pub fn is_gravity_well(&self) -> bool {
+        *self.mass > GRAVITY_BODY_THRESH
+    }
 
-        RWConduit::new(
-            move |state| Ok(&state.component::<Body>(entity)?.velocity),
-            move |state, value| Ok(state.component_mut::<Body>(entity)?.velocity.set(value)),
-        )
-        .install_property(state, entity, "velocity");
+    pub fn ship(&self) -> RequestResult<&Ship> {
+        match &self.class {
+            BodyClass::Ship(ship) => Ok(ship),
+            _ => Err(InternalError("body is not a ship".to_string())),
+        }
+    }
 
-        RWConduit::new(
-            move |state| Ok(&state.component::<Body>(entity)?.mass),
-            move |state, value| Ok(state.component_mut::<Body>(entity)?.mass.set(value)),
-        )
-        .install_property(state, entity, "mass");
-
-        OrbitConduit::new(entity).install_property(state, entity, "orbit");
-
-        RWConduit::new(
-            move |state| Ok(&state.component::<Body>(entity)?.color),
-            move |state, value| Ok(state.component_mut::<Body>(entity)?.color.set(value)),
-        )
-        .install_property(state, entity, "color");
-
-        RWConduit::new(
-            move |state| Ok(&state.component::<Body>(entity)?.name),
-            move |state, value| Ok(state.component_mut::<Body>(entity)?.name.set(value)),
-        )
-        .install_property(state, entity, "name");
-
-        ROConduit::new(move |state| Ok(&state.component::<Body>(entity)?.gravity_parent))
-            .install_property(state, entity, "grav_parent");
-
-        RWConduit::new(
-            move |state| Ok(&state.component::<Body>(entity)?.shape),
-            move |state, value| Ok(state.component_mut::<Body>(entity)?.shape.set(value)),
-        )
-        .map_output(|shape| Ok(shape.radius()))
-        .map_input(|radius| {
-            if radius == 0.0 {
-                Ok(Shape::Point)
-            } else if radius > 0.0 {
-                Ok(Shape::Sphere { radius })
-            } else {
-                Err(BadRequest("size must be >= 0".into()))
-            }
-        })
-        .install_property(state, entity, "size");
+    pub fn ship_mut(&mut self) -> RequestResult<&mut Ship> {
+        match &mut self.class {
+            BodyClass::Ship(ship) => Ok(ship),
+            _ => Err(InternalError("body is not a ship".to_string())),
+        }
     }
 }

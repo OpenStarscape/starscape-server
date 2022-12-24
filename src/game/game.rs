@@ -3,16 +3,15 @@ use super::*;
 struct CelestialInfo<'a> {
     name: &'a str,
     color: u32,
-    parent: EntityKey,
+    parent: Id<Body>,
     distance: f64,
     mass: f64,
     radius: f64,
 }
 
-fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> EntityKey {
-    let e = state.create_entity();
+fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> Id<Body> {
     let (parent_pos, parent_vel, parent_mass) = state
-        .component::<Body>(info.parent)
+        .get(info.parent)
         .map(|parent| (*parent.position, *parent.velocity, *parent.mass))
         .unwrap_or_else(|_| (Point3::origin(), Vector3::zero(), 0.0));
     let pos = parent_pos + Vector3::new(info.distance, 0.0, 0.0) * scale;
@@ -30,8 +29,7 @@ fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> Entit
         .with_mass(info.mass * scale)
         .with_color(ColorRGB::from_u32(info.color))
         .with_name(info.name.to_string())
-        .install(state, e);
-    e
+        .install(state)
 }
 
 // TODO: generalize create_celestial() to support non-circular, non-level orbits
@@ -45,7 +43,7 @@ fn create_planet_9(state: &mut State, scale: f64) {
         .with_mass(6e+22 * scale)
         .with_color(ColorRGB::from_u32(0x2e5747))
         .with_name("Planet 9".to_string())
-        .install(state, e);
+        .install(state);
 }
 
 fn init_solar_system(state: &mut State, scale: f64) {
@@ -58,7 +56,7 @@ fn init_solar_system(state: &mut State, scale: f64) {
         CelestialInfo {
             name: "Sol",
             color: 0xffe461,
-            parent: EntityKey::null(),
+            parent: Id::null(),
             distance: 0.0,
             mass: 1.989e+27,
             radius: 696340.0,

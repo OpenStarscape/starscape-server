@@ -38,6 +38,9 @@ impl<'a> Serialize for Contextualized<'a, Value> {
                 )?;
                 outer.end()
             }
+            Value::Object(_id) => {
+                panic!("object serialization not implemented");
+            }
             Value::Array(list) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;

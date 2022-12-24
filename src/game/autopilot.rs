@@ -39,7 +39,7 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
     let velocity = *body.velocity;
     let max_acceleration = *ship.max_acceleration;
     let grav_body = state
-        .component::<Body>(grav_body_key)
+        .get(grav_body_key)
         .map_err(|e| format!("getting gravity body: {}", e))?;
     let grav_body_pos = *grav_body.position;
     let grav_body_vel = *grav_body.velocity;
@@ -55,12 +55,12 @@ fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<d
         goal_axis = None;
         goal_virtical_direction = None;
     } else {
-        let mut temp_target = state.component::<Body>(target_key);
+        let mut temp_target = state.get(target_key);
         while let Ok(attempted_temp_target) = temp_target {
             if *attempted_temp_target.gravity_parent == grav_body_key {
                 break;
             }
-            temp_target = state.component::<Body>(*attempted_temp_target.gravity_parent);
+            temp_target = state.get(*attempted_temp_target.gravity_parent);
         }
         if let Ok(temp_target) = temp_target {
             let target_relative_pos = *temp_target.position - grav_body_pos;

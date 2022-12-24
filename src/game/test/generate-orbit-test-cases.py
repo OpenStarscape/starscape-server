@@ -95,7 +95,7 @@ def make_test_case(test, suffix, fn, pos_offset, vel_offset):
 fn ''' + fn_name + '''() {
     ''' + fn + '''(
         OrbitData{''' + format_struct(test[orbit], orbit_param_names, 3) + '''
-            parent: EntityKey::null(),
+            parent: Id::null(),
         },''' + format_floats([test[grav_param], test[at_time]], ['grav_param', 'at_time'], 2) + '''
         // body position
         Point3::new(''' + format_floats(test[position], pos_names, 3) + '''

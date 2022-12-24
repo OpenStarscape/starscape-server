@@ -14,6 +14,15 @@ pub struct Element<T> {
     has_subscribers: AtomicBool,
 }
 
+impl<T> Default for Element<T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 impl<T> Element<T> {
     pub fn new(inner: T) -> Self {
         Self {

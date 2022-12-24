@@ -16,7 +16,7 @@ pub enum AutopilotScheme {
 pub struct AutopilotData {
     /// What data to use and how it is interpreted is dependent on the scheme
     pub scheme: Element<AutopilotScheme>,
-    pub target: Element<EntityKey>,
+    pub target: Element<Id<Body>>,
     pub distance: Element<Option<f64>>,
 }
 
@@ -34,7 +34,7 @@ impl Ship {
             acceleration: Element::new(Vector3::zero()),
             autopilot: AutopilotData {
                 scheme: Element::new(AutopilotScheme::Off),
-                target: Element::new(EntityKey::null()),
+                target: Element::new(Id::null()),
                 distance: Element::new(None),
             },
         }
@@ -59,81 +59,78 @@ impl Ship {
 pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> EntityKey {
     let entity = state.create_entity();
 
-    Body::new()
-        .with_class(BodyClass::Ship)
+    let id = Body::new()
+        .with_class(BodyClass::Ship(Ship::new(1.0))) // 100G (too much)
         .with_position(position)
         .with_velocity(velocity)
         .with_sphere_shape(0.00001)
-        .install(state, entity);
+        .install(state);
+    let obj = state.object_mut(id).unwrap();
 
-    state.install_component(entity, Ship::new(1.0)); // 100G (too much)
+    obj.add_property(
+        "max_accel",
+        RWConduit::new(
+            move |state| Ok(&state.get(id)?.ship()?.max_acceleration),
+            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.max_acceleration.set(value)),
+        )
+        .map_into::<Value, Value>(),
+    );
 
-    RWConduit::new(
-        move |state| Ok(&state.component::<Ship>(entity)?.max_acceleration),
-        move |state, value| {
-            Ok(state
-                .component_mut::<Ship>(entity)?
-                .max_acceleration
-                .set(value))
-        },
-    )
-    .install_property(state, entity, "max_accel");
+    obj.add_property(
+        "accel",
+        RWConduit::new(
+            move |state| Ok(&state.get(id)?.ship()?.acceleration),
+            move |state, value| state.get_mut(id)?.ship_mut()?.set_thrust(value),
+        )
+        .map_into::<Value, Value>(),
+    );
 
-    RWConduit::new(
-        move |state| Ok(&state.component::<Ship>(entity)?.acceleration),
-        move |state, value| state.component_mut::<Ship>(entity)?.set_thrust(value),
-    )
-    .install_property(state, entity, "accel");
-
-    RWConduit::new(
-        move |state| Ok(&state.component::<Ship>(entity)?.autopilot.scheme),
-        move |state, value| {
-            Ok(state
-                .component_mut::<Ship>(entity)?
-                .autopilot
-                .scheme
-                .set(value))
-        },
-    )
-    .map_output(|scheme| {
-        Ok(match scheme {
-            AutopilotScheme::Off => "off".to_string(),
-            AutopilotScheme::Orbit => "orbit".to_string(),
+    obj.add_property(
+        "ap_scheme",
+        RWConduit::new(
+            move |state| Ok(&state.component::<Ship>(entity)?.autopilot.scheme),
+            move |state, value| {
+                Ok(state
+                    .component_mut::<Ship>(entity)?
+                    .autopilot
+                    .scheme
+                    .set(value))
+            },
+        )
+        .map_output(|scheme| {
+            Ok(match scheme {
+                AutopilotScheme::Off => "off".to_string(),
+                AutopilotScheme::Orbit => "orbit".to_string(),
+            })
         })
-    })
-    .map_input(|scheme: String| match &scheme[..] {
-        "off" => Ok(AutopilotScheme::Off),
-        "orbit" => Ok(AutopilotScheme::Orbit),
-        _ => Err(BadRequest(format!(
-            "{:?} is an invalid autopilot scheme",
-            scheme
-        ))),
-    })
-    .install_property(state, entity, "ap_scheme");
+        .map_input(|scheme: String| match &scheme[..] {
+            "off" => Ok(AutopilotScheme::Off),
+            "orbit" => Ok(AutopilotScheme::Orbit),
+            _ => Err(BadRequest(format!(
+                "{:?} is an invalid autopilot scheme",
+                scheme
+            ))),
+        })
+        .map_into::<Value, Value>(),
+    );
 
-    RWConduit::new(
-        move |state| Ok(&state.component::<Ship>(entity)?.autopilot.target),
-        move |state, value| {
-            Ok(state
-                .component_mut::<Ship>(entity)?
-                .autopilot
-                .target
-                .set(value))
-        },
-    )
-    .install_property(state, entity, "ap_target");
+    obj.add_property(
+        "ap_target",
+        RWConduit::new(
+            move |state| Ok(&state.get(id)?.ship()?.autopilot.target),
+            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.target.set(value)),
+        )
+        .map_into::<Value, Value>(),
+    );
 
-    RWConduit::new(
-        move |state| Ok(&state.component::<Ship>(entity)?.autopilot.distance),
-        move |state, value| {
-            Ok(state
-                .component_mut::<Ship>(entity)?
-                .autopilot
-                .distance
-                .set(value))
-        },
-    )
-    .install_property(state, entity, "ap_distance");
+    obj.add_property(
+        "ap_distance",
+        RWConduit::new(
+            move |state| Ok(&state.get(id)?.ship()?.autopilot.distance),
+            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.distance.set(value)),
+        )
+        .map_into::<Value, Value>(),
+    );
 
     entity
 }
