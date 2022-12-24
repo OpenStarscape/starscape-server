@@ -26,7 +26,7 @@ pub struct OrbitData {
     /// The "gravity parent" of the body. Should always be the same as the dedicated property of
     /// that name. Duplicated here because it must be updated atomically with the rest of the orbit
     /// parameters.
-    pub parent: EntityKey,
+    pub parent: Id<Body>,
 }
 
 impl From<OrbitData> for Value {
@@ -63,7 +63,7 @@ impl From<Value> for RequestResult<OrbitData> {
                         periapsis: RequestResult::<f64>::from(iter.next().unwrap())?,
                         base_time: RequestResult::<f64>::from(iter.next().unwrap())?,
                         period_time: RequestResult::<f64>::from(iter.next().unwrap())?,
-                        parent: RequestResult::<EntityKey>::from(iter.next().unwrap())?,
+                        parent: RequestResult::<Id<Body>>::from(iter.next().unwrap())?,
                     })
                 } else {
                     Err(BadRequest(format!(
@@ -80,26 +80,26 @@ impl From<Value> for RequestResult<OrbitData> {
 /// A conduit that implements a body's orbit property
 pub struct OrbitConduit {
     subscribers: SyncSubscriberList,
-    body: EntityKey,
-    cached_parent: Mutex<EntityKey>,
+    body_id: Id<Body>,
+    cached_parent: Mutex<Id<Body>>,
 }
 
 impl OrbitConduit {
-    pub fn new(body: EntityKey) -> Self {
+    pub fn new(body_id: Id<Body>) -> Self {
         Self {
             subscribers: SyncSubscriberList::new(),
-            body,
-            cached_parent: Mutex::new(EntityKey::null()),
+            body_id,
+            cached_parent: Mutex::new(Id::null()),
         }
     }
 
     fn for_each_parent_subscribable<F: Fn(&dyn Subscribable)>(
         state: &State,
-        parent: EntityKey,
+        parent: Id<Body>,
         f: &F,
     ) -> RequestResult<()> {
         if !parent.is_null() {
-            let parent_body = state.component::<Body>(parent)?;
+            let parent_body = state.get(parent)?;
             f(&parent_body.position);
             f(&parent_body.velocity);
             f(&parent_body.mass);
@@ -112,7 +112,7 @@ impl OrbitConduit {
         state: &State,
         f: &F,
     ) -> RequestResult<()> {
-        let body = state.component::<Body>(self.body)?;
+        let body = state.get(self.body_id)?;
         Self::for_each_parent_subscribable(state, *self.cached_parent.lock().unwrap(), f)?;
         f(&body.gravity_parent);
         f(&body.position);
@@ -122,8 +122,8 @@ impl OrbitConduit {
     }
 
     /// Ensures we are subscribed to the properties of the currently correct parent, and returns it
-    fn update_parent(&self, state: &State) -> RequestResult<EntityKey> {
-        let parent = *state.component::<Body>(self.body)?.gravity_parent;
+    fn update_parent(&self, state: &State) -> RequestResult<Id<Body>> {
+        let parent = *state.get(self.body_id)?.gravity_parent;
         let mut cached_parent = self.cached_parent.lock().unwrap();
         if parent != *cached_parent {
             let _ = Self::for_each_parent_subscribable(state, *cached_parent, &|s| {
@@ -140,12 +140,12 @@ impl OrbitConduit {
 
 impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
     fn output(&self, state: &State) -> RequestResult<Option<OrbitData>> {
-        let parent = self.update_parent(state)?;
-        let body = state.component::<Body>(self.body)?;
-        if let Ok(parent_body) = state.component::<Body>(parent) {
-            let gm = GRAVITATIONAL_CONSTANT * *parent_body.mass;
-            let relitive_pos = *body.position - *parent_body.position;
-            let relitive_vel = *body.velocity - *parent_body.velocity;
+        let parent_id = self.update_parent(state)?;
+        let body = state.get(self.body_id)?;
+        if let Ok(parent) = state.get(parent_id) {
+            let gm = GRAVITATIONAL_CONSTANT * *parent.mass;
+            let relitive_pos = *body.position - *parent.position;
+            let relitive_vel = *body.velocity - *parent.velocity;
             let current_time = state.time();
             let r = relitive_pos.magnitude();
             let v = relitive_vel.magnitude();
@@ -228,7 +228,7 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
                     periapsis,
                     base_time,
                     period_time,
-                    parent,
+                    parent: parent_id,
                 }))
             } else {
                 Ok(None)
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn can_encode_orbit_data() {
-        let e = mock_keys(1);
+        let e = mock_ids(1);
         let data = OrbitData {
             semi_major: 100.0,
             semi_minor: 50.0,
@@ -287,14 +287,14 @@ mod tests {
             parent: e[0],
         };
         let value: Value = data.into();
-        let result = RequestResult::<(f64, f64, f64, f64, f64, f64, f64, EntityKey)>::from(value)
+        let result = RequestResult::<(f64, f64, f64, f64, f64, f64, f64, GenericId)>::from(value)
             .expect("failed to decode orbit data");
-        assert_eq!(result, (100.0, 50.0, 0.1, 0.2, 0.3, 3.0, 5.0, e[0]));
+        assert_eq!(result, (100.0, 50.0, 0.1, 0.2, 0.3, 3.0, 5.0, e[0].into()));
     }
 
     #[test]
     fn can_decode_orbit_data() {
-        let e = mock_keys(1);
+        let e = mock_ids(1);
         let value: Value = (100.0, 50.0, 0.1, 0.2, 0.3, 3.0, 5.0, e[0]).into();
         let result = RequestResult::<OrbitData>::from(value).expect("failed to decode orbit data");
         assert_eq!(result.semi_major, 100.0);

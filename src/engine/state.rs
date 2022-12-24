@@ -1,5 +1,78 @@
 use super::*;
 
+struct Thing<T> {
+    inner: T,
+    generic: id::GenericKey,
+    cleanup: Vec<Box<dyn Fn(&mut State, &mut T)>>,
+}
+
+impl<T> Thing<T> {
+    fn new(inner: T) -> Self {
+        Self {
+            inner,
+            generic: id::GenericKey::null(),
+            cleanup: Vec::new(),
+        }
+    }
+}
+
+pub struct Collection<T> {
+    map: HopSlotMap<id::TypedKey, Thing<T>>,
+    element: Element<()>,
+}
+
+impl<T> Default for Collection<T> {
+    fn default() -> Self {
+        Self {
+            map: HopSlotMap::default(),
+            element: Element::default(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct Data {
+    bodies: Collection<game::Body>,
+    ships: Collection<game::Ship>,
+    roots: Collection<game::Root>,
+}
+
+impl AsRef<Collection<game::Body>> for Data {
+    fn as_ref(&self) -> &Collection<game::Body> {
+        &self.bodies
+    }
+}
+
+impl AsMut<Collection<game::Body>> for Data {
+    fn as_mut(&mut self) -> &mut Collection<game::Body> {
+        &mut self.bodies
+    }
+}
+
+impl AsRef<Collection<game::Ship>> for Data {
+    fn as_ref(&self) -> &Collection<game::Ship> {
+        &self.ships
+    }
+}
+
+impl AsMut<Collection<game::Ship>> for Data {
+    fn as_mut(&mut self) -> &mut Collection<game::Ship> {
+        &mut self.ships
+    }
+}
+
+impl AsRef<Collection<game::Root>> for Data {
+    fn as_ref(&self) -> &Collection<game::Root> {
+        &self.roots
+    }
+}
+
+impl AsMut<Collection<game::Root>> for Data {
+    fn as_mut(&mut self) -> &mut Collection<game::Root> {
+        &mut self.roots
+    }
+}
+
 new_key_type! {
     /// A handle to an entity in the state. An entity is a collection of attached components. This
     /// key can be used to access those components from the State.
@@ -22,6 +95,8 @@ pub struct State {
     components: AnyMap,
     component_list_elements: Mutex<AnyMap>, // TODO: change to subscription trackers
     pub notif_queue: NotifQueue,
+    data: Data,
+    objects: SlotMap<id::GenericKey, Object>,
 }
 
 impl Default for State {
@@ -34,15 +109,153 @@ impl Default for State {
             components: AnyMap::new(),
             component_list_elements: Mutex::new(AnyMap::new()),
             notif_queue: NotifQueue::new(),
+            data: Data::default(),
+            objects: SlotMap::default(),
         };
         state.root = state.create_entity();
         state
     }
 }
 
+pub trait HasCollection<T> {
+    fn collection(&self) -> &Collection<T>;
+    fn collection_mut(&mut self) -> &mut Collection<T>;
+}
+
+impl<T> HasCollection<T> for State
+where
+    Data: AsRef<Collection<T>>,
+    Data: AsMut<Collection<T>>,
+{
+    fn collection(&self) -> &Collection<T> {
+        self.data.as_ref()
+    }
+
+    fn collection_mut(&mut self) -> &mut Collection<T> {
+        self.data.as_mut()
+    }
+}
+
 impl State {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn add_without_object<T>(&mut self, thing: T) -> Id<T>
+    where
+        Self: HasCollection<T>,
+    {
+        self.collection_mut().element.get_mut();
+        let typed_key = self.collection_mut().map.insert(Thing::new(thing));
+        Id::new(typed_key, id::GenericKey::null())
+    }
+
+    pub fn add_with_object<T>(&mut self, thing: T) -> (Id<T>, &mut Object)
+    where
+        Self: HasCollection<T>,
+    {
+        self.collection_mut().element.get_mut();
+        let typed_key = self.collection_mut().map.insert(Thing::new(thing));
+        let generic_key = self.objects.insert(Object::new(type_name::<T>()));
+        self.collection_mut()
+            .map
+            .get_mut(typed_key)
+            .unwrap()
+            .generic = generic_key;
+        let id = Id::new(typed_key, generic_key);
+        let obj = self.objects.get_mut(generic_key).unwrap();
+        (id, obj)
+    }
+
+    pub fn remove<T: 'static>(&mut self, id: Id<T>) -> RequestResult<T>
+    where
+        Self: HasCollection<T>,
+    {
+        match self.collection_mut().map.remove(*id.as_ref()) {
+            Some(mut thing) => {
+                self.collection_mut().element.get_mut();
+                for f in thing.cleanup.drain(..) {
+                    f(self, &mut thing.inner);
+                }
+                if let Some(mut obj) = self.objects.remove(GenericId::from(id).key()) {
+                    obj.finalize(self);
+                }
+                Ok(thing.inner)
+            }
+            None => Err(RequestError::BadId(id.into())),
+        }
+    }
+
+    pub fn get<T: 'static>(&self, id: Id<T>) -> RequestResult<&T>
+    where
+        Self: HasCollection<T>,
+    {
+        match self.collection().map.get(*id.as_ref()) {
+            Some(thing) => Ok(&thing.inner),
+            None => Err(RequestError::BadId(id.into())),
+        }
+    }
+
+    pub fn get_mut<T: 'static>(&mut self, id: Id<T>) -> RequestResult<&mut T>
+    where
+        Self: HasCollection<T>,
+    {
+        match self.collection_mut().map.get_mut(*id.as_ref()) {
+            Some(thing) => Ok(&mut thing.inner),
+            None => Err(RequestError::BadId(id.into())),
+        }
+    }
+
+    pub fn on_destroy<T: 'static, F>(&mut self, id: Id<T>, f: F) -> RequestResult<()>
+    where
+        Self: HasCollection<T>,
+        F: Fn(&mut State, &mut T) + 'static,
+    {
+        match self.collection_mut().map.get_mut(*id.as_ref()) {
+            Some(thing) => {
+                thing.cleanup.push(Box::new(f));
+                Ok(())
+            }
+            None => Err(RequestError::BadId(id.into())),
+        }
+    }
+
+    pub fn object<T>(&self, id: T) -> RequestResult<&Object>
+    where
+        T: AsRef<id::GenericKey> + Into<GenericId>,
+    {
+        self.objects
+            .get(*id.as_ref())
+            .ok_or(RequestError::BadId(id.into()))
+    }
+
+    pub fn object_mut<T>(&mut self, id: T) -> RequestResult<&mut Object>
+    where
+        T: AsRef<id::GenericKey> + Into<GenericId>,
+    {
+        self.objects
+            .get_mut(*id.as_ref())
+            .ok_or(RequestError::BadId(id.into()))
+    }
+
+    pub fn iter<T: 'static>(&self) -> impl std::iter::Iterator<Item = (Id<T>, &T)>
+    where
+        Self: HasCollection<T>,
+    {
+        self.collection()
+            .map
+            .iter()
+            .map(|(key, value)| (Id::new(key, value.generic), &value.inner))
+    }
+
+    pub fn iter_mut<T: 'static>(&mut self) -> impl std::iter::Iterator<Item = (Id<T>, &mut T)>
+    where
+        Self: HasCollection<T>,
+    {
+        self.collection_mut()
+            .map
+            .iter_mut()
+            .map(|(key, value)| (Id::new(key, value.generic), &mut value.inner))
     }
 
     /// Returns the key for the newly created entity
@@ -98,10 +311,8 @@ impl State {
             .entities
             .get_mut(entity)
             .expect("can not add component to invalid entity");
-        let map: &mut ComponentMap<T> = self
-            .components
-            .entry()
-            .or_insert_with(HopSlotMap::with_key);
+        let map: &mut ComponentMap<T> =
+            self.components.entry().or_insert_with(HopSlotMap::with_key);
         let key = map.insert((entity, component));
         e.register_component(key, move |state| state.remove_component(key));
         self.trigger_component_list_element_update::<T>();

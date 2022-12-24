@@ -11,7 +11,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
     // position of bodies, so we collect all the info we need into a local vec (which should be
     // good for performence as well)
     struct GravityWell {
-        entity: EntityKey,
+        id: Id<Body>,
         position: Point3<f64>,
         velocity: Vector3<f64>,
         mass: f64,
@@ -19,19 +19,14 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
         sphere_of_influence2: f64,
     }
     let mut wells: Vec<GravityWell> = state
-        .components_iter::<GravityBody>()
-        .map(|(entity, _)| {
-            // TODO: error handing on body not in bodies
-            let body = state
-                .component::<Body>(entity)
-                .expect("GravityBody does not have a body");
-            GravityWell {
-                entity,
-                position: *body.position,
-                velocity: *body.velocity,
-                mass: *body.mass,
-                sphere_of_influence2: 0.0,
-            }
+        .iter::<Body>()
+        .filter(|(_id, body)| body.is_gravity_well())
+        .map(|(id, body)| GravityWell {
+            id,
+            position: *body.position,
+            velocity: *body.velocity,
+            mass: *body.mass,
+            sphere_of_influence2: 0.0,
         })
         .collect();
     // For the sphere of influence calculation, we need to look at gravity wells in descending order
@@ -71,12 +66,12 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
             }
         }
     }
-    let iter = state.components_iter_mut::<Body>();
-    iter.for_each(|(body_entity, body)| {
+    let iter = state.iter_mut::<Body>();
+    iter.for_each(|(id, body)| {
         let (grav_parent, _grav_parent_mass) = wells.iter().fold(
-            (EntityKey::null(), f64::INFINITY),
+            (Id::null(), f64::INFINITY),
             |(grav_parent, grav_parent_mass), well| {
-                if well.entity != body_entity {
+                if well.id != id {
                     // Get the distance², which is faster than normal distance and all we need
                     let distance2 = well.position.distance2(*body.position);
                     // Acceleration due to gravity follows the inverse square law
@@ -94,7 +89,7 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
                         && well.mass >= *body.mass
                         && distance2 <= well.sphere_of_influence2
                     {
-                        return (well.entity, well.mass);
+                        return (well.id, well.mass);
                     }
                 }
                 (grav_parent, grav_parent_mass)
@@ -136,24 +131,21 @@ fn check_if_bodies_collides(body1: &Body, body2: &Body, dt: f64) -> Option<f64> 
 struct Collision {
     #[allow(dead_code)]
     time_until: f64,
-    our_key: EntityKey,
-    other_key: EntityKey,
+    us: Id<Body>,
+    them: Id<Body>,
 }
 
 fn handle_collision(state: &mut State, collision: &Collision) -> Result<(), Box<dyn Error>> {
-    let our_body = state.component::<Body>(collision.our_key)?;
-    let other_body = state.component::<Body>(collision.other_key)?;
+    let our_body = state.get(collision.us)?;
+    let other_body = state.get(collision.them)?;
     let rel_vel = *other_body.velocity - *our_body.velocity;
     let mass_ratio = *other_body.mass / (*our_body.mass + *other_body.mass);
     let vel_change = rel_vel * mass_ratio;
     let max_vel_change = our_body.shape.radius() * 2.5;
     if vel_change.magnitude2() > max_vel_change * max_vel_change {
-        state.destroy_entity(collision.our_key)?
+        state.remove(collision.us)?;
     } else {
-        *state
-            .component_mut::<Body>(collision.our_key)?
-            .velocity
-            .get_mut() += vel_change;
+        *state.get_mut(collision.us)?.velocity.get_mut() += vel_change;
     }
     Ok(())
 }
@@ -161,30 +153,28 @@ fn handle_collision(state: &mut State, collision: &Collision) -> Result<(), Box<
 fn find_collisions(state: &State, dt: f64) -> Vec<Collision> {
     // TODO: sort bodies and don't compare bodies that can not touch
     let mut collisions = Vec::new();
-    state.components_iter::<Body>().for_each(|(key1, body1)| {
-        let _ = state
-            .components_iter::<Body>()
-            .try_for_each(|(key2, body2)| {
-                if key1 == key2 {
-                    // We only want to process each combination of bodies once, so abort the inner loop
-                    // once it catches up to the outer loop
-                    Err(())
-                } else {
-                    if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
-                        collisions.push(Collision {
-                            time_until,
-                            our_key: key1,
-                            other_key: key2,
-                        });
-                        collisions.push(Collision {
-                            time_until,
-                            our_key: key2,
-                            other_key: key1,
-                        });
-                    }
-                    Ok(())
+    state.iter().for_each(|(id1, body1)| {
+        let _ = state.iter().try_for_each(|(id2, body2)| {
+            if id1 == id2 {
+                // We only want to process each combination of bodies once, so abort the inner loop
+                // once it catches up to the outer loop
+                Err(())
+            } else {
+                if let Some(time_until) = check_if_bodies_collides(body1, body2, dt) {
+                    collisions.push(Collision {
+                        time_until,
+                        us: id1,
+                        them: id2,
+                    });
+                    collisions.push(Collision {
+                        time_until,
+                        us: id2,
+                        them: id2,
+                    });
                 }
-            });
+                Ok(())
+            }
+        });
     });
     collisions
 }
@@ -225,23 +215,26 @@ mod gravity_tests {
     const EARTH_MASS: f64 = 5.972e+21; // mass of earth
     const EARTH_RADIUS: f64 = 6368.0; // radius of earth
 
-    fn create_body_entity(state: &mut State, body: Body, gravity: bool) -> EntityKey {
+    fn create_body(state: &mut State, body: Body, gravity: bool) -> Id<Body> {
         let entity = state.create_entity();
-        state.install_component(entity, body);
+        let id = state.add_without_object(body);
+        // TODO
+        /*
         if gravity {
             state.install_component(entity, GravityBody);
         }
-        entity
+        */
+        id
     }
 
     #[test]
     fn lone_gravity_body_is_unaffected() {
         let velocity = Vector3::new(0.0, 0.0, 0.0);
         let mut state = State::new();
-        let body = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        let body = create_body(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        assert_ulps_eq!(*state.get(body).unwrap().velocity, velocity);
         apply_gravity(&mut state, 1.0);
-        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.get(body).unwrap().velocity, velocity);
     }
 
     #[test]
@@ -249,25 +242,25 @@ mod gravity_tests {
         let position = Point3::new(4.0, 2.0, 6.0);
         let velocity = Vector3::new(0.0, 0.0, 0.0);
         let mut state = State::new();
-        let body = create_body_entity(
+        let body = create_body(
             &mut state,
             Body::new().with_mass(EARTH_MASS).with_position(position),
             true,
         );
-        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.get(body).unwrap().velocity, velocity);
         apply_gravity(&mut state, 1.0);
-        assert_ulps_eq!(*state.component::<Body>(body).unwrap().velocity, velocity);
+        assert_ulps_eq!(*state.get(body).unwrap().velocity, velocity);
     }
 
     #[test]
     fn body_falls_towards_gravity_source() {
         let position = Point3::new(20.0e+3, 0.0, 0.0);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        let body = create_body_entity(&mut state, Body::new().with_position(position), false);
-        assert_ulps_eq!(state.component::<Body>(body).unwrap().velocity.x, 0.0);
+        let _ = create_body(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let body = create_body(&mut state, Body::new().with_position(position), false);
+        assert_ulps_eq!(state.get(body).unwrap().velocity.x, 0.0);
         apply_gravity(&mut state, 1.0);
-        let v = *state.component::<Body>(body).unwrap().velocity;
+        let v = *state.get(body).unwrap().velocity;
         assert!(v.x < -EPSILON);
         assert_ulps_eq!(v.y, 0.0);
         assert_ulps_eq!(v.z, 0.0);
@@ -278,16 +271,16 @@ mod gravity_tests {
         let position = Point3::new(20.0e+3, 0.0, 0.0);
 
         let mut state_a = State::new();
-        let _ = create_body_entity(&mut state_a, Body::new().with_mass(EARTH_MASS), true);
-        let body_a = create_body_entity(&mut state_a, Body::new().with_position(position), false);
+        let _ = create_body(&mut state_a, Body::new().with_mass(EARTH_MASS), true);
+        let body_a = create_body(&mut state_a, Body::new().with_position(position), false);
         apply_gravity(&mut state_a, 1.0);
-        let v_a = *state_a.component::<Body>(body_a).unwrap().velocity;
+        let v_a = *state_a.get(body_a).unwrap().velocity;
 
         let mut state_b = State::new();
-        let _ = create_body_entity(&mut state_b, Body::new().with_mass(EARTH_MASS), true);
-        let body_b = create_body_entity(&mut state_b, Body::new().with_position(position), false);
+        let _ = create_body(&mut state_b, Body::new().with_mass(EARTH_MASS), true);
+        let body_b = create_body(&mut state_b, Body::new().with_position(position), false);
         apply_gravity(&mut state_b, 0.5);
-        let v_b = *state_b.component::<Body>(body_b).unwrap().velocity;
+        let v_b = *state_b.get(body_b).unwrap().velocity;
 
         assert_ulps_eq!(v_a.x - (v_b.x * 2.0), 0.0);
     }
@@ -296,10 +289,10 @@ mod gravity_tests {
     fn falls_in_correct_direction() {
         let position = Point3::new(20.0e+3, 0.0, -20.0e+3);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        let body = create_body_entity(&mut state, Body::new().with_position(position), false);
+        let _ = create_body(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let body = create_body(&mut state, Body::new().with_position(position), false);
         apply_gravity(&mut state, 1.0);
-        let v = *state.component::<Body>(body).unwrap().velocity;
+        let v = *state.get(body).unwrap().velocity;
         assert!(v.x < -EPSILON);
         assert_ulps_eq!(v.y, 0.0);
         assert!(v.z > EPSILON);
@@ -310,17 +303,17 @@ mod gravity_tests {
     fn multiple_wells_cancel_each_other_out() {
         let position = Point3::new(-20.0e+3, 27.5, 154.0);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        let _ = create_body_entity(
+        let _ = create_body(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let _ = create_body(
             &mut state,
             Body::new()
                 .with_mass(EARTH_MASS)
                 .with_position(position * 2.0),
             true,
         );
-        let body = create_body_entity(&mut state, Body::new().with_position(position), false);
+        let body = create_body(&mut state, Body::new().with_position(position), false);
         apply_gravity(&mut state, 1.0);
-        let v = *state.component::<Body>(body).unwrap().velocity;
+        let v = *state.get(body).unwrap().velocity;
         assert_ulps_eq!(v, Vector3::zero());
     }
 
@@ -329,21 +322,15 @@ mod gravity_tests {
         let position = Point3::new(-20.0e+3, 27.5, 154.0);
         let velocity = Vector3::new(0.0, 6.0, 0.0);
         let mut state = State::new();
-        let planet = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        let body = create_body_entity(
+        let planet = create_body(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let body = create_body(
             &mut state,
             Body::new().with_position(position).with_velocity(velocity),
             false,
         );
         apply_gravity(&mut state, 1.0);
-        assert_eq!(
-            *state.component::<Body>(body).unwrap().gravity_parent,
-            planet
-        );
-        assert_eq!(
-            *state.component::<Body>(planet).unwrap().gravity_parent,
-            EntityKey::null()
-        );
+        assert_eq!(*state.get(body).unwrap().gravity_parent, planet);
+        assert_eq!(*state.get(planet).unwrap().gravity_parent, Id::null());
     }
 
     #[test]
@@ -352,8 +339,8 @@ mod gravity_tests {
         let position_b = position_a + Vector3::new(100.0, 0.0, 0.0);
         let velocity = Vector3::new(0.0, 1.0, 0.0);
         let mut state = State::new();
-        let sun = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS * 100.0), true);
-        let planet = create_body_entity(
+        let sun = create_body(&mut state, Body::new().with_mass(EARTH_MASS * 100.0), true);
+        let planet = create_body(
             &mut state,
             Body::new()
                 .with_position(position_a)
@@ -361,30 +348,21 @@ mod gravity_tests {
                 .with_mass(EARTH_MASS),
             true,
         );
-        let body = create_body_entity(&mut state, Body::new().with_position(position_b), false);
+        let body = create_body(&mut state, Body::new().with_position(position_b), false);
         apply_gravity(&mut state, 1.0);
-        assert_eq!(
-            *state.component::<Body>(sun).unwrap().gravity_parent,
-            EntityKey::null()
-        );
-        assert_eq!(
-            *state.component::<Body>(planet).unwrap().gravity_parent,
-            sun
-        );
-        assert_eq!(
-            *state.component::<Body>(body).unwrap().gravity_parent,
-            planet
-        );
+        assert_eq!(*state.get(sun).unwrap().gravity_parent, Id::null());
+        assert_eq!(*state.get(planet).unwrap().gravity_parent, sun);
+        assert_eq!(*state.get(body).unwrap().gravity_parent, planet);
     }
 
     #[test]
     fn accel_on_earth_is_about_right() {
         let position = Point3::new(-EARTH_RADIUS, 0.0, 0.0);
         let mut state = State::new();
-        let _ = create_body_entity(&mut state, Body::new().with_mass(EARTH_MASS), true);
-        let body = create_body_entity(&mut state, Body::new().with_position(position), false);
+        let _ = create_body(&mut state, Body::new().with_mass(EARTH_MASS), true);
+        let body = create_body(&mut state, Body::new().with_position(position), false);
         apply_gravity(&mut state, 1.0);
-        let v = *state.component::<Body>(body).unwrap().velocity;
+        let v = *state.get(body).unwrap().velocity;
         assert_ulps_eq!(v.y, 0.0);
         assert_ulps_eq!(v.z, 0.0);
         // When converted to meters/s, should be the well known value 9.81 (measured accel due to
@@ -400,12 +378,10 @@ mod gravity_tests {
 mod collision_tests {
     use super::*;
 
-    fn two_body_test(body1: Body, body2: Body) -> (EntityKey, EntityKey, Vec<Collision>) {
+    fn two_body_test(body1: Body, body2: Body) -> (Id<Body>, Id<Body>, Vec<Collision>) {
         let mut state = State::new();
-        let b1 = state.create_entity();
-        state.install_component(b1, body1);
-        let b2 = state.create_entity();
-        state.install_component(b2, body2);
+        let b1 = body1.install(&mut state);
+        let b2 = body2.install(&mut state);
         let collisions = find_collisions(&state, 1.0);
         (b1, b2, collisions)
     }
@@ -418,12 +394,8 @@ mod collision_tests {
     fn assert_collides(body1: Body, body2: Body, time: f64) {
         let (b1, b2, col) = two_body_test(body1, body2);
         assert_eq!(col.len(), 2);
-        assert!(col
-            .iter()
-            .any(|col| col.our_key == b1 && col.other_key == b2));
-        assert!(col
-            .iter()
-            .any(|col| col.our_key == b2 && col.other_key == b1));
+        assert!(col.iter().any(|col| col.us == b1 && col.them == b2));
+        assert!(col.iter().any(|col| col.us == b2 && col.them == b1));
         assert_ulps_eq!(col[0].time_until, col[1].time_until, epsilon = 0.0001);
         assert_ulps_eq!(col[0].time_until, time, epsilon = 0.0001);
     }
@@ -606,27 +578,25 @@ mod collision_tests {
 mod motion_tests {
     use super::*;
 
-    fn create_body_entity(state: &mut State, body: Body) -> EntityKey {
-        let entity = state.create_entity();
-        state.install_component(entity, body);
-        entity
+    fn create_body(state: &mut State, body: Body) -> Id<Body> {
+        body.install(state)
     }
 
     #[test]
     fn no_motion_if_zero_velocity() {
         let mut state = State::new();
-        let body = create_body_entity(&mut state, Body::new());
+        let body = create_body(&mut state, Body::new());
         assert_ulps_eq!(
-            *state.component::<Body>(body).unwrap().position,
+            *state.get(body).unwrap().position,
             Point3::new(0.0, 0.0, 0.0)
         );
         assert_ulps_eq!(
-            *state.component::<Body>(body).unwrap().velocity,
+            *state.get(body).unwrap().velocity,
             Vector3::new(0.0, 0.0, 0.0)
         );
         apply_motion(&mut state, 1.0);
         assert_ulps_eq!(
-            *state.component::<Body>(body).unwrap().position,
+            *state.get(body).unwrap().position,
             Point3::new(0.0, 0.0, 0.0)
         );
     }
@@ -634,23 +604,23 @@ mod motion_tests {
     #[test]
     fn moves_bodies_by_velocity_amount() {
         let mut state = State::new();
-        let body1 = create_body_entity(
+        let body1 = create_body(
             &mut state,
             Body::new()
                 .with_position(Point3::new(-1.0, 4.0, 0.0))
                 .with_velocity(Vector3::new(1.0, 0.0, 2.0)),
         );
-        let body2 = create_body_entity(
+        let body2 = create_body(
             &mut state,
             Body::new().with_velocity(Vector3::new(0.0, 0.5, 0.0)),
         );
         apply_motion(&mut state, 1.0);
         assert_ulps_eq!(
-            *state.component::<Body>(body1).unwrap().position,
+            *state.get(body1).unwrap().position,
             Point3::new(0.0, 4.0, 2.0)
         );
         assert_ulps_eq!(
-            *state.component::<Body>(body2).unwrap().position,
+            *state.get(body2).unwrap().position,
             Point3::new(0.0, 0.5, 0.0)
         );
     }
@@ -658,13 +628,13 @@ mod motion_tests {
     #[test]
     fn respects_dt() {
         let mut state = State::new();
-        let body = create_body_entity(
+        let body = create_body(
             &mut state,
             Body::new().with_velocity(Vector3::new(4.0, 0.0, 0.0)),
         );
         apply_motion(&mut state, 0.5);
         assert_ulps_eq!(
-            *state.component::<Body>(body).unwrap().position,
+            *state.get(body).unwrap().position,
             Point3::new(2.0, 0.0, 0.0)
         );
     }

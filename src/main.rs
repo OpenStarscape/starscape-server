@@ -32,12 +32,12 @@ use server::*;
 use anymap::AnyMap;
 use cgmath::*;
 use futures::{executor::block_on, future, StreamExt};
-use slotmap::{HopSlotMap, Key};
+use slotmap::{DefaultKey, HopSlotMap, Key, SlotMap};
 use weak_self::WeakSelf;
 
 use std::error::Error;
 use std::{
-    any::{type_name, Any},
+    any::{type_name, Any, TypeId},
     collections::{HashMap, HashSet},
     convert::TryFrom,
     f64::consts::TAU,

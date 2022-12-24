@@ -8,7 +8,9 @@ mod conduit;
 mod element;
 mod engine;
 mod entity;
+mod id;
 mod notif_queue;
+mod object;
 mod signal;
 mod state;
 mod subscribable;
@@ -19,13 +21,16 @@ mod sync_subscriber_list;
 mod value;
 
 pub use conduit::{
-    ActionConduit, ComponentListConduit, Conduit, ROConduit, RWConduit, ReadOnlyPropSetType,
+    ActionConduit, ComponentListConduit, Conduit, ConstConduit, ROConduit, RWConduit,
+    ReadOnlyPropSetType,
 };
 pub use element::Element;
 pub use engine::Engine;
+pub use id::{GenericId, Id};
 pub use notif_queue::{NotifQueue, Notification};
+pub use object::Object;
 pub use signal::Signal;
-pub use state::{EntityKey, State};
+pub use state::{EntityKey, HasCollection, State};
 pub use subscribable::Subscribable;
 pub use subscriber::Subscriber;
 pub use subscriber_list::SubscriberList;

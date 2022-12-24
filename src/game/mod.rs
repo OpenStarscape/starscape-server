@@ -10,10 +10,10 @@ mod physics;
 #[cfg(test)]
 mod test;
 
+pub use components::*;
 pub use game::{init, physics_tick};
 
 use autopilot::*;
-use components::*;
 use conduits::*;
 use physics::*;
 

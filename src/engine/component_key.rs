@@ -32,5 +32,4 @@ unsafe impl<T: Sized> slotmap::Key for ComponentKey<T> {
     fn data(&self) -> slotmap::KeyData {
         self.data
     }
-
 }
