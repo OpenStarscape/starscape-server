@@ -169,7 +169,7 @@ fn find_collisions(state: &State, dt: f64) -> Vec<Collision> {
                     collisions.push(Collision {
                         time_until,
                         us: id2,
-                        them: id2,
+                        them: id1,
                     });
                 }
                 Ok(())
