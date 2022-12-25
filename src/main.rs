@@ -29,10 +29,9 @@ use engine::*;
 use helpers::*;
 use server::*;
 
-use anymap::AnyMap;
 use cgmath::*;
 use futures::{executor::block_on, future, StreamExt};
-use slotmap::{DefaultKey, HopSlotMap, Key, SlotMap};
+use slotmap::{HopSlotMap, Key, SlotMap};
 use weak_self::WeakSelf;
 
 use std::error::Error;

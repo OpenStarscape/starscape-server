@@ -34,7 +34,6 @@ fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> Id<Bo
 
 // TODO: generalize create_celestial() to support non-circular, non-level orbits
 fn create_planet_9(state: &mut State, scale: f64) {
-    let e = state.create_entity();
     Body::new()
         .with_class(BodyClass::Celestial)
         .with_position(Point3::new(3.0e8, 0.0, 6.0e7) * scale)
@@ -144,11 +143,7 @@ pub fn init(state: &mut State) {
 
 pub fn physics_tick(state: &mut State, delta: f64) {
     let time = state.time();
-    state
-        .component_mut::<Root>(state.root_entity())
-        .expect("failed to get root")
-        .time
-        .set(time);
+    state.root.time.set(time);
     apply_acceleration(state, delta);
     apply_gravity(state, delta);
     apply_collisions(state, delta);

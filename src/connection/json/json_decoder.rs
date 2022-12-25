@@ -37,7 +37,7 @@ impl JsonDecoder {
             1 => {
                 if let Some(obj_id) = array[0].as_i64() {
                     // An array-wrapped int is an object ID
-                    ctx.entity_for(obj_id as u64).map(Value::Entity)
+                    ctx.entity_for(obj_id as u64).map(Value::Object)
                 } else if let Some(array) = array[0].as_array() {
                     // An array-wrapped array is an actual array
                     let result: Result<Vec<_>, _> = array
@@ -91,7 +91,7 @@ impl JsonDecoder {
     fn decode_obj(
         ctx: &dyn DecodeCtx,
         datagram: &serde_json::map::Map<String, serde_json::Value>,
-    ) -> RequestResult<EntityKey> {
+    ) -> RequestResult<GenericId> {
         let obj = datagram
             .get("object")
             .ok_or_else(|| BadMessage("request does not have an object ID".into()))?
@@ -187,29 +187,29 @@ impl Decoder for JsonDecoder {
 
 #[cfg(test)]
 struct MockDecodeCtx {
-    e: Vec<EntityKey>,
+    e: Vec<GenericId>,
 }
 
 #[cfg(test)]
 impl MockDecodeCtx {
     fn new(count: u32) -> Self {
         Self {
-            e: mock_keys(count),
+            e: mock_generic_ids(count),
         }
     }
 }
 
 #[cfg(test)]
 impl std::ops::Index<usize> for MockDecodeCtx {
-    type Output = EntityKey;
-    fn index(&self, i: usize) -> &EntityKey {
+    type Output = GenericId;
+    fn index(&self, i: usize) -> &GenericId {
         &self.e[i]
     }
 }
 
 #[cfg(test)]
 impl DecodeCtx for MockDecodeCtx {
-    fn entity_for(&self, obj: ObjectId) -> RequestResult<EntityKey> {
+    fn entity_for(&self, obj: ObjectId) -> RequestResult<GenericId> {
         self.e.get(obj as usize).cloned().ok_or(BadObject(obj))
     }
 }
@@ -222,7 +222,7 @@ mod decode_tests {
     struct TerrifiedDecodeCtx;
 
     impl DecodeCtx for TerrifiedDecodeCtx {
-        fn entity_for(&self, _obj: ObjectId) -> RequestResult<EntityKey> {
+        fn entity_for(&self, _obj: ObjectId) -> RequestResult<GenericId> {
             panic!("should not have been called")
         }
     }
@@ -303,18 +303,18 @@ mod decode_tests {
     }
 
     #[test]
-    fn entity() {
+    fn object() {
         let ctx = MockDecodeCtx::new(12);
-        assert_decodes_to_with_ctx(&ctx, "[7]", Entity(ctx[7]));
+        assert_decodes_to_with_ctx(&ctx, "[7]", Object(ctx[7]));
     }
 
     #[test]
-    fn array_with_entities() {
+    fn array_with_objects() {
         let ctx = MockDecodeCtx::new(12);
         assert_decodes_to_with_ctx(
             &ctx,
             "[[[4], 7, [2]]]",
-            Array(vec![Entity(ctx[4]), Integer(7), Entity(ctx[2])]),
+            Array(vec![Object(ctx[4]), Integer(7), Object(ctx[2])]),
         );
     }
 

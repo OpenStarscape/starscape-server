@@ -16,24 +16,24 @@ pub enum EventMethod {
 pub enum Event {
     /// A method on an object member (property/action/signal). The member is represented by it's
     /// entity and name).
-    Method(EntityKey, String, EventMethod, Value),
+    Method(GenericId, String, EventMethod, Value),
     /// Notify the client that an object has been destroyed and wont be used any more
-    Destroyed(EntityKey),
+    Destroyed(GenericId),
     /// Some problem has caused the server or connection to fail. This should be the last event
     /// before the session is closed. The message should be user-readable.
     FatalError(String),
 }
 
 impl Event {
-    pub fn value(entity: EntityKey, name: String, value: Value) -> Self {
+    pub fn value(entity: GenericId, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Value, value)
     }
 
-    pub fn update(entity: EntityKey, name: String, value: Value) -> Self {
+    pub fn update(entity: GenericId, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Update, value)
     }
 
-    pub fn signal(entity: EntityKey, name: String, value: Value) -> Self {
+    pub fn signal(entity: GenericId, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Signal, value)
     }
 }

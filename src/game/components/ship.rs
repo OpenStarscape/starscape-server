@@ -56,9 +56,7 @@ impl Ship {
     }
 }
 
-pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> EntityKey {
-    let entity = state.create_entity();
-
+pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> Id<Body> {
     let id = Body::new()
         .with_class(BodyClass::Ship(Ship::new(1.0))) // 100G (too much)
         .with_position(position)
@@ -88,14 +86,8 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
     obj.add_property(
         "ap_scheme",
         RWConduit::new(
-            move |state| Ok(&state.component::<Ship>(entity)?.autopilot.scheme),
-            move |state, value| {
-                Ok(state
-                    .component_mut::<Ship>(entity)?
-                    .autopilot
-                    .scheme
-                    .set(value))
-            },
+            move |state| Ok(&state.get(id)?.ship()?.autopilot.scheme),
+            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.scheme.set(value)),
         )
         .map_output(|scheme| {
             Ok(match scheme {
@@ -132,7 +124,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         .map_into::<Value, Value>(),
     );
 
-    entity
+    id
 }
 
 #[cfg(test)]
@@ -144,7 +136,7 @@ mod tests {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
         let ship = create_ship(&mut state, pos, Vector3::zero());
-        assert_eq!(*state.component::<Body>(ship).unwrap().position, pos);
+        assert_eq!(*state.get(ship).unwrap().position, pos);
     }
 
     #[test]
@@ -152,7 +144,7 @@ mod tests {
         let mut state = State::new();
         let ship = create_ship(&mut state, Point3::new(1.0, 2.0, 3.0), Vector3::zero());
         assert_eq!(
-            *state.component::<Body>(ship).unwrap().shape,
+            *state.get(ship).unwrap().shape,
             body::Shape::Sphere { radius: 0.00001 }
         );
     }

@@ -21,7 +21,7 @@ impl Connection for StubConnection {
 /// Holds all the active connections for a game. process_requests() should be called by the game
 /// once per network tick.
 pub struct ConnectionCollection {
-    root_entity: EntityKey,
+    root: GenericId,
     connections: HopSlotMap<ConnectionKey, Box<dyn Connection>>,
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     max_connections: usize,
@@ -31,11 +31,11 @@ pub struct ConnectionCollection {
 impl ConnectionCollection {
     pub fn new(
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
-        root_entity: EntityKey,
+        root: GenericId,
         max_connections: usize,
     ) -> Self {
         Self {
-            root_entity,
+            root,
             connections: HopSlotMap::with_key(),
             new_session_rx,
             max_connections,
@@ -51,7 +51,7 @@ impl ConnectionCollection {
             handler
                 .set_property(
                     ConnectionKey::null(),
-                    self.root_entity,
+                    self.root,
                     "max_conn_count",
                     Value::Integer(self.max_connections as i64),
                 )
@@ -64,7 +64,7 @@ impl ConnectionCollection {
             handler
                 .set_property(
                     ConnectionKey::null(),
-                    self.root_entity,
+                    self.root,
                     "conn_count",
                     Value::Integer(self.connections.len() as i64),
                 )
@@ -105,7 +105,7 @@ impl ConnectionCollection {
                 builder
             );
             // Build a temporary connection in order to report the error to the client
-            match ConnectionImpl::new(ConnectionKey::null(), handler, self.root_entity, builder) {
+            match ConnectionImpl::new(ConnectionKey::null(), handler, self.root, builder) {
                 Ok(mut conn) => {
                     conn.send_event(
                         handler,
@@ -125,9 +125,9 @@ impl ConnectionCollection {
         // the given function can not fail. Connection building can fail, so we have to return a
         // stub connection in that case (and then immediately remove it). A mess, I know.
         let mut failed_to_build = false;
-        let root_entity = self.root_entity;
+        let root = self.root;
         let key = self.connections.insert_with_key(|key| {
-            match ConnectionImpl::new(key, handler, root_entity, builder) {
+            match ConnectionImpl::new(key, handler, root, builder) {
                 Ok(conn) => Box::new(conn),
                 Err(e) => {
                     failed_to_build = true;
@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn can_create_connection_from_session_builder() {
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let (session_tx, session_rx) = channel();
         let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
         let builder = Box::new(MockSessionBuilder(true));
@@ -236,7 +236,7 @@ mod tests {
 
     #[test]
     fn does_not_create_connection_when_building_session_fails() {
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let (session_tx, session_rx) = channel();
         let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
         // False means building session will fail vvvvv
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn building_connections_fail_after_max_connections_reached() {
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let (session_tx, session_rx) = channel();
         let mut cc = ConnectionCollection::new(session_rx, e[0], 2);
         session_tx
@@ -275,7 +275,7 @@ mod tests {
 
     #[test]
     fn does_not_remove_connections_that_succeed_to_flush() {
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let (_, session_rx) = channel();
         let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
         cc.connections.insert(Box::new(MockConnection {
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn removes_connections_that_fail_to_flush() {
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let (_, session_rx) = channel();
         let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
         cc.connections.insert(Box::new(MockConnection {

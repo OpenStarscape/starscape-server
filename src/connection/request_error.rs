@@ -6,13 +6,11 @@ pub enum RequestError {
     BadMessage(String),
     /// The object is invalid or has been destroyed
     BadObject(ObjectId),
-    /// An ID was destroyed/invalid
-    BadId(GenericId),
-    /// The entity is null or has been destroyed, may be the entity the request is on or may be one
+    /// An ID was destroyed/invalid. May be the object the request is on or may be one
     /// that appears in the arguments
-    BadEntity(EntityKey),
+    BadId(GenericId),
     /// The entity doesn't have a member with this name
-    BadName(EntityKey, String),
+    BadName(GenericId, String),
     /// When the request is invalid for some other reason, such as an out-of-range value, a value
     /// of the wrong type, a method that's not allowed the member, etc
     BadRequest(String),
@@ -29,7 +27,6 @@ impl std::fmt::Display for RequestError {
             Self::BadMessage(msg) => write!(f, "bad protocol message: {}", msg),
             Self::BadObject(o) => write!(f, "object #{} is invalid or destroyed", o),
             Self::BadId(id) => write!(f, "{:?} is invalid or destroyed", id),
-            Self::BadEntity(e) => write!(f, "{:?} is invalid or destroyed", e),
             Self::BadName(e, n) => write!(f, "{:?} has no member {:?}", e, n),
             Self::BadRequest(msg) => write!(f, "{}", msg),
             Self::InternalError(e) => write!(f, "{}", e),

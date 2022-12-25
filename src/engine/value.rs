@@ -9,7 +9,6 @@ pub enum Value {
     Scalar(f64),
     Integer(i64),
     Text(String),
-    Entity(EntityKey),
     Object(GenericId),
     Array(Vec<Value>),
     Null,
@@ -73,16 +72,6 @@ impl From<u64> for Value {
 impl From<u32> for Value {
     fn from(value: u32) -> Self {
         Value::Integer(i64::from(value))
-    }
-}
-
-impl From<EntityKey> for Value {
-    fn from(entity: EntityKey) -> Self {
-        if entity.is_null() {
-            Value::Null
-        } else {
-            Value::Entity(entity)
-        }
     }
 }
 
@@ -340,16 +329,6 @@ impl From<Value> for DecodeResult<String> {
         match value {
             Value::Text(value) => Ok(value),
             _ => Err(BadRequest(format!("{:?} is not a string", value))),
-        }
-    }
-}
-
-impl From<Value> for DecodeResult<EntityKey> {
-    fn from(value: Value) -> Self {
-        match value {
-            Value::Entity(value) => Ok(value),
-            Value::Null => Ok(EntityKey::null()),
-            _ => Err(BadRequest(format!("{:?} is not an entity", value))),
         }
     }
 }
@@ -732,9 +711,14 @@ mod encode_tests {
     }
 
     #[test]
-    fn encodes_null_entity_as_null() {
-        use slotmap::Key;
-        let enc: Value = EntityKey::null().into();
+    fn encodes_null_generic_id_as_null() {
+        let enc: Value = GenericId::null().into();
+        assert_eq!(enc, Null);
+    }
+
+    #[test]
+    fn encodes_null_typed_id_as_null() {
+        let enc: Value = Id::<f64>::null().into();
         assert_eq!(enc, Null);
     }
 }
@@ -845,20 +829,19 @@ mod decode_tests {
     }
 
     #[test]
-    fn can_get_entity() {
-        let e: Vec<EntityKey> = mock_keys(1);
-        assert_decodes_to::<EntityKey>(Entity(e[0]), e[0]);
+    fn can_get_generic_id() {
+        let id: GenericId = mock_ids::<()>(1)[0].into();
+        assert_decodes_to::<GenericId>(Object(id), id);
     }
 
     #[test]
-    fn can_get_null_entity_from_null() {
-        use slotmap::Key;
-        assert_decodes_to::<EntityKey>(Null, EntityKey::null());
+    fn can_get_null_generic_id_from_null() {
+        assert_decodes_to::<GenericId>(Null, GenericId::null());
     }
 
     #[test]
-    fn can_get_none_option_entity() {
-        assert_decodes_to::<Option<EntityKey>>(Null, None);
+    fn can_get_none_option_id() {
+        assert_decodes_to::<Option<GenericId>>(Null, None);
     }
 
     #[test]
@@ -984,7 +967,7 @@ mod decode_tests {
             Point3::new(1.0, 2.0, 3.0),
             3.5,
             Vector3::new(0.0, 0.0, 0.0),
-            EntityKey::null(),
+            GenericId::null(),
         );
         assert_decodes_to::<(
             i64,
@@ -993,7 +976,7 @@ mod decode_tests {
             Point3<f64>,
             f64,
             Vector3<f64>,
-            EntityKey,
+            GenericId,
         )>(
             Array(vec![
                 Integer(7),
@@ -1002,7 +985,7 @@ mod decode_tests {
                 Vector(Vector3::new(1.0, 2.0, 3.0)),
                 Scalar(3.5),
                 Vector(Vector3::new(0.0, 0.0, 0.0)),
-                Entity(EntityKey::null()),
+                Object(GenericId::null()),
             ]),
             value,
         );
@@ -1017,7 +1000,7 @@ mod decode_tests {
             Point3::new(1.0, 2.0, 3.0),
             3.5,
             Vector3::new(0.0, 0.0, 0.0),
-            EntityKey::null(),
+            GenericId::null(),
             4,
         );
         assert_decodes_to::<(
@@ -1027,7 +1010,7 @@ mod decode_tests {
             Point3<f64>,
             f64,
             Vector3<f64>,
-            EntityKey,
+            GenericId,
             i64,
         )>(
             Array(vec![
@@ -1037,7 +1020,7 @@ mod decode_tests {
                 Vector(Vector3::new(1.0, 2.0, 3.0)),
                 Scalar(3.5),
                 Vector(Vector3::new(0.0, 0.0, 0.0)),
-                Entity(EntityKey::null()),
+                Object(GenericId::null()),
                 Integer(4),
             ]),
             value,

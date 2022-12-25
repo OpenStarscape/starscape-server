@@ -3,11 +3,9 @@
 
 use super::*;
 
-mod component_key;
 mod conduit;
 mod element;
 mod engine;
-mod entity;
 mod id;
 mod notif_queue;
 mod object;
@@ -30,15 +28,13 @@ pub use id::{GenericId, Id};
 pub use notif_queue::{NotifQueue, Notification};
 pub use object::Object;
 pub use signal::Signal;
-pub use state::{EntityKey, HasCollection, State};
+pub use state::{HasCollection, State};
 pub use subscribable::Subscribable;
 pub use subscriber::Subscriber;
 pub use subscriber_list::SubscriberList;
 pub use sync_subscriber_list::SyncSubscriberList;
 pub use value::Value;
 
-use component_key::ComponentKey;
 use conduit::*;
-use entity::Entity;
 use signal::SignalsDontTakeInputSilly;
 use subscription_impl::SubscriptionImpl;

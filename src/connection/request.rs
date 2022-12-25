@@ -15,29 +15,29 @@ pub enum RequestMethod {
 pub enum Request {
     /// A method on an object member (property/action/signal). The member is represented by it's
     /// entity and name).
-    Method(EntityKey, String, RequestMethod),
+    Method(GenericId, String, RequestMethod),
     /// Indicates the session should close.
     Close,
 }
 
 impl Request {
-    pub fn action(entity: EntityKey, name: String, value: Value) -> Self {
-        Self::Method(entity, name, RequestMethod::Action(value))
+    pub fn action(id: GenericId, name: String, value: Value) -> Self {
+        Self::Method(id, name, RequestMethod::Action(value))
     }
 
-    pub fn set(entity: EntityKey, name: String, value: Value) -> Self {
-        Self::Method(entity, name, RequestMethod::Set(value))
+    pub fn set(id: GenericId, name: String, value: Value) -> Self {
+        Self::Method(id, name, RequestMethod::Set(value))
     }
 
-    pub fn get(entity: EntityKey, name: String) -> Self {
-        Self::Method(entity, name, RequestMethod::Get)
+    pub fn get(id: GenericId, name: String) -> Self {
+        Self::Method(id, name, RequestMethod::Get)
     }
 
-    pub fn subscribe(entity: EntityKey, name: String) -> Self {
-        Self::Method(entity, name, RequestMethod::Subscribe)
+    pub fn subscribe(id: GenericId, name: String) -> Self {
+        Self::Method(id, name, RequestMethod::Subscribe)
     }
 
-    pub fn unsubscribe(entity: EntityKey, name: String) -> Self {
-        Self::Method(entity, name, RequestMethod::Unsubscribe)
+    pub fn unsubscribe(id: GenericId, name: String) -> Self {
+        Self::Method(id, name, RequestMethod::Unsubscribe)
     }
 }

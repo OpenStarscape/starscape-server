@@ -3,7 +3,7 @@ use super::*;
 /// Sends a connection messages about when an entity is destroyed
 pub struct DestructionConduit<C> {
     connection: ConnectionKey,
-    entity: EntityKey,
+    object: GenericId,
     inner: C,
 }
 
@@ -13,12 +13,12 @@ where
 {
     pub fn new(
         connection: ConnectionKey,
-        entity: EntityKey,
+        object: GenericId,
         inner: C,
     ) -> Box<dyn Conduit<Value, Value>> {
         Box::new(Arc::new(Self {
             connection,
-            entity,
+            object,
             inner,
         }))
     }
@@ -31,7 +31,7 @@ where
     fn notify(&self, state: &State, handler: &dyn EventHandler) {
         if let Ok(vec) = self.inner.output(state) {
             if !vec.is_empty() {
-                handler.event(state, self.connection, Event::Destroyed(self.entity));
+                handler.event(state, self.connection, Event::Destroyed(self.object));
             }
         }
     }

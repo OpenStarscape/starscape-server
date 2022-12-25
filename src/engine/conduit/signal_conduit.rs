@@ -6,7 +6,7 @@ use super::*;
 /// what subscriber is sent.
 pub struct SignalConduit<C> {
     connection: ConnectionKey,
-    entity: EntityKey,
+    id: GenericId,
     name: &'static str,
     inner: C,
 }
@@ -17,13 +17,13 @@ where
 {
     pub fn new(
         connection: ConnectionKey,
-        entity: EntityKey,
+        id: GenericId,
         name: &'static str,
         inner: C,
     ) -> Box<dyn Conduit<Value, Value>> {
         Box::new(Arc::new(Self {
             connection,
-            entity,
+            id,
             name,
             inner,
         }))
@@ -46,7 +46,7 @@ where
             handler.event(
                 state,
                 self.connection,
-                Event::signal(self.entity, self.name.to_string(), value),
+                Event::signal(self.id, self.name.to_string(), value),
             );
         }
     }

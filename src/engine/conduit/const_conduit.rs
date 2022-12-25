@@ -15,7 +15,7 @@ impl<T> Conduit<T, ReadOnlyPropSetType> for ConstConduit<T>
 where
     T: Clone + Send + Sync,
 {
-    fn output(&self, state: &State) -> RequestResult<T> {
+    fn output(&self, _: &State) -> RequestResult<T> {
         Ok(self.value.clone())
     }
 
@@ -25,10 +25,10 @@ where
     }
 }
 impl<T> Subscribable for ConstConduit<T> {
-    fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
+    fn subscribe(&self, _: &State, _: &Arc<dyn Subscriber>) -> RequestResult<()> {
         Ok(())
     }
-    fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
+    fn unsubscribe(&self, _: &State, _: &Weak<dyn Subscriber>) -> RequestResult<()> {
         Ok(())
     }
 }

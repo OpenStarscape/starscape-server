@@ -189,22 +189,22 @@ pub fn apply_collisions(state: &mut State, dt: f64) {
 
 /// Applies thrust of all ships to their velocity
 pub fn apply_acceleration(state: &mut State, dt: f64) {
-    // Collecting keys into a vec is wastefull, but seems to be the only way currently
-    // TODO: improve the ECS so this can be done in one pass
-    let ships: Vec<EntityKey> = state.components_iter::<Ship>().map(|(e, _)| e).collect();
-    for e in ships {
-        let thrust = *state.component::<Ship>(e).unwrap().acceleration;
-        let vel = &mut state.component_mut::<Body>(e).unwrap().velocity;
-        vel.set(**vel + thrust * dt);
+    // TODO: make a more effecient way of iterating through all ships
+    for (_id, body) in state.iter_mut::<Body>() {
+        if let BodyClass::Ship(ship) = &body.class {
+            let thrust = *ship.acceleration;
+            let vel = *body.velocity;
+            body.velocity.set(vel + thrust * dt);
+        }
     }
 }
 
 /// Applies velocity of all bodies to their position
 pub fn apply_motion(state: &mut State, dt: f64) {
-    let iter = state.components_iter_mut::<Body>();
-    for (_, body) in iter {
-        body.position.set(*body.position + dt * *body.velocity);
-        //info!("position: {:?}", *body.position);
+    for (_id, body) in state.iter_mut::<Body>() {
+        let pos = *body.position;
+        let vel = *body.velocity;
+        body.position.set(pos + dt * vel);
     }
 }
 
@@ -216,7 +216,6 @@ mod gravity_tests {
     const EARTH_RADIUS: f64 = 6368.0; // radius of earth
 
     fn create_body(state: &mut State, body: Body, gravity: bool) -> Id<Body> {
-        let entity = state.create_entity();
         let id = state.add_without_object(body);
         // TODO
         /*
@@ -402,8 +401,7 @@ mod collision_tests {
 
     fn assert_signle_does_not_collide(body: Body) {
         let mut state = State::new();
-        let entity = state.create_entity();
-        state.install_component(entity, body);
+        state.add_without_object(body);
         let cols = find_collisions(&state, 1.0);
         assert_eq!(cols.len(), 0);
     }
@@ -430,11 +428,8 @@ mod collision_tests {
     #[test]
     fn respects_delta_time() {
         let mut state = State::new();
-        let b0 = state.create_entity();
-        state.install_component(b0, Body::new().with_sphere_shape(1.0));
-        let b1 = state.create_entity();
-        state.install_component(
-            b1,
+        state.add_without_object(Body::new().with_sphere_shape(1.0));
+        state.add_without_object(
             Body::new()
                 .with_position(Point3::new(2.0, 0.0, 0.0))
                 .with_velocity(Vector3::new(-2.0, 0.0, 0.0)),
