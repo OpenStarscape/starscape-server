@@ -16,12 +16,12 @@ impl<T: 'static> ComponentListConduit<T> {
     }
 }
 
-impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T> {
+impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T>
+where
+    State: HasCollection<T>,
+{
     fn output(&self, state: &State) -> RequestResult<Value> {
-        let entities: Vec<Value> = state
-            .components_iter::<T>()
-            .map(|(entity, _)| entity.into())
-            .collect();
+        let entities: Vec<Value> = state.iter::<T>().map(|(entity, _)| entity.into()).collect();
         Ok(entities.into())
     }
 
@@ -31,13 +31,16 @@ impl<T: 'static> Conduit<Value, ReadOnlyPropSetType> for ComponentListConduit<T>
     }
 }
 
-impl<T: 'static> Subscribable for ComponentListConduit<T> {
+impl<T: 'static> Subscribable for ComponentListConduit<T>
+where
+    State: HasCollection<T>,
+{
     fn subscribe(&self, state: &State, subscriber: &Arc<dyn Subscriber>) -> RequestResult<()> {
-        state.subscribe_to_component_list::<T>(subscriber)
+        state.subscribe_to_collection::<T>(subscriber)
     }
 
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
-        state.unsubscribe_from_component_list::<T>(subscriber)
+        state.unsubscribe_from_collection::<T>(subscriber)
     }
 }
 

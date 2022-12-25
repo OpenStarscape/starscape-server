@@ -27,19 +27,16 @@ impl<'a> Serialize for Contextualized<'a, Value> {
             Value::Scalar(value) => serializer.serialize_f64(*value),
             Value::Integer(value) => serializer.serialize_i64(*value),
             Value::Text(value) => serializer.serialize_str(value),
-            Value::Entity(entity) => {
+            Value::Object(id) => {
                 use serde::ser::SerializeTuple;
                 let mut outer = serializer.serialize_tuple(1)?;
                 outer.serialize_element(
                     &self
                         .ctx
-                        .object_for(*entity)
+                        .object_for(*id)
                         .map_err(serde::ser::Error::custom)?,
                 )?;
                 outer.end()
-            }
-            Value::Object(_id) => {
-                panic!("object serialization not implemented");
             }
             Value::Array(list) => {
                 use serde::ser::SerializeTuple;
@@ -115,7 +112,7 @@ mod encodable_tests {
     struct MockEncodeCtx;
 
     impl EncodeCtx for MockEncodeCtx {
-        fn object_for(&self, _entity: EntityKey) -> RequestResult<ObjectId> {
+        fn object_for(&self, _entity: GenericId) -> RequestResult<ObjectId> {
             Ok(MOCK_OBJ_ID)
         }
     }
@@ -170,13 +167,13 @@ mod encodable_tests {
 
     #[test]
     fn entity() {
-        let e: Vec<EntityKey> = mock_keys(1);
+        let e: Vec<Id<f64>> = mock_ids(1);
         assert_json_eq(e[0].into(), "[42]"); // MOCK_OBJ_ID
     }
 
     #[test]
     fn list_of_entities() {
-        let e: Vec<EntityKey> = mock_keys(3);
+        let e: Vec<Id<f64>> = mock_ids(3);
         // the mock context returns MOCK_OBJ_ID no matter what
         assert_json_eq(e.into(), "[[[42], [42], [42]]]");
     }
@@ -189,7 +186,7 @@ mod message_tests {
     struct MockEncoderCtx;
 
     impl EncodeCtx for MockEncoderCtx {
-        fn object_for(&self, _entity: EntityKey) -> RequestResult<ObjectId> {
+        fn object_for(&self, _entity: GenericId) -> RequestResult<ObjectId> {
             Ok(42)
         }
     }
@@ -205,7 +202,7 @@ mod message_tests {
     #[test]
     fn basic_property_update() {
         let p = JsonEncoder::new();
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let prop = "foobar".to_string();
         let value = Value::Scalar(12.5);
         assert_json_eq(
@@ -223,9 +220,9 @@ mod message_tests {
     #[test]
     fn property_update_with_obj() {
         let p = JsonEncoder::new();
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let prop = "foobar".to_string();
-        let value = Value::Entity(e[0]);
+        let value = Value::Object(e[0]);
         assert_json_eq(
             &p.encode_event(&MockEncoderCtx, &Event::update(e[0], prop, value))
                 .unwrap(),
@@ -241,7 +238,7 @@ mod message_tests {
     #[test]
     fn basic_property_value() {
         let p = JsonEncoder::new();
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let prop = "abc".to_string();
         let value = Value::Integer(19);
         assert_json_eq(
@@ -259,7 +256,7 @@ mod message_tests {
     #[test]
     fn basic_signal() {
         let p = JsonEncoder::new();
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let prop = "abc".to_string();
         let value = Value::Text("hello".to_string());
         assert_json_eq(
@@ -277,7 +274,7 @@ mod message_tests {
     #[test]
     fn entity_destroyed() {
         let p = JsonEncoder::new();
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         assert_json_eq(
             &p.encode_event(&MockEncoderCtx, &Event::Destroyed(e[0]))
                 .unwrap(),

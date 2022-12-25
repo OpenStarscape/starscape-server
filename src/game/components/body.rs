@@ -27,10 +27,6 @@ impl Shape {
     }
 }
 
-/// Empty type that indicates this entity is a source of gravity. Ideally all objects would have a gravitational effect
-/// on all other objects, but that is unnecessary and computationally expensive
-pub struct GravityBody;
-
 /// Any physics object in space
 pub struct Body {
     /// Type of body

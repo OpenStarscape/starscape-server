@@ -24,9 +24,9 @@ struct OrbitParams {
     goal_virtical_direction: Option<Vector3<f64>>,
 }
 
-fn orbit_params(state: &State, ship_key: EntityKey) -> Result<OrbitParams, Box<dyn Error>> {
-    let ship = state.component::<Ship>(ship_key)?;
-    let body = state.component::<Body>(ship_key)?;
+fn orbit_params(state: &State, ship_id: Id<Body>) -> Result<OrbitParams, Box<dyn Error>> {
+    let body = state.get(ship_id)?;
+    let ship = body.ship()?;
     let grav_body_key = *body.gravity_parent;
     let target_key = if !ship.autopilot.target.is_null() {
         *ship.autopilot.target
@@ -142,32 +142,36 @@ fn accel_for_orbit(params: &OrbitParams) -> Vector3<f64> {
     }
 }
 
-fn orbit(state: &mut State, ship_key: EntityKey) -> Result<(), Box<dyn Error>> {
-    let params = orbit_params(state, ship_key)?;
+fn orbit(state: &mut State, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
+    let params = orbit_params(state, ship_id)?;
     let acceleration = accel_for_orbit(&params);
     state
-        .component_mut::<Ship>(ship_key)?
+        .get_mut(ship_id)?
+        .ship_mut()?
         .acceleration
         .set(acceleration);
     Ok(())
 }
 
 pub fn run_autopilot(state: &mut State, _: f64) {
-    // TODO: improve the ECS so we don't need to collect a vec here
-    let ships: Vec<EntityKey> = state.components_iter::<Ship>().map(|(e, _)| e).collect();
-    for ship_key in ships {
-        if let Ok(ship) = state.component::<Ship>(ship_key) {
-            let scheme = *ship.autopilot.scheme;
-            if let Err(err) = match scheme {
-                AutopilotScheme::Off => Ok(()),
-                AutopilotScheme::Orbit => orbit(state, ship_key),
-            } {
-                if let Ok(ship) = state.component_mut::<Ship>(ship_key) {
-                    ship.acceleration.set(Vector3::zero());
-                    ship.autopilot.scheme.set(AutopilotScheme::Off);
-                }
-                error!("{:?} failed for {:?}: {}", scheme, ship_key, err);
-            }
+    // TODO: improve the ECS to make it easier to iterate through all ships
+    let body_ids: Vec<Id<Body>> = state
+        .iter::<Body>()
+        .filter_map(|(id, body)| match body.class {
+            BodyClass::Ship(_) => Some(id),
+            _ => None,
+        })
+        .collect();
+    for id in body_ids {
+        let scheme = *state.get(id).unwrap().ship().unwrap().autopilot.scheme;
+        if let Err(err) = match scheme {
+            AutopilotScheme::Off => Ok(()),
+            AutopilotScheme::Orbit => orbit(state, id),
+        } {
+            let ship = state.get_mut(id).unwrap().ship_mut().unwrap();
+            ship.acceleration.set(Vector3::zero());
+            ship.autopilot.scheme.set(AutopilotScheme::Off);
+            error!("{:?} failed for {:?}: {}", scheme, id, err);
         }
     }
 }

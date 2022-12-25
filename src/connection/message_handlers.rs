@@ -10,29 +10,30 @@ pub trait RequestHandler: AsRef<dyn Any> {
     fn fire_action(
         &mut self,
         connection: ConnectionKey,
-        entity: EntityKey,
+        object: GenericId,
         name: &str,
         value: Value,
     ) -> RequestResult<()>;
     fn set_property(
         &mut self,
         connection: ConnectionKey,
-        entity: EntityKey,
+        object: GenericId,
         name: &str,
         value: Value,
     ) -> RequestResult<()>;
     fn get_property(
         &self,
         connection: ConnectionKey,
-        entity: EntityKey,
+        object: GenericId,
         name: &str,
     ) -> RequestResult<Value>;
-    /// If Ok, the returned Any should later be sent to unsubscribe(). The name may refer to either
-    /// a property or a signal. If the name is None, the entity's destruction signal is subscribed.
+    /// If Ok, the returned subscriber should later be .finalize()ed to unsubscribe. name may refer
+    /// to either a property or a signal. If the name is None, the entity's destruction signal is
+    /// subscribed to.
     fn subscribe(
         &self,
         connection: ConnectionKey,
-        entity: EntityKey,
+        object: GenericId,
         name: Option<&str>,
     ) -> RequestResult<Box<dyn Subscription>>;
 }

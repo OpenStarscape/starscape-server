@@ -9,19 +9,19 @@ pub type ObjectId = u64;
 /// access.
 pub trait ObjectMap: DecodeCtx + Send + Sync {
     /// Returns the corresponding object ID if the entity is known
-    fn get_object(&self, entity: EntityKey) -> Option<ObjectId>;
+    fn get_object(&self, entity: GenericId) -> Option<ObjectId>;
     /// Returns the corrosponding object ID, or creates a new object ID associated with entity
     fn get_or_create_object(
         &self,
         handler: &dyn RequestHandler,
-        entity: EntityKey,
+        entity: GenericId,
     ) -> RequestResult<ObjectId>;
     /// Returns the corresponding entity if the object ID is known
-    fn get_entity(&self, object: ObjectId) -> Option<EntityKey>;
+    fn get_entity(&self, object: ObjectId) -> Option<GenericId>;
     /// Removes an entity/object ID pair from the map. Future calls to get_object() with entity
     /// returns None, and future calls to get_or_create_object() creates a new ID. IDs are not
     /// recycled.
-    fn remove_entity(&self, handler: &dyn RequestHandler, entity: EntityKey) -> Option<ObjectId>;
+    fn remove_entity(&self, handler: &dyn RequestHandler, entity: GenericId) -> Option<ObjectId>;
     /// Unsubscribes from entity destruction
     fn finalize(&self, handler: &dyn RequestHandler);
 }
@@ -32,7 +32,7 @@ struct EncodeCtxImpl<'a> {
 }
 
 impl<'a> EncodeCtx for EncodeCtxImpl<'a> {
-    fn object_for(&self, entity: EntityKey) -> RequestResult<ObjectId> {
+    fn object_for(&self, entity: GenericId) -> RequestResult<ObjectId> {
         self.map.get_or_create_object(self.handler, entity)
     }
 }
@@ -47,8 +47,8 @@ pub fn new_encode_ctx<'a>(
 /// A RwLock of this type is the normal ObjectMap implementation
 pub struct ObjectMapImpl {
     connection: ConnectionKey,
-    map: BiHashMap<EntityKey, ObjectId>,
-    subscription_map: HashMap<EntityKey, Box<dyn Subscription>>,
+    map: BiHashMap<GenericId, ObjectId>,
+    subscription_map: HashMap<GenericId, Box<dyn Subscription>>,
     next_id: ObjectId,
 }
 
@@ -64,13 +64,13 @@ impl ObjectMapImpl {
 }
 
 impl DecodeCtx for RwLock<ObjectMapImpl> {
-    fn entity_for(&self, object: ObjectId) -> RequestResult<EntityKey> {
+    fn entity_for(&self, object: ObjectId) -> RequestResult<GenericId> {
         self.get_entity(object).ok_or(BadObject(object))
     }
 }
 
 impl ObjectMap for RwLock<ObjectMapImpl> {
-    fn get_object(&self, entity: EntityKey) -> Option<ObjectId> {
+    fn get_object(&self, entity: GenericId) -> Option<ObjectId> {
         self.read()
             .expect("failed to lock object map")
             .map
@@ -81,7 +81,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
     fn get_or_create_object(
         &self,
         handler: &dyn RequestHandler,
-        entity: EntityKey,
+        entity: GenericId,
     ) -> RequestResult<ObjectId> {
         let obj = {
             let read = self.read().expect("failed to lock object map");
@@ -116,7 +116,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
         }
     }
 
-    fn get_entity(&self, object: ObjectId) -> Option<EntityKey> {
+    fn get_entity(&self, object: ObjectId) -> Option<GenericId> {
         self.read()
             .expect("failed to lock object map")
             .map
@@ -124,7 +124,7 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
             .cloned()
     }
 
-    fn remove_entity(&self, handler: &dyn RequestHandler, entity: EntityKey) -> Option<ObjectId> {
+    fn remove_entity(&self, handler: &dyn RequestHandler, entity: GenericId) -> Option<ObjectId> {
         let mut locked = self.write().expect("failed to lock object map");
         if let Some(subscription) = locked.subscription_map.remove(&entity) {
             subscription
@@ -161,10 +161,10 @@ mod objects_tests {
     fn objects_can_be_created_and_looked_up() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(2);
+        let e = mock_generic_ids(2);
         let o: Vec<ObjectId> = e
             .iter()
-            .map(|entity| map.get_or_create_object(&handler, *entity).unwrap())
+            .map(|id| map.get_or_create_object(&handler, *id).unwrap())
             .collect();
         assert_eq!(map.get_entity(o[0]), Some(e[0]));
         assert_eq!(map.get_object(e[0]), Some(o[0]));
@@ -176,7 +176,7 @@ mod objects_tests {
     fn object_ids_count_up_from_1() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(2);
+        let e = mock_generic_ids(2);
         let o: Vec<ObjectId> = e
             .iter()
             .map(|entity| map.get_or_create_object(&handler, *entity).unwrap())
@@ -193,7 +193,7 @@ mod objects_tests {
     fn nonexistant_entities_return_null() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(2);
+        let e = mock_generic_ids(2);
         assert_eq!(map.get_object(e[0]), None);
         map.get_or_create_object(&handler, e[0]).unwrap();
         assert_eq!(map.get_object(e[1]), None);
@@ -203,7 +203,7 @@ mod objects_tests {
     fn nonexistant_objects_return_null() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let o = 47;
         assert_eq!(map.get_entity(o), None);
         map.get_or_create_object(&handler, e[0]).unwrap();
@@ -214,7 +214,7 @@ mod objects_tests {
     fn entity_can_be_removed() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(3);
+        let e = mock_generic_ids(3);
         map.get_or_create_object(&handler, e[0]).unwrap();
         let o = map.get_or_create_object(&handler, e[1]).unwrap();
         assert_eq!(map.remove_entity(&handler, e[2]), None);
@@ -226,7 +226,7 @@ mod objects_tests {
     fn object_and_entity_null_after_removal() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(2);
+        let e = mock_generic_ids(2);
         let o: Vec<ObjectId> = e
             .iter()
             .map(|entity| map.get_or_create_object(&handler, *entity).unwrap())
@@ -240,7 +240,7 @@ mod objects_tests {
     fn get_or_create_object_is_idempotent() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let o = map.get_or_create_object(&handler, e[0]).unwrap();
         assert_eq!(map.get_or_create_object(&handler, e[0]).unwrap(), o);
         assert_eq!(map.get_object(e[0]), Some(o));
@@ -251,7 +251,7 @@ mod objects_tests {
     fn same_entity_given_new_id_after_being_removed() {
         let map = new_object_map_impl();
         let handler = MockRequestHandler::new(Ok(()));
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let o = map.get_or_create_object(&handler, e[0]).unwrap();
         assert_eq!(map.remove_entity(&handler, e[0]), Some(o));
         assert_ne!(map.get_or_create_object(&handler, e[0]).unwrap(), o);

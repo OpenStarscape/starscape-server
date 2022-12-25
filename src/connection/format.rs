@@ -4,7 +4,7 @@ use super::*;
 /// The required context for encoding. The normal implementation is ObjectMapImpl.
 pub trait EncodeCtx {
     /// Returns the object ID for the given entity, creating a new one if needed
-    fn object_for(&self, entity: EntityKey) -> RequestResult<ObjectId>;
+    fn object_for(&self, entity: GenericId) -> RequestResult<ObjectId>;
 }
 
 /// Encodes a specific data format (ex JSON)
@@ -17,7 +17,7 @@ pub trait Encoder {
 /// The context required for decoding a Value. The normal implementation is ObjectMapImpl.
 pub trait DecodeCtx: Send + Sync {
     /// Returns the entity for the given object ID, or Err if it does not exist
-    fn entity_for(&self, object: ObjectId) -> RequestResult<EntityKey>;
+    fn entity_for(&self, object: ObjectId) -> RequestResult<GenericId>;
 }
 
 /// Decodes a stream of bytes from the session into requests

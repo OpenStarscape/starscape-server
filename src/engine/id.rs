@@ -39,7 +39,7 @@ impl<T> Id<T> {
 }
 
 #[derive(derivative::Derivative)]
-#[derivative(Copy, Clone, PartialEq)]
+#[derivative(Copy, Clone, Hash, Eq, PartialEq)]
 pub struct GenericId {
     typed_key: TypedKey,
     generic_key: GenericKey,
@@ -48,8 +48,18 @@ pub struct GenericId {
 }
 
 impl GenericId {
+    pub fn new(generic_key: GenericKey, type_name: &'static str) -> Self {
+        struct UnusedType;
+        Self {
+            typed_key: TypedKey::null(),
+            generic_key,
+            type_id: TypeId::of::<UnusedType>(),
+            type_name,
+        }
+    }
+
     pub fn null() -> Self {
-        Id::<()>::null().into()
+        Self::new(GenericKey::null(), "null")
     }
 
     pub fn key(&self) -> GenericKey {

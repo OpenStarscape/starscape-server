@@ -91,9 +91,7 @@ pub fn static_orbit_test(
         .unwrap()
         .gravity_parent
         .set(orbit.parent);
-    panic!("TODO: implement");
-    let body_key = EntityKey::null();
-    let orbit_value = state.get_property(ConnectionKey::null(), body_key, "orbit");
+    let orbit_value = state.get_property(ConnectionKey::null(), body.into(), "orbit");
     match orbit_value {
         Ok(value) => {
             if value.is_null() {
@@ -134,7 +132,7 @@ pub fn dynamic_orbit_test(
     let start_velocity = rotation.rotate_vector(Vector3::new(0.0, start_speed, 0.0));
     let mut state = State::new();
     let parent_mass = grav_param / GRAVITATIONAL_CONSTANT;
-    let parent = Body::new()
+    Body::new()
         .with_class(BodyClass::Celestial)
         .with_mass(parent_mass)
         .with_name("parent".to_string())

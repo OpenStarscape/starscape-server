@@ -5,7 +5,7 @@ struct MockRequestHandlerInner {
     requests: Vec<Request>,
 }
 
-struct MockSub(EntityKey, String);
+struct MockSub(GenericId, String);
 
 impl Subscription for MockSub {
     fn finalize(self: Box<Self>, handler: &dyn RequestHandler) -> RequestResult<()> {
@@ -44,7 +44,7 @@ impl RequestHandler for MockRequestHandler {
     fn fire_action(
         &mut self,
         _: ConnectionKey,
-        e: EntityKey,
+        e: GenericId,
         n: &str,
         v: Value,
     ) -> RequestResult<()> {
@@ -56,7 +56,7 @@ impl RequestHandler for MockRequestHandler {
     fn set_property(
         &mut self,
         _: ConnectionKey,
-        e: EntityKey,
+        e: GenericId,
         n: &str,
         v: Value,
     ) -> RequestResult<()> {
@@ -65,7 +65,7 @@ impl RequestHandler for MockRequestHandler {
         lock.should_return.clone()
     }
 
-    fn get_property(&self, _: ConnectionKey, e: EntityKey, n: &str) -> RequestResult<Value> {
+    fn get_property(&self, _: ConnectionKey, e: GenericId, n: &str) -> RequestResult<Value> {
         let mut lock = self.0.lock().unwrap();
         lock.requests.push(Request::get(e, n.to_string()));
         lock.should_return
@@ -76,7 +76,7 @@ impl RequestHandler for MockRequestHandler {
     fn subscribe(
         &self,
         _: ConnectionKey,
-        e: EntityKey,
+        e: GenericId,
         n: Option<&str>,
     ) -> RequestResult<Box<dyn Subscription>> {
         let mut lock = self.0.lock().unwrap();

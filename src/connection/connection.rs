@@ -25,8 +25,8 @@ pub struct ConnectionImpl {
     obj_map: Arc<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
     request_rx: Receiver<Request>,
-    pending_get_requests: HashSet<(EntityKey, String)>,
-    subscriptions: HashMap<(EntityKey, String), Box<dyn Subscription>>,
+    pending_get_requests: HashSet<(GenericId, String)>,
+    subscriptions: HashMap<(GenericId, String), Box<dyn Subscription>>,
     should_close: AtomicBool,
 }
 
@@ -34,11 +34,11 @@ impl ConnectionImpl {
     pub fn new(
         self_key: ConnectionKey,
         handler: &dyn RequestHandler,
-        root_entity: EntityKey,
+        root_id: GenericId,
         session_builder: Box<dyn SessionBuilder>,
     ) -> Result<Self, Box<dyn Error>> {
         let obj_map = Arc::new(ObjectMapImpl::new(self_key));
-        let root_obj_id = obj_map.get_or_create_object(handler, root_entity);
+        let root_obj_id = obj_map.get_or_create_object(handler, root_id);
         if root_obj_id.is_err() || root_obj_id.as_ref().unwrap() != &1 {
             // should never happen
             error!(
@@ -67,37 +67,37 @@ impl ConnectionImpl {
     fn process_request_method(
         &mut self,
         handler: &mut dyn RequestHandler,
-        entity: EntityKey,
+        id: GenericId,
         property: &str,
         method: RequestMethod,
     ) -> RequestResult<()> {
         use std::collections::hash_map::Entry;
         match method {
             RequestMethod::Action(value) => {
-                handler.fire_action(self.self_key, entity, property, value)?;
+                handler.fire_action(self.self_key, id, property, value)?;
             }
             RequestMethod::Set(value) => {
-                handler.set_property(self.self_key, entity, property, value)?;
+                handler.set_property(self.self_key, id, property, value)?;
             }
             RequestMethod::Get => {
                 // it doesn't matter if it's already there or not, it's not an error to make two
                 // get requests but it will only result in one response.
-                self.pending_get_requests.insert((entity, property.into()));
+                self.pending_get_requests.insert((id, property.into()));
             }
             RequestMethod::Subscribe => {
-                match self.subscriptions.entry((entity, property.to_string())) {
+                match self.subscriptions.entry((id, property.to_string())) {
                     Entry::Occupied(_) => {
                         return Err(BadRequest("tried to subscribe multiple times".into()))
                     }
                     Entry::Vacant(entry) => {
-                        let sub = handler.subscribe(self.self_key, entity, Some(property))?;
+                        let sub = handler.subscribe(self.self_key, id, Some(property))?;
                         entry.insert(sub);
-                        self.pending_get_requests.insert((entity, property.into()));
+                        self.pending_get_requests.insert((id, property.into()));
                     }
                 }
             }
             RequestMethod::Unsubscribe => {
-                let key = (entity, property.to_string());
+                let key = (id, property.to_string());
                 match self.subscriptions.remove(&key) {
                     Some(entry) => entry.finalize(handler)?,
                     None => {
@@ -233,29 +233,29 @@ mod test_common {
     pub struct MockObjectMap;
 
     impl DecodeCtx for MockObjectMap {
-        fn entity_for(&self, _: ObjectId) -> RequestResult<EntityKey> {
+        fn entity_for(&self, _: ObjectId) -> RequestResult<GenericId> {
             panic!("unexpected call");
         }
     }
 
     impl ObjectMap for MockObjectMap {
-        fn get_object(&self, _: EntityKey) -> Option<ObjectId> {
+        fn get_object(&self, _: GenericId) -> Option<ObjectId> {
             panic!("unexpected call");
         }
 
         fn get_or_create_object(
             &self,
             _: &dyn RequestHandler,
-            _: EntityKey,
+            _: GenericId,
         ) -> RequestResult<ObjectId> {
             panic!("unexpected call");
         }
 
-        fn get_entity(&self, _: ObjectId) -> Option<EntityKey> {
+        fn get_entity(&self, _: ObjectId) -> Option<GenericId> {
             panic!("unexpected call");
         }
 
-        fn remove_entity(&self, _: &dyn RequestHandler, _: EntityKey) -> Option<ObjectId> {
+        fn remove_entity(&self, _: &dyn RequestHandler, _: GenericId) -> Option<ObjectId> {
             panic!("unexpected call");
         }
 
@@ -291,7 +291,7 @@ mod event_tests {
     #[test]
     fn sends_signal_event() {
         let (mut conn, sesh, _tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
@@ -305,7 +305,7 @@ mod event_tests {
     #[test]
     fn is_closed_when_encoding_fails() {
         let (mut conn, _, _tx) = setup(true, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
@@ -316,7 +316,7 @@ mod event_tests {
     #[test]
     fn is_closed_when_sending_fails() {
         let (mut conn, _, _tx) = setup(false, true);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let ev = Event::signal(e[0], "foo".to_string(), 12.5.into());
         let mut handler = MockRequestHandler::new(Ok(()));
         conn.process_requests(&mut handler);
@@ -327,7 +327,7 @@ mod event_tests {
     #[test]
     fn does_not_keep_sending_events_after_sending_fails() {
         let (mut conn, sesh, _tx) = setup(false, true);
-        let e = mock_keys(2);
+        let e = mock_generic_ids(2);
         let ev0 = Event::value(e[0], "foo".to_string(), 12.5.into());
         let ev1 = Event::update(e[1], "bar".to_string(), 8.into());
         let ev2 = Event::signal(e[0], "baz".to_string(), ().into());
@@ -359,7 +359,7 @@ mod request_tests {
     #[test]
     fn action_request_makes_it_to_handler() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let rq = Request::action(e[0], "act".to_string(), 7.into());
         tx.send(rq.clone()).unwrap();
@@ -371,7 +371,7 @@ mod request_tests {
     #[test]
     fn sub_request_results_in_get() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let sub_rq = Request::subscribe(e[0], "prop".to_string());
         tx.send(sub_rq.clone()).unwrap();
@@ -383,7 +383,7 @@ mod request_tests {
     #[test]
     fn get_request_works() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let rq = Request::get(e[0], "prop".to_string());
         tx.send(rq.clone()).unwrap();
@@ -395,7 +395,7 @@ mod request_tests {
     #[test]
     fn does_not_sub_multiple_times_in_one_tick() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let sub_rq = Request::subscribe(e[0], "prop".to_string());
         tx.send(sub_rq.clone()).unwrap();
@@ -408,7 +408,7 @@ mod request_tests {
     #[test]
     fn does_not_sub_multiple_times_in_multiple_ticks() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let sub_rq = Request::subscribe(e[0], "prop".to_string());
         tx.send(sub_rq.clone()).unwrap();
@@ -424,7 +424,7 @@ mod request_tests {
     #[test]
     fn sub_unsub_in_one_tick_works() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let sub_rq = Request::subscribe(e[0], "prop".to_string());
         let unsub_rq = Request::unsubscribe(e[0], "prop".to_string());
@@ -442,7 +442,7 @@ mod request_tests {
     #[test]
     fn sub_unsub_in_multiple_ticks_works() {
         let (mut conn, _, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler = MockRequestHandler::new(Ok(()));
         let sub_rq = Request::subscribe(e[0], "prop".to_string());
         let unsub_rq = Request::unsubscribe(e[0], "prop".to_string());
@@ -480,7 +480,7 @@ mod request_tests {
     #[test]
     fn not_closed_on_request_internal_error() {
         let (mut conn, _sesh, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler =
             MockRequestHandler::new(Err(InternalError("mock internal error".to_string())));
         let rq = Request::action(e[0], "act".to_string(), 7.into());
@@ -492,7 +492,7 @@ mod request_tests {
     #[test]
     fn not_closed_on_bad_request_error() {
         let (mut conn, _sesh, tx) = setup(false, false);
-        let e = mock_keys(1);
+        let e = mock_generic_ids(1);
         let mut handler =
             MockRequestHandler::new(Err(BadRequest("mock internal error".to_string())));
         let rq = Request::action(e[0], "act".to_string(), 7.into());
