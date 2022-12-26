@@ -87,6 +87,7 @@ impl Default for State {
             objects: SlotMap::default(),
         };
         (state.root_id, _) = state.add_object("Root");
+        game::Root::install(&mut state);
         state
     }
 }

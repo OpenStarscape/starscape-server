@@ -136,8 +136,6 @@ fn init_solar_system(state: &mut State, scale: f64) {
 }
 
 pub fn init(state: &mut State) {
-    Root::default().install(state);
-
     init_solar_system(state, 0.000001);
 }
 
