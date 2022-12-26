@@ -98,7 +98,7 @@ where
             typed_key: typed.typed_key,
             generic_key: typed.generic_key,
             type_id: TypeId::of::<T>(),
-            type_name: type_name::<T>(),
+            type_name: short_type_name::<T>(),
         }
     }
 }
@@ -119,7 +119,7 @@ where
                 "{:?} is of type {} but {} expected",
                 generic.generic_key,
                 generic.type_name,
-                type_name::<T>()
+                short_type_name::<T>()
             )))
         }
     }

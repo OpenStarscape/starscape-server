@@ -9,6 +9,7 @@ mod filesystem;
 mod initializable;
 mod metronome;
 mod or_log;
+mod short_type_name;
 #[cfg(test)]
 mod test_helpers;
 mod thin_ptr;
@@ -20,6 +21,7 @@ pub use filesystem::*;
 pub use initializable::Initializable;
 pub use metronome::Metronome;
 pub use or_log::OrLog;
+pub use short_type_name::short_type_name;
 #[cfg(test)]
 pub use test_helpers::*;
 pub use thin_ptr::ThinPtr;

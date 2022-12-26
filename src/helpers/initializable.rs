@@ -18,7 +18,7 @@ impl<T: PartialEq + Clone> Initializable<T> {
             if prev != value {
                 Err(format!(
                     "tried to reinitialize {} with different value",
-                    type_name::<Self>()
+                    short_type_name::<Self>()
                 )
                 .into())
             } else {
@@ -34,7 +34,7 @@ impl<T: PartialEq + Clone> Initializable<T> {
     pub fn get(&self) -> Result<&T, Box<dyn Error>> {
         self.value
             .as_ref()
-            .ok_or_else(|| format!("{} was not initialized", type_name::<Self>()).into())
+            .ok_or_else(|| format!("{} was not initialized", short_type_name::<Self>()).into())
     }
 }
 
