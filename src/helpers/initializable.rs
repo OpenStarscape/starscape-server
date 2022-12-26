@@ -17,7 +17,7 @@ impl<T: PartialEq + Clone> Initializable<T> {
         if let Some(prev) = &self.value {
             if prev != value {
                 Err(format!(
-                    "tried to reinitialize {} with differnt value",
+                    "tried to reinitialize {} with different value",
                     type_name::<Self>()
                 )
                 .into())

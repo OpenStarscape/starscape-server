@@ -20,8 +20,8 @@ impl Default for Root {
 
 impl Root {
     /// Installs the root entity, must only be called once per state
-    pub fn install(self, state: &mut State) {
-        let ship_created_signal = self.ship_created.conduit(&state.notif_queue);
+    pub fn install(state: &mut State) {
+        let ship_created_signal = state.root.ship_created.conduit(&state.notif_queue);
 
         let obj = state.object_mut(state.root()).unwrap();
 
