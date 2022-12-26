@@ -25,8 +25,8 @@ where
             Ok(value) => self.0.input(state, value),
             Err(e) => Err(BadRequest(format!(
                 "failed to convert {} -> {}: {}",
-                type_name::<OuterI>(),
-                type_name::<InnerI>(),
+                short_type_name::<OuterI>(),
+                short_type_name::<InnerI>(),
                 e
             ))),
         }

@@ -36,7 +36,7 @@ use weak_self::WeakSelf;
 
 use std::error::Error;
 use std::{
-    any::{type_name, Any, TypeId},
+    any::{Any, TypeId},
     collections::{HashMap, HashSet},
     convert::TryFrom,
     f64::consts::TAU,
