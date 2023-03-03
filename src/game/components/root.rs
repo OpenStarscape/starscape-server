@@ -18,6 +18,35 @@ impl Default for Root {
     }
 }
 
+macro_rules! add_ro_property {
+    ( $obj:ident, $name:ident, $state:ident, $getter:expr ) => {
+        {
+            $obj.add_property(
+                stringify!($name),
+                ROConduit::new(
+                    |$state| Ok(&$getter),
+                )
+                .map_into::<Value, Value>(),
+            );
+        }
+    };
+}
+
+macro_rules! add_rw_property {
+    ( $obj:ident, $name:ident, $state:ident, $getter:expr ) => {
+        {
+            $obj.add_property(
+                stringify!($name),
+                RWConduit::new(
+                    |$state| Ok(&$getter),
+                    |$state, value| Ok($getter.set(value)),
+                )
+                .map_into::<Value, Value>(),
+            );
+        }
+    };
+}
+
 impl Root {
     /// Installs the root entity, must only be called once per state
     pub fn install(state: &mut State) {
@@ -39,28 +68,9 @@ impl Root {
             .map_input(Into::into),
         );
 
-        obj.add_property(
-            "time",
-            ROConduit::new(|state| Ok(&state.root.time)).map_into::<Value, Value>(),
-        );
-
-        obj.add_property(
-            "max_conn_count",
-            RWConduit::new(
-                |state| Ok(&state.root.max_connections),
-                |state, value| Ok(state.root.max_connections.set(value)),
-            )
-            .map_into::<Value, Value>(),
-        );
-
-        obj.add_property(
-            "conn_count",
-            RWConduit::new(
-                |state| Ok(&state.root.current_connections),
-                |state, value| Ok(state.root.current_connections.set(value)),
-            )
-            .map_into::<Value, Value>(),
-        );
+        add_ro_property!(obj, time, state, state.root.time);
+        add_ro_property!(obj, conn_count, state, state.root.current_connections);
+        add_rw_property!(obj, max_conn_count, state, state.root.max_connections);
 
         obj.add_property(
             "bodies",
