@@ -1,7 +1,0 @@
-max_game_seconds = 7200
-enable_tcp = true
-http_type = "https"
-http_static_content = "../web/public"
-enable_webrtc_experimental = true
-https_cert_path = "../tls/cert.pem"
-https_key_path = "../tls/privkey.pem"
