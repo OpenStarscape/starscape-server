@@ -3,7 +3,7 @@
 use super::*;
 
 /// A protocol value that can be serialized by an Encoder and deserialized by a Decoder.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Value {
     Vector(Vector3<f64>),
     Scalar(f64),
@@ -20,6 +20,26 @@ pub enum Value {
 impl AssertIsSync for Value {}
 
 pub type DecodeResult<T> = RequestResult<T>;
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            Value::Vector(v) => write!(
+                f,
+                "({:?}, {:?}, {:?})",
+                Value::Scalar(v.x),
+                Value::Scalar(v.y),
+                Value::Scalar(v.z)
+            ),
+            Value::Scalar(s) => write!(f, "{:.3}", s),
+            Value::Integer(i) => write!(f, "{}", i),
+            Value::Text(t) => write!(f, "{:?}", t),
+            Value::Object(id) => write!(f, "{:?}", id),
+            Value::Array(array) => write!(f, "{:?}", array),
+            Value::Null => write!(f, "null"),
+        }
+    }
+}
 
 impl From<String> for Value {
     fn from(text: String) -> Self {

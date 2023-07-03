@@ -131,8 +131,8 @@ impl<T: 'static> std::fmt::Debug for Id<T> {
     }
 }
 
-impl std::fmt::Debug for GenericId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Debug for GenericId {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let raw_id = if !self.typed_key.is_null() {
             Some(self.typed_key.data().as_ffi())
         } else if !self.generic_key.is_null() {
