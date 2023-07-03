@@ -215,7 +215,7 @@ mod gravity_tests {
     const EARTH_MASS: f64 = 5.972e+21; // mass of earth
     const EARTH_RADIUS: f64 = 6368.0; // radius of earth
 
-    fn create_body(state: &mut State, body: Body, gravity: bool) -> Id<Body> {
+    fn create_body(state: &mut State, body: Body, _gravity: bool) -> Id<Body> {
         let id = state.add_without_object(body);
         // TODO
         /*

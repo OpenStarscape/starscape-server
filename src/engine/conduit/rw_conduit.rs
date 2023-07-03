@@ -1,5 +1,15 @@
 use super::*;
 
+macro_rules! rw_conduit {
+    ( $id:ident, $($getter:tt)* ) => {
+        RWConduit::new(
+            move |state| Ok(&state.get($id)?.$($getter)*),
+            move |state, value| Ok(state.get_mut($id)?.$($getter)*.set(value)),
+        )
+        .map_into::<Value, Value>()
+    };
+}
+
 /// Connects an element to the conduit system
 pub struct RWConduit<OFn, IFn> {
     output_fn: OFn,

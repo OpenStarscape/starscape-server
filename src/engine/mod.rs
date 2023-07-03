@@ -3,6 +3,7 @@
 
 use super::*;
 
+#[macro_use]
 mod conduit;
 mod element;
 mod engine;

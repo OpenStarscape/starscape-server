@@ -9,7 +9,9 @@ mod destruction_conduit;
 mod map_input_conduit;
 mod map_output_conduit;
 mod property_conduit;
+#[macro_use]
 mod ro_conduit;
+#[macro_use]
 mod rw_conduit;
 mod signal_conduit;
 mod try_into_conduit;

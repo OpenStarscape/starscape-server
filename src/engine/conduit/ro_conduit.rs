@@ -1,5 +1,14 @@
 use super::*;
 
+macro_rules! ro_conduit {
+    ( $id:ident, $($getter:tt)* ) => {
+        ROConduit::new(
+            move |state| Ok(&state.get($id)?.$($getter)*),
+        )
+        .map_into::<Value, Value>()
+    };
+}
+
 /// Connects a read-only element to the conduit system
 pub struct ROConduit<OFn> {
     output_fn: OFn,

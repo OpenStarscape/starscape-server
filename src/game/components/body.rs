@@ -68,21 +68,6 @@ impl Default for Body {
     }
 }
 
-macro_rules! add_rw_property {
-    ( $obj:ident, $name:ident, $id:ident, $($getter:tt)* ) => {
-        {
-            $obj.add_property(
-                stringify!($name),
-                RWConduit::new(
-                    move |state| Ok(&state.get($id)?.$($getter)*),
-                    move |state, value| Ok(state.get_mut($id)?.$($getter)*.set(value)),
-                )
-                .map_into::<Value, Value>(),
-            );
-        }
-    };
-}
-
 impl Body {
     pub fn new() -> Self {
         Self::default()
@@ -138,21 +123,13 @@ impl Body {
             "class",
             ConstConduit::new(class_name).map_into::<Value, Value>(),
         );
-
         obj.add_property("orbit", OrbitConduit::new(id).map_into::<Value, Value>());
-
-        add_rw_property!(obj, position, id, position);
-        add_rw_property!(obj, velocity, id, velocity);
-        add_rw_property!(obj, mass, id, mass);
-        add_rw_property!(obj, color, id, color);
-        add_rw_property!(obj, name, id, name);
-
-        obj.add_property(
-            "grav_parent",
-            ROConduit::new(move |state| Ok(&state.get(id)?.gravity_parent))
-                .map_into::<Value, Value>(),
-        );
-
+        obj.add_property("position", rw_conduit!(id, position));
+        obj.add_property("velocity", rw_conduit!(id, velocity));
+        obj.add_property("mass", rw_conduit!(id, mass));
+        obj.add_property("color", rw_conduit!(id, color));
+        obj.add_property("name", rw_conduit!(id, name));
+        obj.add_property("grav_parent", ro_conduit!(id, gravity_parent));
         obj.add_property(
             "size",
             RWConduit::new(

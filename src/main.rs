@@ -19,6 +19,7 @@ extern crate derivative;
 extern crate slotmap;
 
 mod connection;
+#[macro_use]
 mod engine;
 mod game;
 mod helpers;
