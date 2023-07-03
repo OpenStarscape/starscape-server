@@ -31,7 +31,25 @@ impl Debug for Value {
                 Value::Scalar(v.y),
                 Value::Scalar(v.z)
             ),
-            Value::Scalar(s) => write!(f, "{:.3}", s),
+            Value::Scalar(s) => {
+                // Chaotic float formatter with aesthetically pleasing results
+                let decimal: i32 = if s.is_zero() {
+                    0
+                } else {
+                    s.abs().log10().floor() as i32
+                };
+                let precision: i32 = 3;
+                if decimal > precision + 3 || decimal < -precision {
+                    write!(f, "{:.p$e}", s, p = precision as usize)
+                } else {
+                    write!(
+                        f,
+                        "{:.p$}",
+                        s,
+                        p = (precision - decimal).max(0).min(precision + 2) as usize
+                    )
+                }
+            }
             Value::Integer(i) => write!(f, "{}", i),
             Value::Text(t) => write!(f, "{:?}", t),
             Value::Object(id) => write!(f, "{:?}", id),
