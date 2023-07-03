@@ -13,9 +13,9 @@ pub struct Engine {
 
 impl Engine {
     pub fn new<InitFn, TickFn>(
+        config: &EngineConfig,
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
         physics_tick_delta: f64,
-        quit_after: Option<f64>,
         init: InitFn,
         physics_tick: TickFn,
     ) -> Self
@@ -28,7 +28,7 @@ impl Engine {
         init(&mut state);
         Self {
             should_quit: false,
-            quit_after,
+            quit_after: config.max_game_time,
             physics_tick_delta,
             state,
             back_notif_buffer: Vec::new(),

@@ -6,6 +6,7 @@ use super::*;
 mod conduit;
 mod element;
 mod engine;
+mod engine_config;
 mod id;
 mod notif_queue;
 mod object;
@@ -24,6 +25,7 @@ pub use conduit::{
 };
 pub use element::Element;
 pub use engine::Engine;
+pub use engine_config::*;
 pub use id::{GenericId, Id};
 pub use notif_queue::{NotifQueue, Notification};
 pub use object::Object;

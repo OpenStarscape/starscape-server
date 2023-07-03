@@ -2,7 +2,6 @@ pub use super::*;
 
 mod build_config;
 mod config_builder;
-mod config_entries;
 mod load_toml;
 mod master_config;
 mod parse_args;
@@ -17,5 +16,4 @@ pub use master_config::MasterConfig;
 pub use parse_args::parse_args;
 
 use config_builder::*;
-use config_entries::*;
 use load_toml::*;

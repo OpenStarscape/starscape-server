@@ -8,7 +8,7 @@ pub fn build_config_with(
     // TODO: accumulate multiple config errors
     // TODO: IPv6 config???
     let mut entries = Vec::new();
-    entries.append(&mut config_entries());
+    entries.append(&mut engine_config_entries());
     entries.append(&mut server_config_entries());
     let mut builder = ConfigBuilder::new(entries);
     if fs.is_file(DEFAULT_TOML_PATH) {

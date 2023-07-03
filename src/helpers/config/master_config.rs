@@ -5,7 +5,7 @@ use super::*;
 pub struct MasterConfig {
     /// If to abort with success (for example, after showing --help)
     pub happy_exit: bool,
-    pub max_game_time: Option<f64>,
+    pub engine: EngineConfig,
     pub server: ServerConfig,
 }
 
@@ -15,7 +15,7 @@ impl Default for MasterConfig {
     fn default() -> Self {
         Self {
             happy_exit: false,
-            max_game_time: None,
+            engine: EngineConfig::default(),
             server: ServerConfig::default(),
         }
     }

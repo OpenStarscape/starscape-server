@@ -118,9 +118,9 @@ async fn main() {
     // Create the game engine. The `init` and `physics_tick` callbacks are the entiry points into
     // the `game` module
     let mut engine = Engine::new(
+        &master_conf.engine,
         new_session_rx,
         TICK_TIME,
-        master_conf.max_game_time,
         game::init,
         game::physics_tick,
     );
