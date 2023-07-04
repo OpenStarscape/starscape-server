@@ -26,6 +26,7 @@ pub struct ConnectionCollection {
     new_session_rx: Receiver<Box<dyn SessionBuilder>>,
     max_connections: usize,
     set_max_connections: bool,
+    trace_level: TraceLevel,
 }
 
 impl ConnectionCollection {
@@ -33,6 +34,7 @@ impl ConnectionCollection {
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
         root: GenericId,
         max_connections: usize,
+        trace_level: TraceLevel,
     ) -> Self {
         Self {
             root,
@@ -40,6 +42,7 @@ impl ConnectionCollection {
             new_session_rx,
             max_connections,
             set_max_connections: true,
+            trace_level,
         }
     }
 
@@ -105,7 +108,13 @@ impl ConnectionCollection {
                 builder
             );
             // Build a temporary connection in order to report the error to the client
-            match ConnectionImpl::new(ConnectionKey::null(), handler, self.root, builder) {
+            match ConnectionImpl::new(
+                ConnectionKey::null(),
+                handler,
+                self.root,
+                builder,
+                self.trace_level,
+            ) {
                 Ok(mut conn) => {
                     conn.send_event(
                         handler,
@@ -126,8 +135,9 @@ impl ConnectionCollection {
         // stub connection in that case (and then immediately remove it). A mess, I know.
         let mut failed_to_build = false;
         let root = self.root;
+        let trace_level = self.trace_level;
         let key = self.connections.insert_with_key(|key| {
-            match ConnectionImpl::new(key, handler, root, builder) {
+            match ConnectionImpl::new(key, handler, root, builder, trace_level) {
                 Ok(conn) => Box::new(conn),
                 Err(e) => {
                     failed_to_build = true;
@@ -223,7 +233,7 @@ mod tests {
     fn can_create_connection_from_session_builder() {
         let e = mock_generic_ids(1);
         let (session_tx, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX, 0);
         let builder = Box::new(MockSessionBuilder(true));
         session_tx
             .send(builder)
@@ -238,7 +248,7 @@ mod tests {
     fn does_not_create_connection_when_building_session_fails() {
         let e = mock_generic_ids(1);
         let (session_tx, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX, 0);
         // False means building session will fail vvvvv
         let builder = Box::new(MockSessionBuilder(false));
         session_tx
@@ -253,7 +263,7 @@ mod tests {
     fn building_connections_fail_after_max_connections_reached() {
         let e = mock_generic_ids(1);
         let (session_tx, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0], 2);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], 2, 0);
         session_tx
             .send(Box::new(MockSessionBuilder(true)))
             .expect("failed to send connection builder");
@@ -277,7 +287,7 @@ mod tests {
     fn does_not_remove_connections_that_succeed_to_flush() {
         let e = mock_generic_ids(1);
         let (_, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX, 0);
         cc.connections.insert(Box::new(MockConnection {
             flush_succeeds: true,
         }));
@@ -291,7 +301,7 @@ mod tests {
     fn removes_connections_that_fail_to_flush() {
         let e = mock_generic_ids(1);
         let (_, session_rx) = channel();
-        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX);
+        let mut cc = ConnectionCollection::new(session_rx, e[0], usize::MAX, 0);
         cc.connections.insert(Box::new(MockConnection {
             flush_succeeds: false,
         }));

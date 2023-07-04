@@ -17,6 +17,7 @@ pub struct Server {
 impl Server {
     pub fn new(
         config: &ServerConfig,
+        trace_level: TraceLevel,
         new_session_tx: Sender<Box<dyn SessionBuilder>>,
     ) -> Result<Self, Box<dyn Error>> {
         let mut components: Vec<Box<dyn ServerComponent>> = Vec::new();
@@ -66,10 +67,12 @@ impl Server {
                         .map(|reply| Box::new(reply) as Box<dyn warp::Reply>)
                         .boxed();
                 warp_filter = warp_filter.or(static_content_filter).unify().boxed();
-                info!(
-                    "serving static content in {} from HTTP server",
-                    static_content_path
-                );
+                if trace_level >= 1 {
+                    info!(
+                        "serving static content in {} from HTTP server",
+                        static_content_path
+                    );
+                }
             }
 
             let ip;
@@ -127,8 +130,10 @@ impl Server {
             }
         }
 
-        for component in &components {
-            info!("{:?}", component);
+        if trace_level >= 1 {
+            for component in &components {
+                info!("{:?}", component);
+            }
         }
 
         Ok(Self {

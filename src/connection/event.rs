@@ -12,7 +12,7 @@ pub enum EventMethod {
 }
 
 /// Represents a message from the server to a client
-#[derive(Debug, PartialEq, Clone)]
+#[derive(PartialEq, Clone)]
 pub enum Event {
     /// A method on an object member (property/action/signal). The member is represented by it's
     /// entity and name).
@@ -35,5 +35,23 @@ impl Event {
 
     pub fn signal(entity: GenericId, name: String, value: Value) -> Self {
         Self::Method(entity, name, EventMethod::Signal, value)
+    }
+}
+
+impl Debug for Event {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match &self {
+            Self::Method(id, name, method, value) => match method {
+                EventMethod::Value => write!(f, "{:?}.{} is {:?}", id, name, value),
+                EventMethod::Update => write!(f, "{:?}.{} is now {:?}", id, name, value),
+                EventMethod::Signal => write!(f, "{:?}.{}({:?})", id, name, value),
+            },
+            Self::Destroyed(id) => {
+                write!(f, "{:?} destroyed", id)
+            }
+            Self::FatalError(e) => {
+                write!(f, "fatal error: {}", e)
+            }
+        }
     }
 }

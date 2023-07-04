@@ -14,6 +14,7 @@ pub struct Engine {
 impl Engine {
     pub fn new<InitFn, TickFn>(
         config: &EngineConfig,
+        trace_level: TraceLevel,
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
         physics_tick_delta: f64,
         init: InitFn,
@@ -24,7 +25,7 @@ impl Engine {
         TickFn: Fn(&mut State, f64) + 'static,
     {
         let mut state = State::new();
-        let connections = ConnectionCollection::new(new_session_rx, state.root(), 10);
+        let connections = ConnectionCollection::new(new_session_rx, state.root(), 10, trace_level);
         init(&mut state);
         Self {
             should_quit: false,

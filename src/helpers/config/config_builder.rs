@@ -217,8 +217,10 @@ impl<T: Clone + std::fmt::Display + 'static> ConfigEntry for ConfigEntryImpl<T> 
             self.target.source.as_deref(),
         )
         .map(|()| {
-            if let Some(source) = &self.target.source {
-                info!("{}={} ({})", self.name, self.target.value, source)
+            if target.trace_level >= 1 {
+                if let Some(source) = &self.target.source {
+                    info!("{}={} ({})", self.name, self.target.value, source)
+                }
             }
         })
     }

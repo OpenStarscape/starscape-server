@@ -5,6 +5,7 @@ use super::*;
 pub struct MasterConfig {
     /// If to abort with success (for example, after showing --help)
     pub happy_exit: bool,
+    pub trace_level: TraceLevel,
     pub engine: EngineConfig,
     pub server: ServerConfig,
 }
@@ -15,6 +16,7 @@ impl Default for MasterConfig {
     fn default() -> Self {
         Self {
             happy_exit: false,
+            trace_level: 1,
             engine: EngineConfig::default(),
             server: ServerConfig::default(),
         }

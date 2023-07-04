@@ -5,6 +5,15 @@ new_key_type! {
     pub struct ConnectionKey;
 }
 
+const OUTGOING: &str = " <   ";
+const INCOMING: &str = "   > ";
+
+impl Display for ConnectionKey {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        format_slotmap_key(f, "Conn", *self)
+    }
+}
+
 /// Manages a single client connection. Both the session type (TCP, WebRTC, etc) and the format
 /// (JSON, etc) are abstracted.
 pub trait Connection {
@@ -25,6 +34,7 @@ pub struct ConnectionImpl {
     obj_map: Arc<dyn ObjectMap>,
     session: Mutex<Box<dyn Session>>,
     request_rx: Receiver<Request>,
+    trace_level: TraceLevel,
     pending_get_requests: HashSet<(GenericId, String)>,
     subscriptions: HashMap<(GenericId, String), Box<dyn Subscription>>,
     should_close: AtomicBool,
@@ -36,13 +46,14 @@ impl ConnectionImpl {
         handler: &dyn RequestHandler,
         root_id: GenericId,
         session_builder: Box<dyn SessionBuilder>,
+        trace_level: TraceLevel,
     ) -> Result<Self, Box<dyn Error>> {
         let obj_map = Arc::new(ObjectMapImpl::new(self_key));
         let root_obj_id = obj_map.get_or_create_object(handler, root_id);
         if root_obj_id.is_err() || root_obj_id.as_ref().unwrap() != &1 {
             // should never happen
             error!(
-                "root ObjectID for {:?} is {:?} instead of Ok(1)",
+                "root ObjectID for {} is {:?} instead of Ok(1)",
                 self_key, root_obj_id
             );
         }
@@ -51,13 +62,16 @@ impl ConnectionImpl {
         let (request_tx, request_rx) = channel();
         let handler = BundleHandler::new(self_key, decoder, obj_map.clone(), request_tx);
         let session = session_builder.build(Box::new(handler))?;
-        info!("created connection {:?} on {:?}", self_key, session);
+        if trace_level >= 2 {
+            info!("created connection {} on {:?}", self_key, session);
+        }
         Ok(Self {
             self_key,
             encoder,
             obj_map,
             session: Mutex::new(session),
             request_rx,
+            trace_level,
             pending_get_requests: HashSet::new(),
             subscriptions: HashMap::new(),
             should_close: AtomicBool::new(false),
@@ -130,14 +144,22 @@ impl Connection for ConnectionImpl {
     fn process_requests(&mut self, handler: &mut dyn RequestHandler) {
         use std::sync::mpsc::TryRecvError;
         loop {
-            match self.request_rx.try_recv() {
+            let request = self.request_rx.try_recv();
+            if self.trace_level >= 3 {
+                match &request {
+                    Ok(request) => info!("{}{}{:?}", self.self_key, INCOMING, request),
+                    Err(TryRecvError::Disconnected) => info!("{} >DISCONNECTED", self.self_key),
+                    _ => (),
+                };
+            }
+            match request {
                 Ok(Request::Method(entity, property, method)) => {
                     if let Err(e) =
                         self.process_request_method(handler, entity, &property, method.clone())
                     {
                         error!(
-                            "failed to process {:?} on {:?}::{:?}.{}: {}",
-                            method, self.self_key, entity, property, e
+                            "failed to process {:?}{}{:?}.{} {:?}: {}",
+                            self.self_key, INCOMING, entity, property, method, e
                         );
                         // TODO: send error to client
                     }
@@ -152,6 +174,14 @@ impl Connection for ConnectionImpl {
     }
 
     fn send_event(&self, handler: &dyn RequestHandler, event: Event) {
+        if matches!(event, Event::Method(_, _, EventMethod::Update, _)) {
+            if self.trace_level >= 4 {
+                info!("  {}{}{:?}", self.self_key, OUTGOING, event);
+            }
+        } else if self.trace_level >= 3 {
+            info!("{}{}{:?}", self.self_key, OUTGOING, event);
+        }
+
         let encode_ctx = new_encode_ctx(&*self.obj_map, handler);
         let buffer = match self.encoder.encode_event(&encode_ctx, &event) {
             Ok(buffer) => buffer,
@@ -187,12 +217,14 @@ impl Connection for ConnectionImpl {
 
     fn finalize(&mut self, handler: &dyn RequestHandler) {
         let mut session = self.session.lock().unwrap();
-        info!("finalized connection {:?} on {:?}", self.self_key, session,);
+        if self.trace_level >= 2 {
+            info!("finalized connection {} on {:?}", self.self_key, session,);
+        }
         session.close();
         for ((entity, prop), subscription) in self.subscriptions.drain() {
             if let Err(e) = subscription.finalize(handler) {
                 warn!(
-                    "failed to unsubscribe from {:?}.{} during finalization of {:?}: {}",
+                    "failed to unsubscribe from {:?}.{} during finalization of {}: {}",
                     entity, prop, self.self_key, e
                 );
             }
@@ -275,6 +307,7 @@ mod test_common {
             obj_map: Arc::new(MockObjectMap),
             session: Mutex::new(Box::new(session.clone())),
             request_rx,
+            trace_level: 0,
             pending_get_requests: HashSet::new(),
             subscriptions: HashMap::new(),
             should_close: AtomicBool::new(false),

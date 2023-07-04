@@ -133,20 +133,10 @@ impl<T: 'static> std::fmt::Debug for Id<T> {
 
 impl Debug for GenericId {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let raw_id = if !self.typed_key.is_null() {
-            Some(self.typed_key.data().as_ffi())
-        } else if !self.generic_key.is_null() {
-            Some(self.generic_key.data().as_ffi())
+        if !self.typed_key.is_null() {
+            format_slotmap_key(f, self.type_name, self.typed_key)
         } else {
-            None
-        };
-        if let Some(raw_id) = raw_id {
-            // This depends on undefined SlotMap internals, but whatever. No big deal if it breaks.
-            let version = raw_id >> 32;
-            let index = (raw_id << 32) >> 32;
-            write!(f, "{}#{}:{}", self.type_name, index, version)
-        } else {
-            write!(f, "{}#null", self.type_name)
+            format_slotmap_key(f, self.type_name, self.generic_key)
         }
     }
 }

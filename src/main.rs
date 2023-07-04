@@ -40,7 +40,7 @@ use std::{
     collections::{HashMap, HashSet},
     convert::TryFrom,
     f64::consts::TAU,
-    fmt::{Debug, Formatter},
+    fmt::{Debug, Display, Formatter},
     marker::PhantomData,
     ops::Deref,
     sync::mpsc::{channel, Receiver, Sender},
@@ -68,16 +68,20 @@ const MIN_SLEEP_TIME: f64 = TICK_TIME - TIME_BUDGET;
 fn init_logger() {
     env_logger::builder()
         .format_timestamp_millis()
+        .format_module_path(false)
+        .format_target(false)
         .filter_level(log::LevelFilter::Info)
         .parse_default_env()
         .init();
 }
 
 /// This gives us graceful shutdown when the user quits with Ctrl+C on the terminal
-fn init_ctrlc_handler() -> Receiver<()> {
+fn init_ctrlc_handler(trace_level: TraceLevel) -> Receiver<()> {
     let (tx, rx) = channel();
     ctrlc::set_handler(move || {
-        warn!("processing Ctrl+C from user…");
+        if trace_level >= 1 {
+            info!("processing Ctrl+C from user…");
+        }
         tx.send(()).expect("failed to send quit signal");
     })
     .expect("error setting Ctrl+C handler");
@@ -100,14 +104,16 @@ async fn main() {
         return;
     }
 
-    let ctrlc_rx = init_ctrlc_handler();
+    let ctrlc_rx = init_ctrlc_handler(master_conf.trace_level);
 
-    info!("initializing game…");
+    if master_conf.trace_level >= 1 {
+        info!("initializing game…");
+    }
 
     // Create a server, which will spin up everything required to talk to clients. The server object
     // is not used directly but needs to be kept in scope for as long as the game runs.
     let (new_session_tx, new_session_rx) = channel();
-    let _server = match Server::new(&master_conf.server, new_session_tx) {
+    let _server = match Server::new(&master_conf.server, master_conf.trace_level, new_session_tx) {
         Ok(ok) => ok,
         Err(e) => {
             error!("error starting server: {}", e);
@@ -119,13 +125,16 @@ async fn main() {
     // the `game` module
     let mut engine = Engine::new(
         &master_conf.engine,
+        master_conf.trace_level,
         new_session_rx,
         TICK_TIME,
         game::init,
         game::physics_tick,
     );
 
-    info!("running game…");
+    if master_conf.trace_level >= 1 {
+        info!("running game…");
+    }
 
     let mut metronome = Metronome::new(TICK_TIME, MIN_SLEEP_TIME);
     while engine.tick() {
@@ -136,5 +145,7 @@ async fn main() {
         }
     }
 
-    info!("game stopped")
+    if master_conf.trace_level >= 1 {
+        info!("game stopped");
+    }
 }
