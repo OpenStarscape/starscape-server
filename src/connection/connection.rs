@@ -158,7 +158,7 @@ impl Connection for ConnectionImpl {
                         self.process_request_method(handler, entity, &property, method.clone())
                     {
                         error!(
-                            "failed to process {:?}{}{:?}.{} {:?}: {}",
+                            "failed to process {}{}{:?}.{} {:?}: {}",
                             self.self_key, INCOMING, entity, property, method, e
                         );
                         // TODO: send error to client

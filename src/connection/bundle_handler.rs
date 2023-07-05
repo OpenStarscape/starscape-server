@@ -34,13 +34,13 @@ impl InboundBundleHandler for BundleHandler {
             Ok(requests) => {
                 requests.into_iter().for_each(|request| {
                     if let Err(e) = self.request_tx.send(request) {
-                        warn!("failed to handle data for {:?}: {}", self.connection_key, e);
+                        warn!("failed to handle data for {}: {}", self.connection_key, e);
                     }
                 });
             }
             Err(e) => {
                 warn!(
-                    "can't decode inbound bundle: {} on {:?}",
+                    "can't decode inbound bundle: {} on {}",
                     e, self.connection_key
                 );
             }
@@ -49,7 +49,7 @@ impl InboundBundleHandler for BundleHandler {
 
     fn close(&mut self) {
         if let Err(e) = self.request_tx.send(Request::Close) {
-            warn!("failed to close {:?}: {}", self.connection_key, e);
+            warn!("failed to close {}: {}", self.connection_key, e);
         }
     }
 }
