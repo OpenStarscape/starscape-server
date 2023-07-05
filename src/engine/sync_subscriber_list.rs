@@ -44,9 +44,23 @@ impl SyncSubscriberList {
 
     /// Notify all subscribers
     pub fn send_notifications(&self, state: &State, handler: &dyn EventHandler) {
-        self.for_each_subscriber(|s| {
-            s.notify(state, handler);
-        });
+        if self.has_subscribers.load(SeqCst) {
+            let list = self
+                .lock
+                .lock()
+                .expect("failed to lock subscribers")
+                .0
+                .clone();
+            for (_ptr, w) in &list {
+                if let Some(s) = w.upgrade() {
+                    s.notify(state, handler);
+                } else {
+                    error!(
+                        "failed to lock Weak; should have been unsubscribed before being dropped"
+                    );
+                }
+            }
+        }
     }
 
     /// Subscribe all added subscribers to the target subscribable
