@@ -28,7 +28,7 @@ pub use engine::Engine;
 pub use engine_config::*;
 pub use id::{GenericId, Id};
 pub use notif_queue::{NotifQueue, Notification};
-pub use object::Object;
+pub use object::{MemberType, Object};
 pub use signal::Signal;
 pub use state::{HasCollection, State};
 pub use subscribable::Subscribable;

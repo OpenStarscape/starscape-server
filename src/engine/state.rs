@@ -313,7 +313,9 @@ impl RequestHandler for State {
         name: &str,
         value: Value,
     ) -> RequestResult<()> {
-        let conduit = self.object(object)?.conduit(connection, name)?;
+        let conduit = self
+            .object(object)?
+            .conduit(connection, &[MemberType::Action], name)?;
         // TODO: check if this is actually an action (currently "fireing" a property sets it)
         conduit.input(self, value)
     }
@@ -325,7 +327,9 @@ impl RequestHandler for State {
         name: &str,
         value: Value,
     ) -> RequestResult<()> {
-        let conduit = self.object(object)?.conduit(connection, name)?;
+        let conduit = self
+            .object(object)?
+            .conduit(connection, &[MemberType::Property], name)?;
         // TODO: check if this is actually a property (currently "setting" an action fires it)
         conduit.input(self, value)
     }
@@ -336,7 +340,9 @@ impl RequestHandler for State {
         object: GenericId,
         name: &str,
     ) -> RequestResult<Value> {
-        let conduit = self.object(object)?.conduit(connection, name)?;
+        let conduit = self
+            .object(object)?
+            .conduit(connection, &[MemberType::Property], name)?;
         conduit.output(self)
     }
 
@@ -347,7 +353,11 @@ impl RequestHandler for State {
         name: Option<&str>,
     ) -> RequestResult<Box<dyn Subscription>> {
         let conduit = if let Some(name) = name {
-            self.object(object)?.conduit(connection, name)?
+            self.object(object)?.conduit(
+                connection,
+                &[MemberType::Property, MemberType::Signal],
+                name,
+            )?
         } else {
             let signal = self.object(object)?.destroyed_signal(&self.notif_queue);
             DestructionConduit::new(connection, object, signal)

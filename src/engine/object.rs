@@ -2,10 +2,17 @@ use super::*;
 
 type ConduitBuilder = Box<dyn Fn(ConnectionKey) -> RequestResult<Box<dyn Conduit<Value, Value>>>>;
 
+#[derive(Debug, PartialEq)]
+pub enum MemberType {
+    Property,
+    Action,
+    Signal,
+}
+
 pub struct Object {
     id: GenericId,
     destroyed: Signal<()>,
-    conduit_builders: HashMap<&'static str, ConduitBuilder>,
+    conduit_builders: HashMap<&'static str, (MemberType, ConduitBuilder)>,
 }
 
 impl Object {
@@ -17,11 +24,11 @@ impl Object {
         }
     }
 
-    pub fn add_conduit(&mut self, name: &'static str, builder: ConduitBuilder) {
+    pub fn add_conduit(&mut self, name: &'static str, mt: MemberType, builder: ConduitBuilder) {
         use std::collections::hash_map::Entry;
         match self.conduit_builders.entry(name) {
             Entry::Vacant(entry) => {
-                entry.insert(builder);
+                entry.insert((mt, builder));
             }
             Entry::Occupied(_) => {
                 error!("conduit {} added to object multiple times", name);
@@ -37,6 +44,7 @@ impl Object {
         let id = self.id; // TODO drop in Rust 2021
         self.add_conduit(
             name,
+            MemberType::Property,
             Box::new(move |connection| {
                 Ok(PropertyConduit::new(connection, id, name, caching.clone()))
             }),
@@ -51,6 +59,7 @@ impl Object {
         let id = self.id; // TODO drop in Rust 2021
         self.add_conduit(
             name,
+            MemberType::Signal,
             Box::new(move |connection| {
                 Ok(SignalConduit::new(connection, id, name, conduit.clone()))
             }),
@@ -66,6 +75,7 @@ impl Object {
         let id = self.id; // TODO drop in Rust 2021
         self.add_conduit(
             name,
+            MemberType::Action,
             Box::new(move |connection| {
                 Ok(PropertyConduit::new(connection, id, name, conduit.clone()))
             }),
@@ -76,11 +86,21 @@ impl Object {
     pub fn conduit(
         &self,
         connection: ConnectionKey,
+        allowed_types: &[MemberType],
         name: &str,
     ) -> RequestResult<Box<dyn Conduit<Value, Value>>> {
         self.conduit_builders
             .get(name)
-            .map(|builder| builder(connection))
+            .map(|(builder_type, builder)| {
+                if allowed_types.contains(builder_type) {
+                    builder(connection)
+                } else {
+                    Err(BadRequest(format!(
+                        "invalid method for {:?} {:?}.{}",
+                        builder_type, self.id, name
+                    )))
+                }
+            })
             .unwrap_or_else(|| Err(BadName(self.id, name.to_string())))
     }
 
