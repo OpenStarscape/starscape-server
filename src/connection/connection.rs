@@ -237,46 +237,6 @@ mod test_common {
         }
     }
 
-    pub struct MockObjectMap;
-
-    impl DecodeCtx for MockObjectMap {
-        fn entity_for(&self, _: ObjectId) -> RequestResult<GenericId> {
-            panic!("unexpected call");
-        }
-    }
-
-    impl ObjectMap for MockObjectMap {
-        fn get_object(&self, _: GenericId) -> Option<ObjectId> {
-            panic!("unexpected call");
-        }
-
-        fn get_or_create_object(
-            &self,
-            _: &dyn RequestHandler,
-            _: GenericId,
-        ) -> RequestResult<ObjectId> {
-            panic!("unexpected call");
-        }
-
-        fn get_entity(&self, _: ObjectId) -> Option<GenericId> {
-            panic!("unexpected call");
-        }
-
-        fn remove_entity(&self, _: &dyn RequestHandler, _: GenericId) -> Option<ObjectId> {
-            panic!("unexpected call");
-        }
-
-        fn subscribe(&self, _: &dyn RequestHandler, _: GenericId, _: &str) -> RequestResult<()> {
-            panic!("unexpected call");
-        }
-
-        fn unsubscribe(&self, _: &dyn RequestHandler, _: GenericId, _: &str) -> RequestResult<()> {
-            panic!("unexpected call");
-        }
-
-        fn finalize(&self, _handler: &dyn RequestHandler) {}
-    }
-
     pub fn setup(
         encoder_error: bool,
         session_error: bool,
@@ -287,13 +247,16 @@ mod test_common {
         let conn = ConnectionImpl {
             self_key: ConnectionKey::null(),
             encoder: Box::new(encoder),
-            obj_map: Arc::new(MockObjectMap),
+            obj_map: Arc::new(ObjectMapImpl::new(ConnectionKey::null())),
             session: Mutex::new(Box::new(session.clone())),
             request_rx,
             trace_level: 0,
             pending_get_requests: HashSet::new(),
             should_close: AtomicBool::new(false),
         };
+        conn.obj_map
+            .get_or_create_object(&MockRequestHandler::new(Ok(())), mock_generic_ids(1)[0])
+            .unwrap();
         (conn, session, request_tx)
     }
 }
