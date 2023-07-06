@@ -170,7 +170,7 @@ impl State {
                 }
                 Ok(thing.inner)
             }
-            None => Err(RequestError::BadId(id.into())),
+            None => Err(BadId(id.into())),
         }
     }
 
@@ -180,7 +180,7 @@ impl State {
     {
         match self.collection().map.get(*id.as_ref()) {
             Some(thing) => Ok(&thing.inner),
-            None => Err(RequestError::BadId(id.into())),
+            None => Err(BadId(id.into())),
         }
     }
 
@@ -190,7 +190,7 @@ impl State {
     {
         match self.collection_mut().map.get_mut(*id.as_ref()) {
             Some(thing) => Ok(&mut thing.inner),
-            None => Err(RequestError::BadId(id.into())),
+            None => Err(BadId(id.into())),
         }
     }
 
@@ -204,7 +204,7 @@ impl State {
                 thing.cleanup.push(Box::new(f));
                 Ok(())
             }
-            None => Err(RequestError::BadId(id.into())),
+            None => Err(BadId(id.into())),
         }
     }
 
@@ -212,18 +212,14 @@ impl State {
     where
         T: AsRef<id::GenericKey> + Into<GenericId>,
     {
-        self.objects
-            .get(*id.as_ref())
-            .ok_or(RequestError::BadId(id.into()))
+        self.objects.get(*id.as_ref()).ok_or(BadId(id.into()))
     }
 
     pub fn object_mut<T>(&mut self, id: T) -> RequestResult<&mut Object>
     where
         T: AsRef<id::GenericKey> + Into<GenericId>,
     {
-        self.objects
-            .get_mut(*id.as_ref())
-            .ok_or(RequestError::BadId(id.into()))
+        self.objects.get_mut(*id.as_ref()).ok_or(BadId(id.into()))
     }
 
     /// Subscribe to be notified when a component of type T is created or destroyed

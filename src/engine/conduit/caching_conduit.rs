@@ -91,8 +91,7 @@ where
     fn unsubscribe(&self, state: &State, subscriber: &Weak<dyn Subscriber>) -> RequestResult<()> {
         if self.subscribers.remove(subscriber)?.is_now_empty {
             self.conduit
-                .unsubscribe(state, &(self.weak_self.get() as Weak<dyn Subscriber>))
-                .map_err(|e| InternalError(format!("unsubscribing caching conduit: {}", e)))?;
+                .unsubscribe(state, &(self.weak_self.get() as Weak<dyn Subscriber>))?;
         }
         Ok(())
     }

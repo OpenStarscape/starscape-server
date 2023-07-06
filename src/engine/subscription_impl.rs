@@ -37,7 +37,11 @@ impl Subscription for SubscriptionImpl {
             })?;
         self.is_unsubscribed = true;
         let subscriber: Weak<dyn Subscriber> = Weak::<NullSubscriber>::new();
-        self.conduit.unsubscribe(state, &subscriber)
+        match self.conduit.unsubscribe(state, &subscriber) {
+            // Finalizing a subscription for an ID that's already been destroyed is normal
+            Err(BadId(_)) => Ok(()),
+            r @ _ => r,
+        }
     }
 }
 
