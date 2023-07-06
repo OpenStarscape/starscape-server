@@ -25,6 +25,18 @@ impl Root {
 
         let obj = state.object_mut(state.root()).unwrap();
 
+        obj.add_action(
+            "reset",
+            ActionConduit::new(|state, ()| {
+                let bodies: Vec<Id<Body>> = state.iter().map(|(id, _)| id).collect();
+                for body in bodies {
+                    state.remove(body)?;
+                }
+                Ok(())
+            })
+            .map_input(Into::into),
+        );
+
         obj.add_signal(
             "ship_created",
             ship_created_signal.map_output(|iter| Ok(iter.into_iter().map(Into::into).collect())),
