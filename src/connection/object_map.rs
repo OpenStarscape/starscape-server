@@ -22,7 +22,20 @@ pub trait ObjectMap: DecodeCtx + Send + Sync {
     /// returns None, and future calls to get_or_create_object() creates a new ID. IDs are not
     /// recycled.
     fn remove_entity(&self, handler: &dyn RequestHandler, entity: GenericId) -> Option<ObjectId>;
-    /// Unsubscribes from entity destruction
+    /// Subscribes the connection to the given property/signal
+    fn subscribe(
+        &self,
+        handler: &dyn RequestHandler,
+        id: GenericId,
+        member: &str,
+    ) -> RequestResult<()>;
+    fn unsubscribe(
+        &self,
+        handler: &dyn RequestHandler,
+        id: GenericId,
+        member: &str,
+    ) -> RequestResult<()>;
+    /// Unsubscribes from all subscriptions including entity destruction
     fn finalize(&self, handler: &dyn RequestHandler);
 }
 
@@ -48,7 +61,13 @@ pub fn new_encode_ctx<'a>(
 pub struct ObjectMapImpl {
     connection: ConnectionKey,
     map: BiHashMap<GenericId, ObjectId>,
-    subscription_map: HashMap<GenericId, Box<dyn Subscription>>,
+    subscription_map: HashMap<
+        GenericId,
+        (
+            Box<dyn Subscription>,
+            HashMap<String, Box<dyn Subscription>>,
+        ),
+    >,
     next_id: ObjectId,
 }
 
@@ -100,9 +119,10 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
                     Some(obj) => Ok(*obj),
                     None => {
                         let connection = write.connection;
-                        write
-                            .subscription_map
-                            .insert(entity, handler.subscribe(connection, entity, None)?);
+                        write.subscription_map.insert(
+                            entity,
+                            (handler.subscribe(connection, entity, None)?, HashMap::new()),
+                        );
                         let id = write.next_id;
                         write.next_id += 1;
                         let overwitten = write.map.insert(entity, id);
@@ -126,23 +146,60 @@ impl ObjectMap for RwLock<ObjectMapImpl> {
 
     fn remove_entity(&self, handler: &dyn RequestHandler, entity: GenericId) -> Option<ObjectId> {
         let mut locked = self.write().expect("failed to lock object map");
-        if let Some(subscription) = locked.subscription_map.remove(&entity) {
-            subscription
+        if let Some((destroy_sub, other_subs)) = locked.subscription_map.remove(&entity) {
+            destroy_sub
                 .finalize(handler)
-                .or_log_warn("finalizing entity destruction subscription")
+                .or_log_warn("finalizing entity destruction subscription");
+            for (_name, sub) in other_subs {
+                sub.finalize(handler).or_log_warn("finalizing subscription");
+            }
         }
         locked.map.remove_by_left(&entity).map(|(_, o)| o)
     }
 
-    fn finalize(&self, handler: &dyn RequestHandler) {
+    fn subscribe(
+        &self,
+        handler: &dyn RequestHandler,
+        id: GenericId,
+        member: &str,
+    ) -> RequestResult<()> {
+        use std::collections::hash_map::Entry;
         let mut locked = self.write().expect("failed to lock object map");
         let connection = locked.connection;
-        for (entity, subscription) in locked.subscription_map.drain() {
-            if let Err(e) = subscription.finalize(handler) {
-                warn!(
-                    "failed to unsubscribe from {:?} destruction during finalization of {:?}: {}",
-                    entity, connection, e
-                );
+        let member_map = &mut locked.subscription_map.get_mut(&id).ok_or(BadId(id))?.1;
+        match member_map.entry(member.to_string()) {
+            Entry::Occupied(_) => return Err(BadRequest("already subscribed".into())),
+            Entry::Vacant(entry) => {
+                let sub = handler.subscribe(connection, id, Some(member))?;
+                entry.insert(sub);
+                Ok(())
+            }
+        }
+    }
+
+    fn unsubscribe(
+        &self,
+        handler: &dyn RequestHandler,
+        id: GenericId,
+        member: &str,
+    ) -> RequestResult<()> {
+        let mut locked = self.write().expect("failed to lock object map");
+        let member_map = &mut locked.subscription_map.get_mut(&id).ok_or(BadId(id))?.1;
+        match member_map.remove(member) {
+            Some(sub) => sub.finalize(handler),
+            None => Err(BadRequest("not subscribed".into())),
+        }
+    }
+
+    fn finalize(&self, handler: &dyn RequestHandler) {
+        let mut locked = self.write().expect("failed to lock object map");
+        for (_id, (destroy_sub, other_subs)) in locked.subscription_map.drain() {
+            destroy_sub.finalize(handler).or_log_warn(
+                "finalizing entity destruction subscription during connection finalization",
+            );
+            for (_name, sub) in other_subs {
+                sub.finalize(handler)
+                    .or_log_warn("finalizing subscription during connection finalization");
             }
         }
     }

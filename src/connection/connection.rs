@@ -36,7 +36,6 @@ pub struct ConnectionImpl {
     request_rx: Receiver<Request>,
     trace_level: TraceLevel,
     pending_get_requests: HashSet<(GenericId, String)>,
-    subscriptions: HashMap<(GenericId, String), Box<dyn Subscription>>,
     should_close: AtomicBool,
 }
 
@@ -73,7 +72,6 @@ impl ConnectionImpl {
             request_rx,
             trace_level,
             pending_get_requests: HashSet::new(),
-            subscriptions: HashMap::new(),
             should_close: AtomicBool::new(false),
         })
     }
@@ -85,7 +83,6 @@ impl ConnectionImpl {
         property: &str,
         method: RequestMethod,
     ) -> RequestResult<()> {
-        use std::collections::hash_map::Entry;
         match method {
             RequestMethod::Action(value) => {
                 handler.fire_action(self.self_key, id, property, value)?;
@@ -99,27 +96,13 @@ impl ConnectionImpl {
                 self.pending_get_requests.insert((id, property.into()));
             }
             RequestMethod::Subscribe => {
-                match self.subscriptions.entry((id, property.to_string())) {
-                    Entry::Occupied(_) => {
-                        return Err(BadRequest("tried to subscribe multiple times".into()))
-                    }
-                    Entry::Vacant(entry) => {
-                        let sub = handler.subscribe(self.self_key, id, Some(property))?;
-                        entry.insert(sub);
-                        self.pending_get_requests.insert((id, property.into()));
-                    }
-                }
+                // TODO: move this to object_map.rs
+                self.obj_map.subscribe(handler, id, property)?;
+                // If a signal is being subscribed to the get will fail, but that's fine
+                self.pending_get_requests.insert((id, property.into()));
             }
             RequestMethod::Unsubscribe => {
-                let key = (id, property.to_string());
-                match self.subscriptions.remove(&key) {
-                    Some(entry) => entry.finalize(handler)?,
-                    None => {
-                        return Err(BadRequest(
-                            "tried to unsubscribe when not subscribed".into(),
-                        ))
-                    }
-                }
+                self.obj_map.unsubscribe(handler, id, property)?;
             }
         };
         Ok(())
@@ -221,14 +204,6 @@ impl Connection for ConnectionImpl {
             info!("finalized connection {} on {:?}", self.self_key, session,);
         }
         session.close();
-        for ((entity, prop), subscription) in self.subscriptions.drain() {
-            if let Err(e) = subscription.finalize(handler) {
-                warn!(
-                    "failed to unsubscribe from {:?}.{} during finalization of {}: {}",
-                    entity, prop, self.self_key, e
-                );
-            }
-        }
         self.obj_map.finalize(handler);
     }
 }
@@ -291,6 +266,14 @@ mod test_common {
             panic!("unexpected call");
         }
 
+        fn subscribe(&self, _: &dyn RequestHandler, _: GenericId, _: &str) -> RequestResult<()> {
+            panic!("unexpected call");
+        }
+
+        fn unsubscribe(&self, _: &dyn RequestHandler, _: GenericId, _: &str) -> RequestResult<()> {
+            panic!("unexpected call");
+        }
+
         fn finalize(&self, _handler: &dyn RequestHandler) {}
     }
 
@@ -309,7 +292,6 @@ mod test_common {
             request_rx,
             trace_level: 0,
             pending_get_requests: HashSet::new(),
-            subscriptions: HashMap::new(),
             should_close: AtomicBool::new(false),
         };
         (conn, session, request_tx)
