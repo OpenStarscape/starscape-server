@@ -32,6 +32,8 @@ pub struct ConnectionImpl {
     self_key: ConnectionKey,
     encoder: Box<dyn Encoder>,
     obj_map: Arc<dyn ObjectMap>,
+    root_id: GenericId,
+    report_errors: bool,
     session: Mutex<Box<dyn Session>>,
     request_rx: Receiver<Request>,
     trace_level: TraceLevel,
@@ -68,6 +70,8 @@ impl ConnectionImpl {
             self_key,
             encoder,
             obj_map,
+            root_id,
+            report_errors: false,
             session: Mutex::new(session),
             request_rx,
             trace_level,
@@ -96,13 +100,18 @@ impl ConnectionImpl {
                 self.pending_get_requests.insert((id, property.into()));
             }
             RequestMethod::Subscribe => {
-                // TODO: move this to object_map.rs
                 self.obj_map.subscribe(handler, id, property)?;
+                if id == self.root_id && property == "error" {
+                    self.report_errors = true;
+                }
                 // If a signal is being subscribed to the get will fail, but that's fine
                 self.pending_get_requests.insert((id, property.into()));
             }
             RequestMethod::Unsubscribe => {
                 self.obj_map.unsubscribe(handler, id, property)?;
+                if id == self.root_id && property == "error" {
+                    self.report_errors = false;
+                }
             }
         };
         Ok(())
@@ -135,16 +144,25 @@ impl Connection for ConnectionImpl {
                     _ => (),
                 };
             }
-            match request {
-                Ok(Request::Method(entity, property, method)) => {
+            match &request {
+                Ok(request @ Request::Method(entity, property, method)) => {
                     if let Err(e) =
-                        self.process_request_method(handler, entity, &property, method.clone())
+                        self.process_request_method(handler, *entity, &property, method.clone())
                     {
                         error!(
-                            "failed to process {}{}{:?}.{} {:?}: {}",
-                            self.self_key, INCOMING, entity, property, method, e
+                            "failed to process {}{}{:?}: {}",
+                            self.self_key, INCOMING, request, e
                         );
-                        // TODO: send error to client
+                        if self.report_errors {
+                            self.send_event(
+                                handler,
+                                Event::signal(
+                                    self.root_id,
+                                    "error".into(),
+                                    format!("handling {:?}: {}", request, e).into(),
+                                ),
+                            );
+                        }
                     }
                 }
                 Ok(Request::Close) | Err(TryRecvError::Disconnected) => {

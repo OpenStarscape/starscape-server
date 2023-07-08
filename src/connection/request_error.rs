@@ -25,11 +25,11 @@ impl std::fmt::Display for RequestError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::BadMessage(msg) => write!(f, "bad protocol message: {}", msg),
-            Self::BadObject(o) => write!(f, "object #{} is invalid or destroyed", o),
+            Self::BadObject(o) => write!(f, "object #{} invalid or destroyed", o),
             Self::BadId(id) => write!(f, "{:?} is invalid or destroyed", id),
-            Self::BadName(e, n) => write!(f, "{:?} has no member {:?}", e, n),
+            Self::BadName(_e, n) => write!(f, "no member {:?}", n),
             Self::BadRequest(msg) => write!(f, "{}", msg),
-            Self::InternalError(e) => write!(f, "{}", e),
+            Self::InternalError(e) => write!(f, "internal server error: {}", e),
         }
     }
 }

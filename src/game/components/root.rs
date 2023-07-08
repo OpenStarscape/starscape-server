@@ -1,6 +1,7 @@
 use super::*;
 
 pub struct Root {
+    pub error: Signal<String>,
     pub time: Element<f64>,
     ship_created: Signal<Id<Body>>,
     max_connections: Element<u64>,
@@ -10,6 +11,7 @@ pub struct Root {
 impl Default for Root {
     fn default() -> Self {
         Self {
+            error: Signal::new(),
             time: Element::new(0.0),
             ship_created: Signal::new(),
             max_connections: Element::new(0),
@@ -21,9 +23,15 @@ impl Default for Root {
 impl Root {
     /// Installs the root entity, must only be called once per state
     pub fn install(state: &mut State) {
+        let error_signal = state.root.error.conduit(&state.notif_queue);
         let ship_created_signal = state.root.ship_created.conduit(&state.notif_queue);
 
         let obj = state.object_mut(state.root()).unwrap();
+
+        obj.add_signal(
+            "error",
+            error_signal.map_output(|iter| Ok(iter.into_iter().map(Into::into).collect())),
+        );
 
         obj.add_action(
             "reset",
