@@ -3,7 +3,7 @@ use super::*;
 pub struct MapInputConduit<C, O, InnerI, OuterI, F>
 where
     C: Conduit<O, InnerI>,
-    F: Fn(OuterI) -> RequestResult<InnerI>,
+    F: Fn(OuterI) -> (Option<InnerI>, RequestResult<()>),
 {
     conduit: C,
     f: F,
@@ -15,7 +15,7 @@ where
 impl<C, F, O, InnerI, OuterI> MapInputConduit<C, O, InnerI, OuterI, F>
 where
     C: Conduit<O, InnerI>,
-    F: Fn(OuterI) -> RequestResult<InnerI>,
+    F: Fn(OuterI) -> (Option<InnerI>, RequestResult<()>),
 {
     pub fn new(conduit: C, f: F) -> Self {
         Self {
@@ -32,7 +32,7 @@ impl<C, F, Get, SetInner, SetOuter> Conduit<Get, SetOuter>
     for MapInputConduit<C, Get, SetInner, SetOuter, F>
 where
     C: Conduit<Get, SetInner>,
-    F: Fn(SetOuter) -> RequestResult<SetInner> + Send + Sync,
+    F: Fn(SetOuter) -> (Option<SetInner>, RequestResult<()>) + Send + Sync,
     Get: Send + Sync,
     SetInner: Send + Sync,
     SetOuter: Send + Sync,
@@ -42,14 +42,18 @@ where
     }
 
     fn input(&self, state: &mut State, value: SetOuter) -> RequestResult<()> {
-        self.conduit.input(state, (self.f)(value)?)
+        let (value, result) = (self.f)(value);
+        if let Some(value) = value {
+            self.conduit.input(state, value)?;
+        }
+        result
     }
 }
 
 impl<C, F, Get, SetInner, SetOuter> Subscribable for MapInputConduit<C, Get, SetInner, SetOuter, F>
 where
     C: Conduit<Get, SetInner>,
-    F: Fn(SetOuter) -> RequestResult<SetInner> + Send + Sync,
+    F: Fn(SetOuter) -> (Option<SetInner>, RequestResult<()>) + Send + Sync,
     Get: Send + Sync,
     SetInner: Send + Sync,
     SetOuter: Send + Sync,

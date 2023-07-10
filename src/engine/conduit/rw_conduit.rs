@@ -9,7 +9,7 @@ pub struct RWConduit<OFn, IFn> {
 impl<T, OFn, IFn> RWConduit<OFn, IFn>
 where
     for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
-    IFn: Fn(&mut State, T) -> RequestResult<()>,
+    for<'a> IFn: Fn(&'a mut State) -> RequestResult<&'a mut Element<T>>,
     OFn: 'static,
     IFn: 'static,
 {
@@ -29,9 +29,9 @@ where
 
 impl<T, OFn, IFn> Conduit<T, T> for RWConduit<OFn, IFn>
 where
-    T: Clone,
+    T: Clone + PartialEq,
     for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
-    IFn: Fn(&mut State, T) -> RequestResult<()>,
+    for<'a> IFn: Fn(&'a mut State) -> RequestResult<&'a mut Element<T>>,
     OFn: Send + Sync + 'static,
     IFn: Send + Sync + 'static,
 {
@@ -40,7 +40,7 @@ where
     }
 
     fn input(&self, state: &mut State, value: T) -> RequestResult<()> {
-        (self.input_fn)(state, value)
+        Ok((self.input_fn)(state)?.set(value))
     }
 }
 
@@ -48,7 +48,7 @@ impl<T, OFn, IFn> Subscribable for RWConduit<OFn, IFn>
 where
     T: Clone,
     for<'a> OFn: Fn(&'a State) -> RequestResult<&'a Element<T>>,
-    IFn: Fn(&mut State, T) -> RequestResult<()>,
+    for<'a> IFn: Fn(&'a mut State) -> RequestResult<&'a mut Element<T>>,
     OFn: Send + Sync + 'static,
     IFn: Send + Sync + 'static,
 {

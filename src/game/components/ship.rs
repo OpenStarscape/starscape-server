@@ -40,20 +40,22 @@ impl Ship {
         }
     }
 
+    /*
     fn set_thrust(&mut self, thrust: Vector3<f64>) -> RequestResult<()> {
         let magnitude = thrust.magnitude();
         if magnitude > *self.max_acceleration + EPSILON {
             let fixed = thrust.normalize() * *self.max_acceleration;
             self.acceleration.set(fixed);
             Err(BadRequest(format!(
-                "{:?} has a magnitude of {}, which is greater than the maximum allowed thrust {}",
-                thrust, magnitude, *self.max_acceleration
+                "{:?} has a magnitude of {:?}, which is greater than the maximum allowed thrust {:?}",
+                Value::from(thrust), Value::from(magnitude), Value::from(*self.max_acceleration)
             )))
         } else {
             self.acceleration.set(thrust);
             Ok(())
         }
     }
+    */
 }
 
 pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> Id<Body> {
@@ -69,7 +71,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         "max_accel",
         RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.max_acceleration),
-            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.max_acceleration.set(value)),
+            move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.max_acceleration),
         ),
     );
 
@@ -77,15 +79,16 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         "accel",
         RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.acceleration),
-            move |state, value| state.get_mut(id)?.ship_mut()?.set_thrust(value),
+            move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.acceleration),
         ),
+        // TODO: validate
     );
 
     obj.add_property(
         "ap_scheme",
         RWConduit::new(
             move |state| Ok(&state.get(id)?.ship()?.autopilot.scheme),
-            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.scheme.set(value)),
+            move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.autopilot.scheme),
         )
         .map_output(|scheme| {
             Ok(match scheme {
@@ -94,12 +97,15 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
             })
         })
         .map_input(|scheme: String| match &scheme[..] {
-            "off" => Ok(AutopilotScheme::Off),
-            "orbit" => Ok(AutopilotScheme::Orbit),
-            _ => Err(BadRequest(format!(
-                "{:?} is an invalid autopilot scheme",
-                scheme
-            ))),
+            "off" => (Some(AutopilotScheme::Off), Ok(())),
+            "orbit" => (Some(AutopilotScheme::Orbit), Ok(())),
+            _ => (
+                None,
+                Err(BadRequest(format!(
+                    "{:?} is an invalid autopilot scheme",
+                    scheme
+                ))),
+            ),
         })
         .map_into(),
     );
@@ -108,7 +114,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         "ap_target",
         RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.autopilot.target),
-            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.target.set(value)),
+            move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.autopilot.target),
         ),
     );
 
@@ -116,7 +122,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         "ap_distance",
         RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.autopilot.distance),
-            move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.distance.set(value)),
+            move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.autopilot.distance),
         ),
     );
 

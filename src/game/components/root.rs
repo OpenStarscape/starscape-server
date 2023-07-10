@@ -44,7 +44,7 @@ impl Root {
                 }
                 Ok(())
             })
-            .map_input(Into::into),
+            .map_into(),
         );
 
         obj.add_signal(
@@ -58,7 +58,7 @@ impl Root {
                 state.root.ship_created.fire(ship);
                 Ok(())
             })
-            .map_input(Into::into),
+            .map_into(),
         );
 
         obj.add_property("time", ROConduit::new_into(|state| Ok(&state.root.time)));
@@ -67,7 +67,7 @@ impl Root {
             "max_conn_count",
             RWConduit::new_into(
                 |state| Ok(&state.root.max_connections),
-                |state, value| Ok(state.root.max_connections.set(value)),
+                |state| Ok(&mut state.root.max_connections),
             ),
         );
 
@@ -75,7 +75,7 @@ impl Root {
             "conn_count",
             RWConduit::new_into(
                 |state| Ok(&state.root.current_connections),
-                |state, value| Ok(state.root.current_connections.set(value)),
+                |state| Ok(&mut state.root.current_connections),
             ),
         );
 

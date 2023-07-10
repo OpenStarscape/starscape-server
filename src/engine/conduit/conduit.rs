@@ -19,7 +19,7 @@ pub trait Conduit<O, I>: Subscribable + Send + Sync {
     fn map_input<F, OuterI>(self, f: F) -> MapInputConduit<Self, O, I, OuterI, F>
     where
         Self: Sized,
-        F: Fn(OuterI) -> RequestResult<I>,
+        F: Fn(OuterI) -> (Option<I>, RequestResult<()>),
     {
         MapInputConduit::new(self, f)
     }

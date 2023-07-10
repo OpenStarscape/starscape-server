@@ -125,7 +125,7 @@ impl Body {
             "position",
             RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.position),
-                move |state, value| Ok(state.get_mut(id)?.position.set(value)),
+                move |state| Ok(&mut state.get_mut(id)?.position),
             ),
         );
 
@@ -133,7 +133,7 @@ impl Body {
             "velocity",
             RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.velocity),
-                move |state, value| Ok(state.get_mut(id)?.velocity.set(value)),
+                move |state| Ok(&mut state.get_mut(id)?.velocity),
             ),
         );
 
@@ -141,7 +141,7 @@ impl Body {
             "mass",
             RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.mass),
-                move |state, value| Ok(state.get_mut(id)?.mass.set(value)),
+                move |state| Ok(&mut state.get_mut(id)?.mass),
             ),
         );
 
@@ -151,7 +151,7 @@ impl Body {
             "color",
             RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.color),
-                move |state, value| Ok(state.get_mut(id)?.color.set(value)),
+                move |state| Ok(&mut state.get_mut(id)?.color),
             ),
         );
 
@@ -159,7 +159,7 @@ impl Body {
             "name",
             RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.name),
-                move |state, value| Ok(state.get_mut(id)?.name.set(value)),
+                move |state| Ok(&mut state.get_mut(id)?.name),
             ),
         );
 
@@ -172,16 +172,19 @@ impl Body {
             "size",
             RWConduit::new(
                 move |state| Ok(&state.get(id)?.shape),
-                move |state, value| Ok(state.get_mut(id)?.shape.set(value)),
+                move |state| Ok(&mut state.get_mut(id)?.shape),
             )
             .map_output(|shape| Ok(shape.radius()))
             .map_input(|radius| {
                 if radius == 0.0 {
-                    Ok(Shape::Point)
+                    (Some(Shape::Point), Ok(()))
                 } else if radius > 0.0 {
-                    Ok(Shape::Sphere { radius })
+                    (Some(Shape::Sphere { radius }), Ok(()))
                 } else {
-                    Err(BadRequest("size must be >= 0".into()))
+                    (
+                        Some(Shape::Point),
+                        Err(BadRequest("size must be >= 0".into())),
+                    )
                 }
             })
             .map_into(),
