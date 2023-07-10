@@ -266,6 +266,8 @@ mod test_common {
             self_key: ConnectionKey::null(),
             encoder: Box::new(encoder),
             obj_map: Arc::new(ObjectMapImpl::new(ConnectionKey::null())),
+            root_id: GenericId::null(),
+            report_errors: false,
             session: Mutex::new(Box::new(session.clone())),
             request_rx,
             trace_level: 0,
