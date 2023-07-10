@@ -25,7 +25,7 @@ pub trait Conduit<O, I>: Subscribable + Send + Sync {
     }
 
     #[must_use]
-    fn map_into<ResultGet, ResultSet>(self) -> TryIntoConduit<Self, O, I>
+    fn map_into(self) -> TryIntoConduit<Self, O, I>
     where
         Self: Sized,
     {

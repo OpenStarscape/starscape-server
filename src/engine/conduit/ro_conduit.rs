@@ -14,6 +14,11 @@ where
     pub fn new(output_fn: OFn) -> Self {
         Self { output_fn }
     }
+
+    #[must_use]
+    pub fn new_into(output_fn: OFn) -> TryIntoConduit<Self, T, ReadOnlyPropSetType> {
+        TryIntoConduit::new(Self::new(output_fn))
+    }
 }
 
 impl<T, OFn> Conduit<T, ReadOnlyPropSetType> for ROConduit<OFn>

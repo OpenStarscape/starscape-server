@@ -67,20 +67,18 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
 
     obj.add_property(
         "max_accel",
-        RWConduit::new(
+        RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.max_acceleration),
             move |state, value| Ok(state.get_mut(id)?.ship_mut()?.max_acceleration.set(value)),
-        )
-        .map_into::<Value, Value>(),
+        ),
     );
 
     obj.add_property(
         "accel",
-        RWConduit::new(
+        RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.acceleration),
             move |state, value| state.get_mut(id)?.ship_mut()?.set_thrust(value),
-        )
-        .map_into::<Value, Value>(),
+        ),
     );
 
     obj.add_property(
@@ -103,25 +101,23 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
                 scheme
             ))),
         })
-        .map_into::<Value, Value>(),
+        .map_into(),
     );
 
     obj.add_property(
         "ap_target",
-        RWConduit::new(
+        RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.autopilot.target),
             move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.target.set(value)),
-        )
-        .map_into::<Value, Value>(),
+        ),
     );
 
     obj.add_property(
         "ap_distance",
-        RWConduit::new(
+        RWConduit::new_into(
             move |state| Ok(&state.get(id)?.ship()?.autopilot.distance),
             move |state, value| Ok(state.get_mut(id)?.ship_mut()?.autopilot.distance.set(value)),
-        )
-        .map_into::<Value, Value>(),
+        ),
     );
 
     id

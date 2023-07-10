@@ -3,6 +3,7 @@ use super::*;
 pub struct Root {
     pub error: Signal<String>,
     pub time: Element<f64>,
+    pub time_per_time: Element<f64>,
     ship_created: Signal<Id<Body>>,
     max_connections: Element<u64>,
     current_connections: Element<u64>,
@@ -13,6 +14,7 @@ impl Default for Root {
         Self {
             error: Signal::new(),
             time: Element::new(0.0),
+            time_per_time: Element::new(1.0),
             ship_created: Signal::new(),
             max_connections: Element::new(0),
             current_connections: Element::new(0),
@@ -59,32 +61,24 @@ impl Root {
             .map_input(Into::into),
         );
 
-        obj.add_property(
-            "time",
-            ROConduit::new(|state| Ok(&state.root.time)).map_into::<Value, Value>(),
-        );
+        obj.add_property("time", ROConduit::new_into(|state| Ok(&state.root.time)));
 
         obj.add_property(
             "max_conn_count",
-            RWConduit::new(
+            RWConduit::new_into(
                 |state| Ok(&state.root.max_connections),
                 |state, value| Ok(state.root.max_connections.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
         obj.add_property(
             "conn_count",
-            RWConduit::new(
+            RWConduit::new_into(
                 |state| Ok(&state.root.current_connections),
                 |state, value| Ok(state.root.current_connections.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
-        obj.add_property(
-            "bodies",
-            ComponentListConduit::<Body>::new().map_into::<Value, Value>(),
-        );
+        obj.add_property("bodies", ComponentListConduit::<Body>::new().map_into());
     }
 }

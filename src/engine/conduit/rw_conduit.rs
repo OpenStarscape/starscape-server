@@ -20,6 +20,11 @@ where
             input_fn,
         }
     }
+
+    #[must_use]
+    pub fn new_into(output_fn: OFn, input_fn: IFn) -> TryIntoConduit<Self, T, T> {
+        TryIntoConduit::new(Self::new(output_fn, input_fn))
+    }
 }
 
 impl<T, OFn, IFn> Conduit<T, T> for RWConduit<OFn, IFn>

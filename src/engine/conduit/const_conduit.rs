@@ -6,8 +6,14 @@ pub struct ConstConduit<T> {
 }
 
 impl<T> ConstConduit<T> {
+    #[must_use]
     pub fn new(value: T) -> Self {
         Self { value }
+    }
+
+    #[must_use]
+    pub fn new_into(value: T) -> TryIntoConduit<Self, T, ReadOnlyPropSetType> {
+        TryIntoConduit::new(Self::new(value))
     }
 }
 

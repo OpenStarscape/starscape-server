@@ -119,62 +119,53 @@ impl Body {
 
         let (id, obj) = state.add_with_object(self);
 
-        obj.add_property(
-            "class",
-            ConstConduit::new(class_name).map_into::<Value, Value>(),
-        );
+        obj.add_property("class", ConstConduit::new_into(class_name));
 
         obj.add_property(
             "position",
-            RWConduit::new(
+            RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.position),
                 move |state, value| Ok(state.get_mut(id)?.position.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
         obj.add_property(
             "velocity",
-            RWConduit::new(
+            RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.velocity),
                 move |state, value| Ok(state.get_mut(id)?.velocity.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
         obj.add_property(
             "mass",
-            RWConduit::new(
+            RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.mass),
                 move |state, value| Ok(state.get_mut(id)?.mass.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
-        obj.add_property("orbit", OrbitConduit::new(id).map_into::<Value, Value>());
+        obj.add_property("orbit", OrbitConduit::new(id).map_into());
 
         obj.add_property(
             "color",
-            RWConduit::new(
+            RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.color),
                 move |state, value| Ok(state.get_mut(id)?.color.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
         obj.add_property(
             "name",
-            RWConduit::new(
+            RWConduit::new_into(
                 move |state| Ok(&state.get(id)?.name),
                 move |state, value| Ok(state.get_mut(id)?.name.set(value)),
-            )
-            .map_into::<Value, Value>(),
+            ),
         );
 
         obj.add_property(
             "grav_parent",
-            ROConduit::new(move |state| Ok(&state.get(id)?.gravity_parent))
-                .map_into::<Value, Value>(),
+            ROConduit::new_into(move |state| Ok(&state.get(id)?.gravity_parent)),
         );
 
         obj.add_property(
@@ -193,7 +184,7 @@ impl Body {
                     Err(BadRequest("size must be >= 0".into()))
                 }
             })
-            .map_into::<Value, Value>(),
+            .map_into(),
         );
         id
     }
