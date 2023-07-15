@@ -51,19 +51,6 @@ use std::{
     time::Duration,
 };
 
-/// The number of game ticks/second
-const TICKS_PER_SEC: u32 = 15;
-/// Used for both physics and the real timing of the game
-const TICK_TIME: f64 = 1.0 / TICKS_PER_SEC as f64;
-/// The amount of time the engine is given to do it's thing each tick. If it can't complete a tick
-/// on time, the game will slow down.
-const TIME_BUDGET: f64 = 0.01;
-/// Clients that can complete a roundtrip faster than this will be able to respond before any
-/// additional updates are made and will all be on a level playing field. The engine must
-/// be able to complete a full tick in the gap between this and TICK_TIME. If it can't, the game
-/// will be slowed down.
-const MIN_SLEEP_TIME: f64 = TICK_TIME - TIME_BUDGET;
-
 /// By default show error, warn and info messages
 fn init_logger() {
     env_logger::builder()
@@ -127,7 +114,6 @@ async fn main() {
         &master_conf.engine,
         master_conf.trace_level,
         new_session_rx,
-        TICK_TIME,
         game::init,
         game::physics_tick,
     );
@@ -136,9 +122,7 @@ async fn main() {
         info!("running game…");
     }
 
-    let mut metronome = Metronome::new(TICK_TIME, MIN_SLEEP_TIME);
     while engine.tick() {
-        metronome.sleep();
         if ctrlc_rx.try_recv().is_ok() {
             trace!("exiting game loop due to quit signal");
             break;

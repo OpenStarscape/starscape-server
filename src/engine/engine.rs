@@ -3,8 +3,7 @@ use super::*;
 pub struct Engine {
     should_quit: bool,
     quit_after: Option<f64>,
-    /// In-game delta-time for each physics step
-    physics_tick_delta: f64,
+    metronome: Metronome,
     pub state: State,
     back_notif_buffer: Vec<Notification>,
     connections: ConnectionCollection,
@@ -16,7 +15,6 @@ impl Engine {
         config: &EngineConfig,
         trace_level: TraceLevel,
         new_session_rx: Receiver<Box<dyn SessionBuilder>>,
-        physics_tick_delta: f64,
         init: InitFn,
         physics_tick: TickFn,
     ) -> Self
@@ -30,7 +28,7 @@ impl Engine {
         Self {
             should_quit: false,
             quit_after: config.max_game_time,
-            physics_tick_delta,
+            metronome: Metronome::default(),
             state,
             back_notif_buffer: Vec::new(),
             connections,
@@ -43,7 +41,17 @@ impl Engine {
     pub fn tick(&mut self) -> bool {
         self.connections.process_inbound_messages(&mut self.state);
 
-        (self.physics_tick)(&mut self.state, self.physics_tick_delta);
+        let physics_tick_delta = *self.state.root.physics_tick_delta;
+        let physics_ticks_per_network_tick = *self.state.root.physics_ticks_per_network_tick;
+        let min_roundtrip_time = *self.state.root.min_roundtrip_time;
+        self.metronome.set_params(
+            (physics_ticks_per_network_tick as f64) * physics_tick_delta,
+            min_roundtrip_time,
+        );
+
+        for _ in 0..physics_ticks_per_network_tick {
+            (self.physics_tick)(&mut self.state, physics_tick_delta);
+        }
 
         self.state
             .notif_queue
@@ -58,15 +66,18 @@ impl Engine {
 
         self.connections.flush_outbound_messages(&mut self.state);
 
-        self.state.increment_physics(self.physics_tick_delta);
         if let Some(quit_after) = self.quit_after {
-            if self.state.time() > quit_after {
+            if *self.state.root.time > quit_after {
                 self.should_quit = true;
                 info!(
                     "engine has run for {:?}, stopping…",
                     Duration::from_secs_f64(quit_after)
                 )
             }
+        }
+
+        if !self.should_quit {
+            self.metronome.sleep();
         }
         !self.should_quit
     }

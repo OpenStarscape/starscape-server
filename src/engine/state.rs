@@ -64,10 +64,6 @@ impl AsMut<Collection<game::Ship>> for Data {
 /// will be passed a reference to it. Entities and components inherit the state's mutability (if a
 /// function is passed an immutable state, it can't change anything).
 pub struct State {
-    /// Current time in seconds since the start of the game
-    time: f64,
-    /// Monotonic clock that goes up with each physics tick
-    physics_tick: u64,
     root_id: GenericId,
     pub notif_queue: NotifQueue,
     data: Data,
@@ -78,8 +74,6 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         let mut state = Self {
-            time: 0.0,
-            physics_tick: 0,
             root_id: GenericId::null(),
             notif_queue: NotifQueue::new(),
             data: Data::default(),
@@ -268,31 +262,6 @@ impl State {
     pub fn root(&self) -> GenericId {
         self.root_id
     }
-
-    /// Current time in seconds since the start of the game
-    pub fn time(&self) -> f64 {
-        self.time
-    }
-
-    /*
-    Hmm, this is a footgun because one might expect properties to always be the same on a given physics tick, but to
-    make that so we'll need some sort of pending/committed concept.
-    /// Monotonic clock that goes up with each physics tick
-    pub fn physics_tick(&self) -> u64 {
-        self.physics_tick
-    }
-    */
-
-    /// Advance the physics tick by 1 and time by time_delta
-    pub fn increment_physics(&mut self, time_delta: f64) {
-        self.physics_tick += 1;
-        self.time += time_delta;
-        trace!(
-            "Time advanced to {} (physics tick {})",
-            self.time,
-            self.physics_tick
-        );
-    }
 }
 
 impl AsRef<dyn Any> for State {
@@ -360,29 +329,5 @@ impl RequestHandler for State {
         };
         let subscription = SubscriptionImpl::new(self, conduit)?;
         Ok(Box::new(subscription))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[derive(Debug, PartialEq)]
-    struct MockComponent(i32);
-
-    #[derive(Debug, PartialEq)]
-    struct OtherMockComponent(bool);
-
-    #[test]
-    fn can_increment_physics() {
-        let mut state = State::new();
-        //assert_eq!(state.physics_tick(), 0);
-        assert_eq!(state.time(), 0.0);
-        state.increment_physics(1.0);
-        //assert_eq!(state.physics_tick(), 1);
-        assert_eq!(state.time(), 1.0);
-        state.increment_physics(2.5);
-        //assert_eq!(state.physics_tick(), 2);
-        assert_eq!(state.time(), 3.5);
     }
 }

@@ -140,8 +140,7 @@ pub fn init(state: &mut State) {
 }
 
 pub fn physics_tick(state: &mut State, delta: f64) {
-    let time = state.time();
-    state.root.time.set(time);
+    *state.root.time.get_mut() += delta;
     apply_acceleration(state, delta);
     apply_gravity(state, delta);
     apply_collisions(state, delta);

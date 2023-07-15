@@ -282,14 +282,13 @@ mod tests {
 
     #[test]
     fn notified_subscribers_when_updated_multiple_times() {
-        let (mut state, caching, inner, subscribers, mock_subscribers) = setup();
+        let (state, caching, inner, subscribers, mock_subscribers) = setup();
         let event_handler = MockEventHandler::new();
         caching
             .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         inner.lock().unwrap().value_to_get = Ok(42);
         caching.notify(&state, &event_handler);
-        state.increment_physics(1.0);
         inner.lock().unwrap().value_to_get = Ok(69);
         caching.notify(&state, &event_handler);
         assert_eq!(mock_subscribers[0].notify_count(), 2);
@@ -297,14 +296,13 @@ mod tests {
 
     #[test]
     fn does_not_notify_event_handler_when_same_data_sent_twice() {
-        let (mut state, caching, inner, subscribers, mock_subscribers) = setup();
+        let (state, caching, inner, subscribers, mock_subscribers) = setup();
         let event_handler = MockEventHandler::new();
         caching
             .subscribe(&state, &subscribers[0])
             .expect("failed to subscribe");
         inner.lock().unwrap().value_to_get = Ok(42);
         caching.notify(&state, &event_handler);
-        state.increment_physics(1.0);
         caching.notify(&state, &event_handler);
         assert_eq!(mock_subscribers[0].notify_count(), 1);
     }

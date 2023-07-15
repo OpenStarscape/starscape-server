@@ -3,7 +3,9 @@ use super::*;
 pub struct Root {
     pub error: Signal<String>,
     pub time: Element<f64>,
-    pub time_per_time: Element<f64>,
+    pub physics_ticks_per_network_tick: Element<u64>,
+    pub physics_tick_delta: Element<f64>,
+    pub min_roundtrip_time: Element<f64>,
     ship_created: Signal<Id<Body>>,
     max_connections: Element<u64>,
     current_connections: Element<u64>,
@@ -14,7 +16,9 @@ impl Default for Root {
         Self {
             error: Signal::new(),
             time: Element::new(0.0),
-            time_per_time: Element::new(1.0),
+            physics_ticks_per_network_tick: Element::new(4),
+            physics_tick_delta: Element::new(0.05),
+            min_roundtrip_time: Element::new(0.1),
             ship_created: Signal::new(),
             max_connections: Element::new(0),
             current_connections: Element::new(0),

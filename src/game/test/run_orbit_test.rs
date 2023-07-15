@@ -70,7 +70,7 @@ pub fn static_orbit_test(
     velocity_offset: Vector3<f64>,
 ) {
     let mut state = State::new();
-    state.increment_physics(at_time);
+    state.root.time.set(at_time);
     let parent_mass = grav_param / GRAVITATIONAL_CONSTANT;
     orbit.parent = Body::new()
         .with_class(BodyClass::Celestial)
@@ -145,10 +145,10 @@ pub fn dynamic_orbit_test(
         .with_name("body".to_string())
         .install(&mut state);
     let delta = orbit.period_time * DYNAMIC_TEST_RELATIVE_DELTA_TIME;
-    while state.time() < run_time {
+    while *state.root.time < run_time {
+        *state.root.time.get_mut() += delta;
         apply_gravity(&mut state, delta);
         apply_motion(&mut state, delta);
-        state.increment_physics(delta);
     }
     let actual_position = *state.get(body).unwrap().position;
     let actual_velocity = *state.get(body).unwrap().velocity;

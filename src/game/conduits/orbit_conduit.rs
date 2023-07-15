@@ -146,7 +146,7 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
             let gm = GRAVITATIONAL_CONSTANT * *parent.mass;
             let relitive_pos = *body.position - *parent.position;
             let relitive_vel = *body.velocity - *parent.velocity;
-            let current_time = state.time();
+            let current_time = *state.root.time;
             let r = relitive_pos.magnitude();
             let v = relitive_vel.magnitude();
             let up_unit = relitive_pos.cross(relitive_vel).normalize();

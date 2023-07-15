@@ -19,19 +19,26 @@ pub struct Metronome {
     min_sleep: f64,
 }
 
+impl Default for Metronome {
+    fn default() -> Self {
+        Self {
+            prev_tick_start: Instant::now(),
+            target_tick: 0.0,
+            min_sleep: 0.0,
+        }
+    }
+}
+
 impl Metronome {
     /// - target_tick: the time (in seconds) for each entire tick.
     /// - min_sleep: the minimum time (in seconds) each call to sleep() will sleep for. This is
     /// useful because giving clients enough time to do a roundtrip each tick may be more valuable
     /// than max perf.
-    pub fn new(target_tick: f64, min_sleep: f64) -> Self {
+    pub fn set_params(&mut self, target_tick: f64, min_sleep: f64) {
         assert!(target_tick >= 0.0);
         assert!(min_sleep >= 0.0);
-        Metronome {
-            prev_tick_start: Instant::now(),
-            target_tick,
-            min_sleep,
-        }
+        self.target_tick = target_tick;
+        self.min_sleep = min_sleep;
     }
 
     /// Sleeps for the remainder of the tick. That is, sleeps for however long is required so that
@@ -76,7 +83,8 @@ mod tests {
 
     #[test]
     fn sleeps_for_correct_time() {
-        let mut m = Metronome::new(SHORT_TIME, 0.0);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, 0.0);
         let start = Instant::now();
         m.sleep();
         assert_duration_eq(start.elapsed(), SHORT_TIME);
@@ -84,7 +92,8 @@ mod tests {
 
     #[test]
     fn repeatedly_sleeps_for_correct_time() {
-        let mut m = Metronome::new(SHORT_TIME, 0.0);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, 0.0);
         let start = Instant::now();
         m.sleep();
         m.sleep();
@@ -94,7 +103,8 @@ mod tests {
 
     #[test]
     fn only_sleeps_for_remainder_of_time_budget() {
-        let mut m = Metronome::new(SHORT_TIME, 0.0);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, 0.0);
         sleep(Duration::from_secs_f64(SHORT_TIME * 0.6));
         let start = Instant::now();
         m.sleep();
@@ -103,7 +113,8 @@ mod tests {
 
     #[test]
     fn doesnt_sleep_when_over_budget() {
-        let mut m = Metronome::new(SHORT_TIME, 0.0);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, 0.0);
         m.sleep();
         sleep(Duration::from_secs_f64(SHORT_TIME * 1.5));
         let start = Instant::now();
@@ -113,7 +124,8 @@ mod tests {
 
     #[test]
     fn accepts_drift_when_over_budget() {
-        let mut m = Metronome::new(SHORT_TIME, 0.0);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, 0.0);
         sleep(Duration::from_secs_f64(SHORT_TIME * 1.5));
         m.sleep();
         let start = Instant::now();
@@ -123,7 +135,8 @@ mod tests {
 
     #[test]
     fn respects_min_sleep() {
-        let mut m = Metronome::new(SHORT_TIME, SHORT_TIME * 0.7);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, SHORT_TIME * 0.7);
         sleep(Duration::from_secs_f64(SHORT_TIME * 0.6));
         let start = Instant::now();
         m.sleep();
@@ -132,7 +145,8 @@ mod tests {
 
     #[test]
     fn accepts_drift_when_min_sleep_hit() {
-        let mut m = Metronome::new(SHORT_TIME, SHORT_TIME * 0.7);
+        let mut m = Metronome::default();
+        m.set_params(SHORT_TIME, SHORT_TIME * 0.7);
         sleep(Duration::from_secs_f64(SHORT_TIME * 0.6));
         m.sleep();
         let start = Instant::now();
