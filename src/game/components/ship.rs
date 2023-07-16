@@ -61,7 +61,7 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
         .with_class(BodyClass::Ship(Ship::new(1.0))) // 100G (too much)
         .with_position(position)
         .with_velocity(velocity)
-        .with_sphere_shape(0.00001)
+        .with_shape(Shape::from_radius(0.00001).unwrap())
         .install(state);
     let obj = state.object_mut(id).unwrap();
 

@@ -25,6 +25,16 @@ impl Shape {
             Shape::Sphere { radius } => *radius,
         }
     }
+
+    pub fn from_radius(radius: f64) -> RequestResult<Self> {
+        if radius == 0.0 {
+            Ok(Shape::Point)
+        } else if radius > 0.0 {
+            Ok(Shape::Sphere { radius })
+        } else {
+            Err(BadRequest("size must be >= 0".into()))
+        }
+    }
 }
 
 /// Any physics object in space
@@ -89,8 +99,8 @@ impl Body {
         self
     }
 
-    pub fn with_sphere_shape(mut self, radius: f64) -> Self {
-        self.shape = Element::new(Shape::Sphere { radius });
+    pub fn with_shape(mut self, shape: Shape) -> Self {
+        self.shape = Element::new(shape);
         self
     }
 
@@ -109,8 +119,6 @@ impl Body {
         self
     }
 
-    /// Attaches the body to the given entty, and adds a gravity body if the mass is at least
-    /// GRAVITY_BODY_THRESH
     pub fn install(self, state: &mut State) -> Id<Body> {
         let class_name = match self.class {
             BodyClass::Celestial => "celestial".to_string(),
@@ -175,14 +183,9 @@ impl Body {
                 move |state| Ok(&mut state.get_mut(id)?.shape),
             )
             .map_output(|_, shape| Ok(shape.radius()))
-            .map_input(|_, radius| {
-                if radius == 0.0 {
-                    Ok((Shape::Point, Ok(())))
-                } else if radius > 0.0 {
-                    Ok((Shape::Sphere { radius }, Ok(())))
-                } else {
-                    Ok((Shape::Point, Err(BadRequest("size must be >= 0".into()))))
-                }
+            .map_input(|_, radius| match Shape::from_radius(radius) {
+                Ok(shape) => Ok((shape, Ok(()))),
+                Err(e) => Ok((Shape::Point, Err(e))),
             })
             .map_into(),
         );

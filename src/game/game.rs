@@ -25,7 +25,7 @@ fn create_celestial(state: &mut State, scale: f64, info: CelestialInfo) -> Id<Bo
         .with_class(BodyClass::Celestial)
         .with_position(pos)
         .with_velocity(Vector3::new(0.0, vel, 0.0) + parent_vel)
-        .with_sphere_shape(info.radius * scale)
+        .with_shape(Shape::from_radius(info.radius * scale).unwrap())
         .with_mass(info.mass * scale)
         .with_color(ColorRGB::from_u32(info.color))
         .with_name(info.name.to_string())
@@ -38,7 +38,7 @@ fn create_planet_9(state: &mut State, scale: f64) {
         .with_class(BodyClass::Celestial)
         .with_position(Point3::new(3.0e8, 0.0, 6.0e7) * scale)
         .with_velocity(Vector3::new(0.0, -12.0, 0.0))
-        .with_sphere_shape(12000.0 * scale)
+        .with_shape(Shape::from_radius(12000.0 * scale).unwrap())
         .with_mass(6e+22 * scale)
         .with_color(ColorRGB::from_u32(0x2e5747))
         .with_name("Planet 9".to_string())
@@ -140,7 +140,6 @@ pub fn init(state: &mut State) {
 }
 
 pub fn physics_tick(state: &mut State, delta: f64) {
-    *state.root.time.get_mut() += delta;
     apply_acceleration(state, delta);
     apply_gravity(state, delta);
     apply_collisions(state, delta);

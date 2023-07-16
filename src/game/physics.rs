@@ -413,7 +413,7 @@ mod collision_tests {
 
     #[test]
     fn no_collisions_for_single_sphere() {
-        assert_signle_does_not_collide(Body::new().with_sphere_shape(1.0));
+        assert_signle_does_not_collide(Body::new().with_shape(Shape::from_radius(1.0).unwrap()));
     }
 
     #[test]
@@ -421,14 +421,14 @@ mod collision_tests {
         assert_signle_does_not_collide(
             Body::new()
                 .with_velocity(Vector3::new(3.0, 0.5, -2.0))
-                .with_sphere_shape(1.0),
+                .with_shape(Shape::from_radius(1.0).unwrap()),
         );
     }
 
     #[test]
     fn respects_delta_time() {
         let mut state = State::new();
-        state.add_without_object(Body::new().with_sphere_shape(1.0));
+        state.add_without_object(Body::new().with_shape(Shape::from_radius(1.0).unwrap()));
         state.add_without_object(
             Body::new()
                 .with_position(Point3::new(2.0, 0.0, 0.0))
@@ -441,17 +441,17 @@ mod collision_tests {
     #[test]
     fn stationary_non_touching_spheres_do_not_collide() {
         assert_do_not_collide(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(3.0, 0.0, 0.0))
-                .with_sphere_shape(1.0),
+                .with_shape(Shape::from_radius(1.0).unwrap()),
         );
     }
 
     #[test]
     fn stationary_non_touching_sphere_and_point_do_not_collide() {
         assert_do_not_collide(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new().with_position(Point3::new(2.0, 0.0, 0.0)),
         );
     }
@@ -459,7 +459,7 @@ mod collision_tests {
     #[test]
     fn point_inside_bounding_box_does_not_collide_with_sphere() {
         assert_do_not_collide(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new().with_position(Point3::new(0.9, 0.9, 0.9)),
         );
     }
@@ -467,7 +467,7 @@ mod collision_tests {
     #[test]
     fn point_does_not_collide_with_sphere_when_entering_bounding_box() {
         assert_do_not_collide(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(1.1, 1.1, 1.1))
                 .with_velocity(Vector3::new(-0.1, -0.1, -0.1)),
@@ -487,7 +487,7 @@ mod collision_tests {
     #[test]
     fn stationary_point_inside_stationary_sphere_does_not_collide() {
         assert_do_not_collide(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new().with_position(Point3::new(0.2, 0.2, 0.2)),
         );
     }
@@ -495,17 +495,17 @@ mod collision_tests {
     #[test]
     fn stationary_overlapping_spheres_do_not_collide() {
         assert_do_not_collide(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(1.0, 0.0, 0.0))
-                .with_sphere_shape(1.0),
+                .with_shape(Shape::from_radius(1.0).unwrap()),
         );
     }
 
     #[test]
     fn moving_point_collides_with_sphere() {
         assert_collides(
-            Body::new().with_sphere_shape(2.0),
+            Body::new().with_shape(Shape::from_radius(2.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(2.5, 0.0, 0.0))
                 .with_velocity(Vector3::new(-1.0, 0.0, 0.0)),
@@ -516,11 +516,11 @@ mod collision_tests {
     #[test]
     fn moving_sphere_collides_with_stationary_sphere() {
         assert_collides(
-            Body::new().with_sphere_shape(0.3),
+            Body::new().with_shape(Shape::from_radius(0.3).unwrap()),
             Body::new()
                 .with_position(Point3::new(1.0, 0.0, 0.0))
                 .with_velocity(Vector3::new(-1.0, 0.0, 0.0))
-                .with_sphere_shape(0.2),
+                .with_shape(Shape::from_radius(0.2).unwrap()),
             0.5,
         );
     }
@@ -530,11 +530,11 @@ mod collision_tests {
         assert_collides(
             Body::new()
                 .with_velocity(Vector3::new(1.0, 0.0, 0.0))
-                .with_sphere_shape(1.0),
+                .with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(3.0, 0.0, 0.0))
                 .with_velocity(Vector3::new(-1.0, 0.0, 0.0))
-                .with_sphere_shape(1.0),
+                .with_shape(Shape::from_radius(1.0).unwrap()),
             0.5,
         );
     }
@@ -542,7 +542,7 @@ mod collision_tests {
     #[test]
     fn point_collides_with_stationary_sphere_even_when_it_would_make_it_out_the_back() {
         assert_collides(
-            Body::new().with_sphere_shape(1.0),
+            Body::new().with_shape(Shape::from_radius(1.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(2.0, 0.0, 0.0))
                 .with_velocity(Vector3::new(-4.0, 0.0, 0.0)),
@@ -559,11 +559,11 @@ mod collision_tests {
             Body::new()
                 .with_position(Point3::new(0.0, -1.0, -0.5))
                 .with_velocity(Vector3::new(1.0, 0.0, 0.0))
-                .with_sphere_shape(2.0),
+                .with_shape(Shape::from_radius(2.0).unwrap()),
             Body::new()
                 .with_position(Point3::new(3.0, 1.0, 0.0))
                 .with_velocity(Vector3::new(-2.0, 0.0, 1.0))
-                .with_sphere_shape(1.0),
+                .with_shape(Shape::from_radius(1.0).unwrap()),
             0.304_564,
         );
     }
