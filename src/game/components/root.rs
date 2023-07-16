@@ -3,8 +3,9 @@ use super::*;
 pub struct Root {
     pub error: Signal<String>,
     pub time: Element<f64>,
-    pub physics_ticks_per_network_tick: Element<u64>,
-    pub physics_tick_delta: Element<f64>,
+    pub time_per_time: Element<f64>,
+    pub physics_tick_duration: Element<f64>,
+    pub network_tick_interval: Element<f64>,
     pub min_roundtrip_time: Element<f64>,
     pub pause_at: Element<Option<f64>>,
     paused: Signal<f64>,
@@ -18,8 +19,9 @@ impl Default for Root {
         Self {
             error: Signal::new(),
             time: Element::new(0.0),
-            physics_ticks_per_network_tick: Element::new(4),
-            physics_tick_delta: Element::new(0.05),
+            time_per_time: Element::new(1.0),
+            physics_tick_duration: Element::new(0.02),
+            network_tick_interval: Element::new(0.15),
             min_roundtrip_time: Element::new(0.1),
             pause_at: Element::new(None),
             paused: Signal::new(),
@@ -59,32 +61,49 @@ impl Root {
         obj.add_property("time", ROConduit::new_into(|state| Ok(&state.root.time)));
 
         obj.add_property(
-            "physics_ticks_per_network_tick",
+            "time_per_time",
             RWConduit::new(
-                |state| Ok(&state.root.physics_ticks_per_network_tick),
-                |state| Ok(&mut state.root.physics_ticks_per_network_tick),
+                |state| Ok(&state.root.time_per_time),
+                |state| Ok(&mut state.root.time_per_time),
             )
-            .map_input(|state, ticks| {
-                // TODO: use set_physics_ticks_per_network_tick()
-                if ticks == 0 && *state.root.physics_ticks_per_network_tick > 0 {
-                    state.root.paused.fire(*state.root.time);
+            .map_input(|state, tpt| {
+                if tpt >= 0.0 {
+                    state.root.time_per_time_will_be_set_to(tpt);
+                    Ok((tpt, Ok(())))
+                } else {
+                    Err(BadRequest("must be >=0".into()))
                 }
-                Ok((ticks, Ok(())))
             })
             .map_into(),
         );
 
         obj.add_property(
-            "physics_tick_delta",
+            "physics_tick_duration",
             RWConduit::new(
-                |state| Ok(&state.root.physics_tick_delta),
-                |state| Ok(&mut state.root.physics_tick_delta),
+                |state| Ok(&state.root.physics_tick_duration),
+                |state| Ok(&mut state.root.physics_tick_duration),
             )
-            .map_input(|_, delta: f64| {
-                if delta > 0.0 && delta.is_finite() {
-                    Ok((delta, Ok(())))
+            .map_input(|_, d: f64| {
+                if d > 0.0 && d.is_finite() {
+                    Ok((d, Ok(())))
                 } else {
                     Err(BadRequest("must be >0 and finite".into()))
+                }
+            })
+            .map_into(),
+        );
+
+        obj.add_property(
+            "network_tick_interval",
+            RWConduit::new(
+                |state| Ok(&state.root.network_tick_interval),
+                |state| Ok(&mut state.root.network_tick_interval),
+            )
+            .map_input(|_, d: f64| {
+                if d >= 0.0 && d.is_finite() {
+                    Ok((d, Ok(())))
+                } else {
+                    Err(BadRequest("must be >=0 and finite".into()))
                 }
             })
             .map_into(),
@@ -177,10 +196,9 @@ impl Root {
         obj.add_property("bodies", ComponentListConduit::<Body>::new().map_into());
     }
 
-    pub fn set_physics_ticks_per_network_tick(&mut self, ticks: u64) {
-        if ticks == 0 && *self.physics_ticks_per_network_tick > 0 {
+    pub fn time_per_time_will_be_set_to(&mut self, tpt: f64) {
+        if tpt.is_zero() && *self.time_per_time > 0.0 {
             self.paused.fire(*self.time);
         }
-        self.physics_ticks_per_network_tick.set(ticks);
     }
 }

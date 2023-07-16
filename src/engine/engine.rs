@@ -41,23 +41,28 @@ impl Engine {
     pub fn tick(&mut self) -> bool {
         self.connections.process_inbound_messages(&mut self.state);
 
-        let physics_tick_delta = *self.state.root.physics_tick_delta;
-        let physics_ticks_per_network_tick = *self.state.root.physics_ticks_per_network_tick;
+        let physics_dt = *self.state.root.physics_tick_duration;
         let min_roundtrip_time = *self.state.root.min_roundtrip_time;
-        self.metronome.set_params(
-            (physics_ticks_per_network_tick as f64) * physics_tick_delta,
-            min_roundtrip_time,
-        );
+        let time_per_time = *self.state.root.time_per_time;
+        let physics_ticks = ((*self.state.root.network_tick_interval * time_per_time / physics_dt).ceil() as u64).min(5000);
+        let effective_target_network_tick = if time_per_time > 0.0 {
+            (physics_ticks as f64) * physics_dt / time_per_time
+        } else {
+            *self.state.root.network_tick_interval
+        };
+        self.metronome.set_params(effective_target_network_tick, min_roundtrip_time,);
 
-        for _ in 0..physics_ticks_per_network_tick {
-            *self.state.root.time.get_mut() += physics_tick_delta;
+        for _ in 0..physics_ticks {
+            *self.state.root.time.get_mut() += physics_dt;
             if let Some(pause_at) = *self.state.root.pause_at {
                 if *self.state.root.time >= pause_at {
-                    self.state.root.set_physics_ticks_per_network_tick(0);
+                    self.state.root.time_per_time_will_be_set_to(0.0);
+                    self.state.root.time_per_time.set(0.0);
+                    self.state.root.pause_at.set(None);
                     break;
                 }
             }
-            (self.physics_tick)(&mut self.state, physics_tick_delta);
+            (self.physics_tick)(&mut self.state, physics_dt);
         }
 
         self.state
