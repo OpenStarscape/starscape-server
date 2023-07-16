@@ -26,6 +26,7 @@ impl<'a> Serialize for Contextualized<'a, Value> {
             }
             Value::Scalar(value) => serializer.serialize_f64(*value),
             Value::Integer(value) => serializer.serialize_i64(*value),
+            Value::Bool(value) => serializer.serialize_bool(*value),
             Value::Text(value) => serializer.serialize_str(value),
             Value::Object(id) => {
                 use serde::ser::SerializeTuple;
@@ -43,6 +44,14 @@ impl<'a> Serialize for Contextualized<'a, Value> {
                 let mut outer = serializer.serialize_tuple(1)?;
                 outer.serialize_element(&Contextualized::new(list, self.ctx))?;
                 outer.end()
+            }
+            Value::Map(map) => {
+                use serde::ser::SerializeMap;
+                let mut s = serializer.serialize_map(Some(map.len()))?;
+                for (k, v) in map.iter() {
+                    s.serialize_entry(k, &Contextualized::new(v, self.ctx))?;
+                }
+                s.end()
             }
             Value::Null => serializer.serialize_none(),
         }

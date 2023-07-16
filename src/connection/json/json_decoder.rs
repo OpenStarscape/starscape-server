@@ -68,9 +68,6 @@ impl JsonDecoder {
     ) -> RequestResult<Value> {
         match serde_val {
             serde_json::Value::Null => Ok(Value::Null),
-            serde_json::Value::Bool(_) => {
-                Err(InternalError("decoding bool not implemented".to_string()))
-            }
             serde_json::Value::Number(n) => {
                 if let Some(i) = n.as_i64() {
                     Ok(Value::Integer(i))
@@ -80,11 +77,14 @@ impl JsonDecoder {
                     Err(BadMessage(format!("{} is an invalid number", serde_val)))
                 }
             }
+            serde_json::Value::Bool(b) => Ok(Value::Bool(*b)),
             serde_json::Value::String(text) => Ok(Value::Text(text.to_string())),
             serde_json::Value::Array(array) => self.decode_wrapper_array(ctx, array),
-            serde_json::Value::Object(_) => {
-                Err(InternalError("decoding map not implemented".to_string()))
-            }
+            serde_json::Value::Object(map) => Ok(Value::Map(
+                map.iter()
+                    .map(|(k, v)| Ok((k.to_string(), self.decode_value(ctx, v)?)))
+                    .collect::<RequestResult<HashMap<String, Value>>>()?,
+            )),
         }
     }
 

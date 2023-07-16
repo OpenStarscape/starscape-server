@@ -8,13 +8,12 @@ pub enum Value {
     Vector(Vector3<f64>),
     Scalar(f64),
     Integer(i64),
+    Bool(bool),
     Text(String),
     Object(GenericId),
     Array(Vec<Value>),
+    Map(HashMap<String, Value>),
     Null,
-    // TODO: add boolean
-    // TODO: add map
-    // (for each JSON encoding, JSON decoding and Value getting needs to be tested)
 }
 
 impl AssertIsSync for Value {}
@@ -51,9 +50,11 @@ impl Debug for Value {
                 }
             }
             Value::Integer(i) => write!(f, "{}", i),
+            Value::Bool(b) => write!(f, "{}", b),
             Value::Text(t) => write!(f, "{:?}", t),
             Value::Object(id) => write!(f, "{:?}", id),
             Value::Array(array) => write!(f, "{:?}", array),
+            Value::Map(map) => write!(f, "{:?}", map),
             Value::Null => write!(f, "null"),
         }
     }
@@ -113,6 +114,12 @@ impl From<u32> for Value {
     }
 }
 
+impl From<bool> for Value {
+    fn from(value: bool) -> Self {
+        Value::Bool(value)
+    }
+}
+
 impl From<GenericId> for Value {
     fn from(id: GenericId) -> Self {
         if id.is_null() {
@@ -145,6 +152,15 @@ where
 {
     fn from(vec: Vec<T>) -> Self {
         Value::Array(vec.into_iter().map(Into::into).collect())
+    }
+}
+
+impl<T> From<HashMap<String, T>> for Value
+where
+    T: Into<Value>,
+{
+    fn from(mut map: HashMap<String, T>) -> Self {
+        Value::Map(map.drain().map(|(k, v)| (k, v.into())).collect())
     }
 }
 
@@ -362,6 +378,15 @@ impl From<Value> for DecodeResult<u64> {
     }
 }
 
+impl From<Value> for DecodeResult<bool> {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Bool(value) => Ok(value),
+            _ => Err(BadRequest(format!("{:?} is not a bool", value))),
+        }
+    }
+}
+
 impl From<Value> for DecodeResult<String> {
     fn from(value: Value) -> Self {
         match value {
@@ -413,6 +438,18 @@ where
     fn from(value: Value) -> Self {
         match value {
             Value::Array(vec) => vec.into_iter().map(Into::into).collect(),
+            _ => Err(BadRequest(format!("{:?} is not an array", value))),
+        }
+    }
+}
+
+impl<T> From<Value> for DecodeResult<HashMap<String, T>>
+where
+    Value: Into<DecodeResult<T>>,
+{
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Map(map) => map.into_iter().map(|(k, v)| Ok((k, v.into()?))).collect(),
             _ => Err(BadRequest(format!("{:?} is not an array", value))),
         }
     }
