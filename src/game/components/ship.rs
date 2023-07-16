@@ -90,13 +90,13 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
             move |state| Ok(&state.get(id)?.ship()?.autopilot.scheme),
             move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.autopilot.scheme),
         )
-        .map_output(|scheme| {
+        .map_output(|_, scheme| {
             Ok(match scheme {
                 AutopilotScheme::Off => "off".to_string(),
                 AutopilotScheme::Orbit => "orbit".to_string(),
             })
         })
-        .map_input(|scheme: String| match &scheme[..] {
+        .map_input(|_, scheme: String| match &scheme[..] {
             "off" => (Some(AutopilotScheme::Off), Ok(())),
             "orbit" => (Some(AutopilotScheme::Orbit), Ok(())),
             _ => (

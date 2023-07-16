@@ -71,7 +71,7 @@ impl Object {
         C: Conduit<ActionsDontProduceOutputSilly, Value> + 'static,
     {
         let conduit =
-            Arc::new(conduit.map_output(|_| unreachable!())) as Arc<dyn Conduit<Value, Value>>;
+            Arc::new(conduit.map_output(|_, _| unreachable!())) as Arc<dyn Conduit<Value, Value>>;
         let id = self.id; // TODO drop in Rust 2021
         self.add_conduit(
             name,

@@ -36,7 +36,7 @@ impl Root {
 
         obj.add_signal(
             "error",
-            error_signal.map_output(|iter| Ok(iter.into_iter().map(Into::into).collect())),
+            error_signal.map_output(|_, iter| Ok(iter.into_iter().map(Into::into).collect())),
         );
 
         obj.add_action(
@@ -53,7 +53,7 @@ impl Root {
 
         obj.add_signal(
             "ship_created",
-            ship_created_signal.map_output(|iter| Ok(iter.into_iter().map(Into::into).collect())),
+            ship_created_signal.map_output(|_, iter| Ok(iter.into_iter().map(Into::into).collect())),
         );
         obj.add_action(
             "create_ship",

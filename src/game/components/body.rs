@@ -174,8 +174,8 @@ impl Body {
                 move |state| Ok(&state.get(id)?.shape),
                 move |state| Ok(&mut state.get_mut(id)?.shape),
             )
-            .map_output(|shape| Ok(shape.radius()))
-            .map_input(|radius| {
+            .map_output(|_, shape| Ok(shape.radius()))
+            .map_input(|_, radius| {
                 if radius == 0.0 {
                     (Some(Shape::Point), Ok(()))
                 } else if radius > 0.0 {
