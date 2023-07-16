@@ -93,6 +93,11 @@ impl ConnectionImpl {
             }
             RequestMethod::Set(value) => {
                 handler.set_property(self.self_key, id, property, value)?;
+                // If a client tries to set a property but it fails (or gets set back to the
+                // original value on the same tick) the client could belive the set worked and we
+                // wouldn't otherwise send a notification that it didn't. always replying to sets
+                // with the new value fixes this.
+                self.pending_get_requests.insert((id, property.into()));
             }
             RequestMethod::Get => {
                 // it doesn't matter if it's already there or not, it's not an error to make two
