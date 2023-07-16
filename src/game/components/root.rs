@@ -65,6 +65,7 @@ impl Root {
                 |state| Ok(&mut state.root.physics_ticks_per_network_tick),
             )
             .map_input(|state, ticks| {
+                // TODO: use set_physics_ticks_per_network_tick()
                 if ticks == 0 && *state.root.physics_ticks_per_network_tick > 0 {
                     state.root.paused.fire(*state.root.time);
                 }
@@ -158,5 +159,12 @@ impl Root {
         );
 
         obj.add_property("bodies", ComponentListConduit::<Body>::new().map_into());
+    }
+
+    pub fn set_physics_ticks_per_network_tick(&mut self, ticks: u64) {
+        if ticks == 0 && *self.physics_ticks_per_network_tick > 0 {
+            self.paused.fire(*self.time);
+        }
+        self.physics_ticks_per_network_tick.set(ticks);
     }
 }

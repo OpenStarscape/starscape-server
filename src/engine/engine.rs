@@ -53,7 +53,7 @@ impl Engine {
             *self.state.root.time.get_mut() += physics_tick_delta;
             if let Some(pause_at) = *self.state.root.pause_at {
                 if *self.state.root.time >= pause_at {
-                    self.state.root.physics_ticks_per_network_tick.set(0);
+                    self.state.root.set_physics_ticks_per_network_tick(0);
                     break;
                 }
             }
