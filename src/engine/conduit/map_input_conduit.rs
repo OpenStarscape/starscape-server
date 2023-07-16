@@ -24,7 +24,7 @@ impl<C, F, Get, SetInner, SetOuter> Conduit<Get, SetOuter>
     for MapInputConduit<C, Get, SetInner, SetOuter, F>
 where
     C: Conduit<Get, SetInner>,
-    F: Fn(&mut State, SetOuter) -> (Option<SetInner>, RequestResult<()>) + Send + Sync,
+    F: Fn(&mut State, SetOuter) -> RequestResult<(SetInner, RequestResult<()>)> + Send + Sync,
     Get: Send + Sync,
     SetInner: Send + Sync,
     SetOuter: Send + Sync,
@@ -34,10 +34,8 @@ where
     }
 
     fn input(&self, state: &mut State, value: SetOuter) -> RequestResult<()> {
-        let (value, result) = (self.f)(state, value);
-        if let Some(value) = value {
-            self.conduit.input(state, value)?;
-        }
+        let (value, result) = (self.f)(state, value)?;
+        self.conduit.input(state, value)?;
         result
     }
 }

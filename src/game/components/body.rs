@@ -177,14 +177,11 @@ impl Body {
             .map_output(|_, shape| Ok(shape.radius()))
             .map_input(|_, radius| {
                 if radius == 0.0 {
-                    (Some(Shape::Point), Ok(()))
+                    Ok((Shape::Point, Ok(())))
                 } else if radius > 0.0 {
-                    (Some(Shape::Sphere { radius }), Ok(()))
+                    Ok((Shape::Sphere { radius }, Ok(())))
                 } else {
-                    (
-                        Some(Shape::Point),
-                        Err(BadRequest("size must be >= 0".into())),
-                    )
+                    Ok((Shape::Point, Err(BadRequest("size must be >= 0".into()))))
                 }
             })
             .map_into(),

@@ -1,5 +1,20 @@
 use super::*;
 
+fn validate_thrust(max: f64, thrust: Vector3<f64>) -> (Vector3<f64>, RequestResult<()>) {
+    let magnitude = thrust.magnitude();
+    if magnitude <= max + EPSILON {
+        (thrust, Ok(()))
+    } else {
+        let fixed = thrust.normalize() * max;
+        let err =
+            BadRequest(format!(
+            "{:?} has a magnitude of {:?}, which is greater than the maximum allowed thrust {:?}",
+            Value::from(thrust), Value::from(magnitude), Value::from(max)
+        ));
+        (fixed, Err(err))
+    }
+}
+
 /// The autopilot program to use
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AutopilotScheme {
@@ -39,23 +54,6 @@ impl Ship {
             },
         }
     }
-
-    /*
-    fn set_thrust(&mut self, thrust: Vector3<f64>) -> RequestResult<()> {
-        let magnitude = thrust.magnitude();
-        if magnitude > *self.max_acceleration + EPSILON {
-            let fixed = thrust.normalize() * *self.max_acceleration;
-            self.acceleration.set(fixed);
-            Err(BadRequest(format!(
-                "{:?} has a magnitude of {:?}, which is greater than the maximum allowed thrust {:?}",
-                Value::from(thrust), Value::from(magnitude), Value::from(*self.max_acceleration)
-            )))
-        } else {
-            self.acceleration.set(thrust);
-            Ok(())
-        }
-    }
-    */
 }
 
 pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> Id<Body> {
@@ -69,19 +67,32 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
 
     obj.add_property(
         "max_accel",
-        RWConduit::new_into(
+        RWConduit::new(
             move |state| Ok(&state.get(id)?.ship()?.max_acceleration),
             move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.max_acceleration),
-        ),
+        )
+        .map_input(move |state, max| {
+            let accel = &mut state.get_mut(id)?.ship_mut()?.acceleration;
+            let (fixed, _) = validate_thrust(max, **accel);
+            accel.set(fixed);
+            Ok((max, Ok(())))
+        })
+        .map_into(),
     );
 
     obj.add_property(
         "accel",
-        RWConduit::new_into(
+        RWConduit::new(
             move |state| Ok(&state.get(id)?.ship()?.acceleration),
             move |state| Ok(&mut state.get_mut(id)?.ship_mut()?.acceleration),
-        ),
-        // TODO: validate
+        )
+        .map_input(move |state, accel| {
+            Ok(validate_thrust(
+                *state.get(id)?.ship()?.max_acceleration,
+                accel,
+            ))
+        })
+        .map_into(),
     );
 
     obj.add_property(
@@ -97,15 +108,12 @@ pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f
             })
         })
         .map_input(|_, scheme: String| match &scheme[..] {
-            "off" => (Some(AutopilotScheme::Off), Ok(())),
-            "orbit" => (Some(AutopilotScheme::Orbit), Ok(())),
-            _ => (
-                None,
-                Err(BadRequest(format!(
-                    "{:?} is an invalid autopilot scheme",
-                    scheme
-                ))),
-            ),
+            "off" => Ok((AutopilotScheme::Off, Ok(()))),
+            "orbit" => Ok((AutopilotScheme::Orbit, Ok(()))),
+            _ => Err(BadRequest(format!(
+                "{:?} is an invalid autopilot scheme",
+                scheme
+            ))),
         })
         .map_into(),
     );
