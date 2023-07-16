@@ -54,7 +54,7 @@ impl Metronome {
             // doing it this way instead of taking current time prevents drift
             self.prev_tick_start += Duration::from_secs_f64(self.target_tick);
         } else {
-            warn!(
+            trace!(
                 "tick took {:?} which is {:?} too long",
                 Duration::from_secs_f64(elapsed),
                 Duration::from_secs_f64(self.min_sleep - sleep_time)
