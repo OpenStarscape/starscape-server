@@ -53,7 +53,7 @@ impl Engine {
         if !should_quit {
             self.state.metronome.sleep();
         }
-        should_quit
+        !should_quit
     }
 }
 
