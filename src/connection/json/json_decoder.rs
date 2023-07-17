@@ -623,9 +623,9 @@ mod message_tests {
                 \"mtype\": \"set\", \
                 \"object\": 5, \
                 \"property\": \"foobar\", \
-                \"value\": {} \
+                \"value\": [false] \
             }\n",
-            "map not implemented",
+            "array-wrapped value",
         );
     }
 
