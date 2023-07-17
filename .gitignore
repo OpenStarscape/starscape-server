@@ -1,7 +1,6 @@
 # rustc
 /target
 **/*.rs.bk
-Cargo.lock
 
 # Eclipse
 .project
