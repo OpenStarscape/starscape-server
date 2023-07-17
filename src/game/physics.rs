@@ -208,6 +208,14 @@ pub fn apply_motion(state: &mut State, dt: f64) {
     }
 }
 
+pub fn physics_tick(state: &mut State, delta: f64) {
+    apply_acceleration(state, delta);
+    apply_gravity(state, delta);
+    apply_collisions(state, delta);
+    apply_motion(state, delta);
+    run_autopilot(state, delta);
+}
+
 #[cfg(test)]
 mod gravity_tests {
     use super::*;

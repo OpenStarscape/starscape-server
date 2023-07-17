@@ -26,6 +26,7 @@ mod server;
 
 use connection::*;
 use engine::*;
+use game::{game_config_entries, GameConfig};
 use helpers::*;
 use server::*;
 
@@ -111,11 +112,11 @@ async fn main() {
     // Create the game engine. The `init` and `physics_tick` callbacks are the entiry points into
     // the `game` module
     let mut engine = Engine::new(
-        &master_conf.engine,
+        &master_conf.game,
         master_conf.trace_level,
         new_session_rx,
         game::init,
-        game::physics_tick,
+        game::tick,
     );
 
     if master_conf.trace_level >= 1 {

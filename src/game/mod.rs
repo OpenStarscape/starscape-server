@@ -6,12 +6,14 @@ mod autopilot;
 mod components;
 mod conduits;
 mod game;
+mod game_config;
 mod physics;
 #[cfg(test)]
 mod test;
 
 pub use components::*;
-pub use game::{init, physics_tick};
+pub use game::{init, tick};
+pub use game_config::*;
 
 use autopilot::*;
 use conduits::*;

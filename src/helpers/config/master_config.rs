@@ -6,7 +6,7 @@ pub struct MasterConfig {
     /// If to abort with success (for example, after showing --help)
     pub happy_exit: bool,
     pub trace_level: TraceLevel,
-    pub engine: EngineConfig,
+    pub game: GameConfig,
     pub server: ServerConfig,
 }
 
@@ -17,7 +17,7 @@ impl Default for MasterConfig {
         Self {
             happy_exit: false,
             trace_level: 1,
-            engine: EngineConfig::default(),
+            game: GameConfig::default(),
             server: ServerConfig::default(),
         }
     }

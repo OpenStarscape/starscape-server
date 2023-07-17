@@ -8,6 +8,7 @@ pub struct Root {
     pub network_tick_interval: Element<f64>,
     pub min_roundtrip_time: Element<f64>,
     pub pause_at: Element<Option<f64>>,
+    pub quit_at: Element<Option<f64>>,
     paused: Signal<f64>,
     ship_created: Signal<Id<Body>>,
     max_connections: Element<u64>,
@@ -24,6 +25,7 @@ impl Default for Root {
             network_tick_interval: Element::new(0.15),
             min_roundtrip_time: Element::new(0.1),
             pause_at: Element::new(None),
+            quit_at: Element::new(None),
             paused: Signal::new(),
             ship_created: Signal::new(),
             max_connections: Element::new(0),
@@ -128,6 +130,14 @@ impl Root {
         obj.add_signal(
             "paused",
             paused_signal.map_output(|_, iter| Ok(iter.into_iter().map(Into::into).collect())),
+        );
+
+        obj.add_property(
+            "quit_at",
+            RWConduit::new_into(
+                |state| Ok(&state.root.quit_at),
+                |state| Ok(&mut state.root.quit_at),
+            ),
         );
 
         obj.add_property(

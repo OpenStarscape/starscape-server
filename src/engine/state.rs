@@ -64,6 +64,7 @@ impl AsMut<Collection<game::Ship>> for Data {
 /// will be passed a reference to it. Entities and components inherit the state's mutability (if a
 /// function is passed an immutable state, it can't change anything).
 pub struct State {
+    pub metronome: Metronome,
     root_id: GenericId,
     pub notif_queue: NotifQueue,
     data: Data,
@@ -74,6 +75,7 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         let mut state = Self {
+            metronome: Metronome::default(),
             root_id: GenericId::null(),
             notif_queue: NotifQueue::new(),
             data: Data::default(),
