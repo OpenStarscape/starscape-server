@@ -23,7 +23,7 @@ async fn handle_http_request(
     stream: impl warp::Stream<Item = Result<impl warp::Buf, warp::Error>>,
 ) -> Result<Box<dyn warp::Reply>, core::convert::Infallible> {
     // Requires futures::StreamExt to be in scope
-    let stream = stream.map(|stream| stream.map(|mut buffer| buffer.to_bytes()));
+    let stream = stream.map(|stream| stream.map(|mut buffer| buffer.copy_to_bytes(buffer.remaining())));
     match endpoint.session_request(stream).await {
         Ok(body) => {
             // It would be nice to be able to send off a SessionBuilder here, but alas we do not

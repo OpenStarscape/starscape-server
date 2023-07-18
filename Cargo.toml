@@ -17,8 +17,9 @@ serde = "1"
 ctrlc = "3"
 mio = "0.6"
 futures = "0.3"
-tokio = { version = "0.2", features = ["full"] }
-warp = { version = "0.2", features = ["tls"] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+warp = { version = "0.3", features = ["tls"] }
 webrtc-unreliable = "0.5"
 get_if_addrs = "0.5"
 lazy_static = "1"

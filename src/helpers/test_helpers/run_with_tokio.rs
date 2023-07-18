@@ -16,7 +16,7 @@ where
     */
 
     run_with_timeout(|| {
-        let mut rt = Runtime::new().unwrap();
+        let rt = Runtime::new().unwrap();
         rt.block_on(async {
             f();
         });

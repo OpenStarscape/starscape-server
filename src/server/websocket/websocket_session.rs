@@ -7,7 +7,7 @@ async fn send(
     outbound_tx: &mut futures::stream::SplitSink<warp::ws::WebSocket, warp::ws::Message>,
     outbound_rx: tokio::sync::mpsc::Receiver<Vec<u8>>,
 ) {
-    if let Err(e) = outbound_rx
+    if let Err(e) = tokio_stream::wrappers::ReceiverStream::new(outbound_rx)
         .map(|packet| Ok(warp::ws::Message::binary(packet)))
         .forward(outbound_tx)
         .await
