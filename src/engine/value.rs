@@ -142,7 +142,7 @@ impl<T: 'static> From<Id<T>> for Value {
 
 impl From<ColorRGB> for Value {
     fn from(color: ColorRGB) -> Self {
-        Value::Text(format!("0x{:02X}{:02X}{:02X}", color.r, color.g, color.b))
+        Value::Text(format!("#{:02X}{:02X}{:02X}", color.r, color.g, color.b))
     }
 }
 
@@ -419,10 +419,10 @@ impl<T: 'static> From<Value> for DecodeResult<Id<T>> {
 impl From<Value> for DecodeResult<ColorRGB> {
     fn from(value: Value) -> Self {
         let s: String = Into::<DecodeResult<String>>::into(value)?;
-        if !s.starts_with("0x") {
-            return Err(BadRequest("color does not start with 0x".to_string()));
+        if !s.starts_with("#") {
+            return Err(BadRequest("color does not start with #".to_string()));
         }
-        let u = u32::from_str_radix(&s[2..], 16)
+        let u = u32::from_str_radix(&s[1..], 16)
             .map_err(|e| BadRequest(format!("could not parse color: {}", e)))?;
         if u >> 24 != 0 {
             return Err(BadRequest("color has too many digits".to_string()));
@@ -782,7 +782,7 @@ mod encode_tests {
     #[test]
     fn encodes_color_correctly() {
         let enc: Value = ColorRGB::from_u32(0x0F0080).into();
-        assert_eq!(enc, Text("0x0F0080".to_string()));
+        assert_eq!(enc, Text("#0F0080".to_string()));
     }
 
     #[test]
@@ -922,7 +922,7 @@ mod decode_tests {
     #[test]
     fn can_get_color() {
         let color = ColorRGB::from_u32(0xF801A2);
-        assert_decodes_to::<ColorRGB>(Text("0xF801a2".to_string()), color);
+        assert_decodes_to::<ColorRGB>(Text("#F801a2".to_string()), color);
     }
 
     #[test]
