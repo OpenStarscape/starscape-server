@@ -29,7 +29,7 @@ use helpers::*;
 use server::*;
 
 use cgmath::*;
-use futures::{executor::block_on, future, StreamExt};
+use futures::{executor::block_on, future};
 use slotmap::{HopSlotMap, Key, SlotMap};
 use weak_self::WeakSelf;
 
