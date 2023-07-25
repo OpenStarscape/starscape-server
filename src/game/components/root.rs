@@ -165,7 +165,7 @@ impl Root {
         obj.add_action(
             "create_ship",
             ActionConduit::new(|state, mut props: HashMap<String, Value>| {
-                let mut body = Body::new();
+                let mut body = Body::new().with_shape(Shape::from_radius(0.00001).unwrap());
                 if let Some(n) = props.remove("name") {
                     body = body.with_name(RequestResult::<String>::from(n)?);
                 }

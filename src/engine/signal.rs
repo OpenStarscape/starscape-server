@@ -108,7 +108,7 @@ impl<T: Clone + Send + Sync + 'static> Signal<T> {
                     .extend(std::iter::once(
                         Arc::downgrade(&self.dispatcher) as Weak<dyn Subscriber>
                     )),
-                Err(e) => error!("failed to fire signal: {}", e),
+                Err(e) => panic!("failed to fire signal: {}", e),
             }
         }
         pending.signal_events.push(data);
