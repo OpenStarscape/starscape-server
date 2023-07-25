@@ -16,10 +16,14 @@ pub struct Object {
 }
 
 impl Object {
-    pub fn new(id: GenericId) -> Self {
+    pub fn new(id: GenericId, notif_queue: &NotifQueue) -> Self {
+        let destroyed = Signal::new();
+        // prevents error from signal's notif queue not being initialized (happens when object
+        // is destroyed before any connection subscribes to any of it's properties)
+        destroyed.conduit(notif_queue);
         Self {
             id,
-            destroyed: Signal::new(),
+            destroyed,
             conduit_builders: HashMap::new(),
         }
     }

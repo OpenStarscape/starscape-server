@@ -127,9 +127,10 @@ impl State {
     {
         self.collection_mut().element.get_mut();
         let typed_key = self.collection_mut().map.insert(Thing::new(thing));
+        let notif_queue = &self.notif_queue;
         let generic_key = self
             .objects
-            .insert_with_key(move |key| Object::new(Id::<T>::new(typed_key, key).into()));
+            .insert_with_key(|key| Object::new(Id::<T>::new(typed_key, key).into(), notif_queue));
         self.collection_mut()
             .map
             .get_mut(typed_key)
@@ -141,9 +142,10 @@ impl State {
     }
 
     pub fn add_object(&mut self, type_name: &'static str) -> (GenericId, &mut Object) {
+        let notif_queue = &self.notif_queue;
         let generic_key = self
             .objects
-            .insert_with_key(|key| Object::new(GenericId::new(key, type_name)));
+            .insert_with_key(|key| Object::new(GenericId::new(key, type_name), notif_queue));
         // Use Object as the key type so that "Object" will be the type string used when the typed
         // id is turned into a generic id.
         let id = GenericId::new(generic_key, type_name);

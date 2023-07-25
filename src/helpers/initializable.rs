@@ -34,7 +34,7 @@ impl<T: PartialEq + Clone> Initializable<T> {
     pub fn get(&self) -> Result<&T, Box<dyn Error>> {
         self.value
             .as_ref()
-            .ok_or_else(|| format!("{} was not initialized", short_type_name::<Self>()).into())
+            .ok_or_else(|| format!("{} was not initialized", short_type_name::<T>()).into())
     }
 }
 
