@@ -43,7 +43,7 @@ pub struct Ship {
 }
 
 impl Ship {
-    fn new(max_acceleration: f64) -> Self {
+    pub fn new(max_acceleration: f64) -> Self {
         Self {
             max_acceleration: Element::new(max_acceleration),
             acceleration: Element::new(Vector3::zero()),
@@ -56,13 +56,9 @@ impl Ship {
     }
 }
 
-pub fn create_ship(state: &mut State, position: Point3<f64>, velocity: Vector3<f64>) -> Id<Body> {
-    let id = Body::new()
-        .with_class(BodyClass::Ship(Ship::new(1.0))) // 100G (too much)
-        .with_position(position)
-        .with_velocity(velocity)
-        .with_shape(Shape::from_radius(0.00001).unwrap())
-        .install(state);
+pub fn create_ship(state: &mut State, body: Body) -> Id<Body> {
+    let body = body.with_class(BodyClass::Ship(Ship::new(1.0))); // 100G (too much)
+    let id = body.install(state);
     let obj = state.object_mut(id).unwrap();
 
     obj.add_property(
@@ -145,17 +141,7 @@ mod tests {
     fn body_has_correct_position() {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
-        let ship = create_ship(&mut state, pos, Vector3::zero());
+        let ship = create_ship(&mut state, Body::new().with_position(pos));
         assert_eq!(*state.get(ship).unwrap().position, pos);
-    }
-
-    #[test]
-    fn body_has_sphere_shape() {
-        let mut state = State::new();
-        let ship = create_ship(&mut state, Point3::new(1.0, 2.0, 3.0), Vector3::zero());
-        assert_eq!(
-            *state.get(ship).unwrap().shape,
-            body::Shape::Sphere { radius: 0.00001 }
-        );
     }
 }

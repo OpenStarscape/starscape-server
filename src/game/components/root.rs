@@ -164,8 +164,27 @@ impl Root {
 
         obj.add_action(
             "create_ship",
-            ActionConduit::new(|state, (position, velocity)| {
-                let ship = create_ship(state, position, velocity);
+            ActionConduit::new(|state, mut props: HashMap<String, Value>| {
+                let mut body = Body::new();
+                if let Some(n) = props.remove("name") {
+                    body = body.with_name(RequestResult::<String>::from(n)?);
+                }
+                if let Some(p) = props.remove("position") {
+                    body = body.with_position(RequestResult::<Point3<f64>>::from(p)?);
+                }
+                if let Some(v) = props.remove("velocity") {
+                    body = body.with_velocity(RequestResult::<Vector3<f64>>::from(v)?);
+                }
+                if let Some(r) = props.remove("radius") {
+                    body = body.with_shape(Shape::from_radius(RequestResult::<f64>::from(r)?)?);
+                }
+                if let Some(r) = props.remove("mass") {
+                    body = body.with_mass(RequestResult::<f64>::from(r)?);
+                }
+                if !props.is_empty() {
+                    return Err(BadRequest(format!("invalid properties: {:?}", props)));
+                }
+                let ship = create_ship(state, body);
                 state.root.ship_created.fire(ship);
                 Ok(())
             })

@@ -7,7 +7,7 @@ use std::{
 /// tick takes.
 pub struct Metronome {
     /// The approximate time the last sleep() call exited. Assuming the rest of the code runs fast
-    /// enough to not trigger the min_sleep_time threshold, this is set incremented each tick by
+    /// enough to not trigger the min_sleep_time threshold, this is incremented each tick by
     /// target_tick rather than being set to the actual measured time. This prevents drift.
     prev_tick_start: Instant,
     /// The preferred amount of total time each tick should take. sleep() checks how much time was
