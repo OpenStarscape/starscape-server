@@ -166,6 +166,10 @@ pub fn tick(state: &mut State) -> bool {
             }
         }
         (physics_tick)(state, physics_dt);
+        if check_pause_conditions(state) {
+            state.root.time_per_time_will_be_set_to(0.0);
+            state.root.time_per_time.set(0.0);
+        }
     }
 
     if let Some(quit_at) = *state.root.quit_at {

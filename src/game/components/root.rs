@@ -1,5 +1,14 @@
 use super::*;
 
+enum PauseCondition {
+    Proximity {
+        a: Id<Body>,
+        b: Id<Body>,
+        distance: f64,
+        velocity: f64,
+    },
+}
+
 pub struct Root {
     pub error: Signal<String>,
     pub time: Element<f64>,
@@ -13,6 +22,7 @@ pub struct Root {
     ship_created: Signal<Id<Body>>,
     max_connections: Element<u64>,
     current_connections: Element<u64>,
+    pause_conditions: Vec<PauseCondition>,
 }
 
 impl Default for Root {
@@ -30,6 +40,7 @@ impl Default for Root {
             ship_created: Signal::new(),
             max_connections: Element::new(0),
             current_connections: Element::new(0),
+            pause_conditions: Vec::new(),
         }
     }
 }
@@ -222,6 +233,36 @@ impl Root {
             .map_into(),
         );
 
+        obj.add_action(
+            "pause_on_proximity",
+            ActionConduit::new(|state, mut props: HashMap<String, Value>| {
+                let a = props
+                    .remove("a")
+                    .ok_or(BadRequest("a not supplied".to_string()))
+                    .map(RequestResult::<Id<Body>>::from)??;
+                let b = props
+                    .remove("b")
+                    .ok_or(BadRequest("b not supplied".to_string()))
+                    .map(RequestResult::<Id<Body>>::from)??;
+                let distance = props
+                    .remove("distance")
+                    .ok_or(BadRequest("distance not supplied".to_string()))
+                    .map(RequestResult::<f64>::from)??;
+                let velocity = props
+                    .remove("velocity")
+                    .ok_or(BadRequest("velocity not supplied".to_string()))
+                    .map(RequestResult::<f64>::from)??;
+                state.root.pause_conditions.push(PauseCondition::Proximity {
+                    a,
+                    b,
+                    distance,
+                    velocity,
+                });
+                Ok(())
+            })
+            .map_into(),
+        );
+
         obj.add_property("bodies", ComponentListConduit::<Body>::new().map_into());
     }
 
@@ -230,4 +271,37 @@ impl Root {
             self.paused.fire(*self.time);
         }
     }
+}
+
+pub fn check_pause_conditions(state: &mut State) -> bool {
+    let mut paused = false;
+    let mut back_buffer = Vec::new();
+    std::mem::swap(&mut back_buffer, &mut state.root.pause_conditions);
+    back_buffer.retain(|condition| match condition {
+        PauseCondition::Proximity {
+            a,
+            b,
+            distance,
+            velocity,
+        } => {
+            let a = match state.get(*a) {
+                Ok(a) => a,
+                Err(_) => return false,
+            };
+            let b = match state.get(*b) {
+                Ok(b) => b,
+                Err(_) => return false,
+            };
+            let delta_d = a.position.distance(*b.position);
+            let delta_v = a.velocity.distance(*b.velocity);
+            if delta_d <= *distance && delta_v <= *velocity {
+                paused = true;
+                false
+            } else {
+                true
+            }
+        }
+    });
+    std::mem::swap(&mut back_buffer, &mut state.root.pause_conditions);
+    paused
 }
