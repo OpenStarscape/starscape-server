@@ -1,150 +1,57 @@
 use super::*;
 
-/// Parameters to calculate acceleration required to achieve a specific orbit. The algorithm that
-/// uses this assumes we're currently orbiting around the gravity body, and no other gravity wells
-/// have a significant effect.
-struct OrbitParams {
-    /// Our current position
-    position: Point3<f64>,
-    /// Our current velocity
-    velocity: Vector3<f64>,
-    /// Our max acceleration
-    max_acceleration: f64,
-    /// Position of the body we are currently orbiting around
-    grav_body_pos: Point3<f64>,
-    /// Velocity of the body we are currently orbiting around
-    grav_body_vel: Vector3<f64>,
-    /// Mass of the body we are currently orbiting around
-    grav_body_mass: f64,
-    /// The distance from the gravity body we want to be orbiting at, can be infinity
-    goal_altitude: f64,
-    /// The up direction of the orbit axis, such that the orbit is counter-clockwise from the top
-    goal_axis: Option<Vector3<f64>>,
-    /// The direction from the grav body we want to be at (normalized)
-    goal_virtical_direction: Option<Vector3<f64>>,
+const KP: f64 = 6.0;
+const KI: f64 = -0.03;
+const KD: f64 = 4.0;
+const MAX_I: f64 = 2.0;
+
+/*
+lazy_static::lazy_static! {
+    static ref KP: f64 = std::env::var("KP").unwrap().parse().unwrap();
+    static ref KI: f64 = std::env::var("KI").unwrap().parse().unwrap();
+    static ref KD: f64 = std::env::var("KD").unwrap().parse().unwrap();
+}
+*/
+
+fn pid_autopilot(
+    state: &mut State,
+    dt: f64,
+    ship_id: Id<Body>,
+) -> Result<Vector3<f64>, Box<dyn Error>> {
+    let ship = state.get(ship_id)?;
+    let ship_pos = *ship.position;
+    let target_id = *state.get(ship_id)?.ship()?.autopilot.target;
+    let target = state.get(target_id)?;
+    let target_body_pos = *target.position;
+    let distance = ship
+        .ship()?
+        .autopilot
+        .distance
+        .unwrap_or(target.shape.radius() * 4.0);
+    let target_pos = target_body_pos + (ship_pos - target_body_pos).normalize_to(distance);
+    let error = target_pos - ship_pos;
+    let autopilot = &mut state.get_mut(ship_id)?.ship_mut()?.autopilot;
+    let p_value = KP * error;
+    let i_value = KI * autopilot.pid_accum;
+    let d_value = KD * (error - autopilot.pid_error) / dt;
+    autopilot.pid_error = error;
+    autopilot.pid_accum += error * dt;
+    let accum_len = autopilot.pid_accum.magnitude();
+    if accum_len > MAX_I {
+        autopilot.pid_accum = (autopilot.pid_accum / accum_len) * MAX_I;
+    }
+    Ok(p_value + i_value + d_value)
 }
 
-fn orbit_params(state: &State, ship_id: Id<Body>) -> Result<OrbitParams, Box<dyn Error>> {
-    let body = state.get(ship_id)?;
-    let ship = body.ship()?;
-    let grav_body_key = *body.gravity_parent;
-    let target_key = if !ship.autopilot.target.is_null() {
-        *ship.autopilot.target
-    } else if !grav_body_key.is_null() {
-        grav_body_key
-    } else {
-        return Err("no viable target".into());
-    };
-    let position = *body.position;
-    let velocity = *body.velocity;
-    let max_acceleration = *ship.max_acceleration;
-    let grav_body = state
-        .get(grav_body_key)
-        .map_err(|e| format!("getting gravity body: {}", e))?;
-    let grav_body_pos = *grav_body.position;
-    let grav_body_vel = *grav_body.velocity;
-    let grav_body_mass = *grav_body.mass;
-    let goal_altitude;
-    let goal_axis;
-    let goal_virtical_direction;
-    if grav_body_key == target_key {
-        goal_altitude = match *ship.autopilot.distance {
-            Some(d) => d,
-            None => grav_body.shape.radius() * 4.0 + 0.5,
-        };
-        goal_axis = None;
-        goal_virtical_direction = None;
-    } else {
-        let mut temp_target = state.get(target_key);
-        while let Ok(attempted_temp_target) = temp_target {
-            if *attempted_temp_target.gravity_parent == grav_body_key {
-                break;
-            }
-            temp_target = state.get(*attempted_temp_target.gravity_parent);
-        }
-        if let Ok(temp_target) = temp_target {
-            let target_relative_pos = *temp_target.position - grav_body_pos;
-            goal_altitude = target_relative_pos.magnitude();
-            goal_axis = Some(target_relative_pos.cross(*temp_target.velocity).normalize());
-            goal_virtical_direction = Some(target_relative_pos.normalize());
-        // TODO: take into account that the target's orbit may be elliptical
-        } else {
-            goal_altitude = f64::INFINITY;
-            goal_axis = None;
-            goal_virtical_direction = None;
-        }
+fn orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
+    //let params = orbit_params(state, ship_id)?;
+    //let acceleration = accel_for_orbit(&params);
+    let mut acceleration = pid_autopilot(state, dt, ship_id)?;
+    let mag = acceleration.magnitude();
+    let max_accel = *state.get(ship_id)?.ship()?.max_acceleration;
+    if mag > max_accel {
+        acceleration = acceleration * (max_accel / mag);
     }
-    Ok(OrbitParams {
-        position,
-        velocity,
-        max_acceleration,
-        grav_body_pos,
-        grav_body_vel,
-        grav_body_mass,
-        goal_altitude,
-        goal_axis,
-        goal_virtical_direction,
-    })
-}
-
-fn accel_for_orbit(params: &OrbitParams) -> Vector3<f64> {
-    let relative_pos = params.position - params.grav_body_pos;
-    let relative_vel = params.velocity - params.grav_body_vel;
-    let vertical_direction = relative_pos.normalize();
-    let altitude = relative_pos.magnitude();
-    let vertical_velocity = vertical_direction.dot(relative_vel);
-    let lateral_velocity = relative_vel - (vertical_velocity * vertical_direction);
-    let lateral_direction = lateral_velocity.normalize();
-    let forward_velocity_error;
-    let vertical_velocity_error;
-    if params.goal_altitude.is_finite() {
-        let forward_velocity = lateral_velocity.magnitude();
-        let final_forward_velocity =
-            (GRAVITATIONAL_CONSTANT * params.grav_body_mass / params.goal_altitude).sqrt();
-        let goal_angular_momentum = final_forward_velocity * params.goal_altitude; // * our mass but that cancels out
-        let goal_forward_velocity = goal_angular_momentum / altitude;
-        forward_velocity_error = goal_forward_velocity - forward_velocity;
-        let goal_altitude = match params.goal_virtical_direction {
-            None => params.goal_altitude,
-            Some(goal_virtical_direction) => {
-                let delta_theta = goal_virtical_direction.dot(vertical_direction).acos();
-                let delta_theta = if (goal_virtical_direction - vertical_direction)
-                    .normalize()
-                    .dot(lateral_direction)
-                    > 0.0
-                {
-                    delta_theta
-                } else {
-                    -delta_theta
-                };
-                // delta_theta is now the angle (positive or negative) to the target place in the orbit
-                let scale = 1.0 - delta_theta / TAU;
-                params.goal_altitude * scale
-            }
-        };
-        let goal_vertical_velocity = goal_altitude - altitude; // achieve goal in ~1s
-        vertical_velocity_error = goal_vertical_velocity - vertical_velocity;
-    } else {
-        forward_velocity_error = params.max_acceleration;
-        vertical_velocity_error = 0.0;
-    }
-    let pitch_error = match params.goal_axis {
-        Some(axis) => vertical_direction.cross(-axis).normalize() - lateral_direction,
-        None => Vector3::zero(),
-    };
-    let ideal_accel = lateral_direction * forward_velocity_error
-        + vertical_direction * vertical_velocity_error
-        + pitch_error * 10.0;
-    if ideal_accel.magnitude() <= params.max_acceleration {
-        ideal_accel
-    } else {
-        ideal_accel.normalize() * params.max_acceleration
-    }
-}
-
-fn orbit(state: &mut State, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
-    let params = orbit_params(state, ship_id)?;
-    let acceleration = accel_for_orbit(&params);
     state
         .get_mut(ship_id)?
         .ship_mut()?
@@ -153,7 +60,7 @@ fn orbit(state: &mut State, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-pub fn run_autopilot(state: &mut State, _: f64) {
+pub fn run_autopilot(state: &mut State, dt: f64) {
     // TODO: improve the ECS to make it easier to iterate through all ships
     let body_ids: Vec<Id<Body>> = state
         .iter::<Body>()
@@ -166,7 +73,7 @@ pub fn run_autopilot(state: &mut State, _: f64) {
         let scheme = *state.get(id).unwrap().ship().unwrap().autopilot.scheme;
         if let Err(err) = match scheme {
             AutopilotScheme::Off => Ok(()),
-            AutopilotScheme::Orbit => orbit(state, id),
+            AutopilotScheme::Orbit => orbit(state, dt, id),
         } {
             let ship = state.get_mut(id).unwrap().ship_mut().unwrap();
             ship.acceleration.set(Vector3::zero());
