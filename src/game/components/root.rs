@@ -193,10 +193,14 @@ impl Root {
                 if let Some(r) = props.remove("mass") {
                     body = body.with_mass(RequestResult::<f64>::from(r)?);
                 }
+                let max_accel = match props.remove("max_accel") {
+                    Some(a) => RequestResult::<f64>::from(a)?,
+                    None => 0.1, // ~10Gs
+                };
                 if !props.is_empty() {
                     return Err(BadRequest(format!("invalid properties: {:?}", props)));
                 }
-                let ship = create_ship(state, body);
+                let ship = create_ship(state, body, max_accel);
                 state.root.ship_created.fire(ship);
                 Ok(())
             })

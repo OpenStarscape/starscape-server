@@ -56,8 +56,8 @@ impl Ship {
     }
 }
 
-pub fn create_ship(state: &mut State, body: Body) -> Id<Body> {
-    let body = body.with_class(BodyClass::Ship(Ship::new(1.0))); // 100G (too much)
+pub fn create_ship(state: &mut State, body: Body, max_accel: f64) -> Id<Body> {
+    let body = body.with_class(BodyClass::Ship(Ship::new(max_accel)));
     let id = body.install(state);
     let obj = state.object_mut(id).unwrap();
 
@@ -141,7 +141,7 @@ mod tests {
     fn body_has_correct_position() {
         let pos = Point3::new(1.0, 2.0, 3.0);
         let mut state = State::new();
-        let ship = create_ship(&mut state, Body::new().with_position(pos));
+        let ship = create_ship(&mut state, Body::new().with_position(pos), 0.1);
         assert_eq!(*state.get(ship).unwrap().position, pos);
     }
 }
