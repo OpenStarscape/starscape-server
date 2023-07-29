@@ -66,6 +66,7 @@ impl Root {
                 for body in bodies {
                     state.remove(body)?;
                 }
+                state.root.time.set(0.0);
                 Ok(())
             })
             .map_into(),
