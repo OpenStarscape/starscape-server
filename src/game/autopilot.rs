@@ -1,8 +1,8 @@
 use super::*;
 
-const KP: f64 = 6.0;
+const KP: f64 = 6.2;
 const KI: f64 = -0.03;
-const KD: f64 = 4.0;
+const KD: f64 = 4.1;
 const MAX_I: f64 = 2.0;
 
 /*
@@ -20,22 +20,24 @@ fn pid_autopilot(
 ) -> Result<Vector3<f64>, Box<dyn Error>> {
     let ship = state.get(ship_id)?;
     let ship_pos = *ship.position;
+    let ship_vel = *ship.velocity;
     let target_id = *state.get(ship_id)?.ship()?.autopilot.target;
     let target = state.get(target_id)?;
     let target_body_pos = *target.position;
+    let target_body_vel = *target.velocity;
     let distance = ship
         .ship()?
         .autopilot
         .distance
         .unwrap_or(target.shape.radius() * 4.0);
     let target_pos = target_body_pos + (ship_pos - target_body_pos).normalize_to(distance);
-    let error = target_pos - ship_pos;
+    let error_vec = target_pos - ship_pos;
+    let error_vel = target_body_vel - ship_vel;
     let autopilot = &mut state.get_mut(ship_id)?.ship_mut()?.autopilot;
-    let p_value = KP * error;
+    let p_value = KP * error_vec;
     let i_value = KI * autopilot.pid_accum;
-    let d_value = KD * (error - autopilot.pid_error) / dt;
-    autopilot.pid_error = error;
-    autopilot.pid_accum += error * dt;
+    let d_value = KD * error_vel;
+    autopilot.pid_accum += error_vec * dt;
     let accum_len = autopilot.pid_accum.magnitude();
     if accum_len > MAX_I {
         autopilot.pid_accum = (autopilot.pid_accum / accum_len) * MAX_I;

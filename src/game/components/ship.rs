@@ -33,7 +33,6 @@ pub struct AutopilotData {
     pub scheme: Element<AutopilotScheme>,
     pub target: Element<Id<Body>>,
     pub distance: Element<Option<f64>>,
-    pub pid_error: Vector3<f64>,
     pub pid_accum: Vector3<f64>,
 }
 
@@ -53,7 +52,6 @@ impl Ship {
                 scheme: Element::new(AutopilotScheme::Off),
                 target: Element::new(Id::null()),
                 distance: Element::new(None),
-                pid_error: Vector3::zero(),
                 pid_accum: Vector3::zero(),
             },
         }
