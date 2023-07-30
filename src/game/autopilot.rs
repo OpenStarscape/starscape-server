@@ -1,9 +1,9 @@
 use super::*;
 
-const KP: f64 = 6.2;
-const KI: f64 = -0.03;
+const KP: f64 = 62.0;
+const KI: f64 = -0.3;
 const KD: f64 = 4.1;
-const MAX_I: f64 = 2.0;
+const MAX_I: f64 = 0.02;
 
 /*
 lazy_static::lazy_static! {
@@ -21,7 +21,8 @@ fn pid_autopilot(
     let ship = state.get(ship_id)?;
     let ship_pos = *ship.position;
     let ship_vel = *ship.velocity;
-    let target_id = *state.get(ship_id)?.ship()?.autopilot.target;
+    let max_accel = *ship.ship()?.max_acceleration;
+    let target_id = *ship.ship()?.autopilot.target;
     let target = state.get(target_id)?;
     let mut target_pos = *target.position;
     let mut target_vel = *target.velocity;
@@ -38,8 +39,8 @@ fn pid_autopilot(
         let orbit_speed = distance * TAU / period_time;
         target_vel += Vector3::new(-f64::sin(theta), f64::cos(theta), 0.0) * orbit_speed;
     }
-    let error_vec = target_pos - ship_pos;
-    let error_vel = target_vel - ship_vel;
+    let error_vec = (target_pos - ship_pos) / (max_accel * max_accel);
+    let error_vel = (target_vel - ship_vel) / max_accel;
     let autopilot = &mut state.get_mut(ship_id)?.ship_mut()?.autopilot;
     let p_value = KP * error_vec;
     let i_value = KI * autopilot.pid_accum;
@@ -49,7 +50,7 @@ fn pid_autopilot(
     if accum_len > MAX_I {
         autopilot.pid_accum = (autopilot.pid_accum / accum_len) * MAX_I;
     }
-    Ok(p_value + i_value + d_value)
+    Ok((p_value + i_value + d_value) * max_accel)
 }
 
 fn orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
