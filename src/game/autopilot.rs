@@ -23,16 +23,23 @@ fn pid_autopilot(
     let ship_vel = *ship.velocity;
     let target_id = *state.get(ship_id)?.ship()?.autopilot.target;
     let target = state.get(target_id)?;
-    let target_body_pos = *target.position;
-    let target_body_vel = *target.velocity;
+    let mut target_pos = *target.position;
+    let mut target_vel = *target.velocity;
     let distance = ship
         .ship()?
         .autopilot
         .distance
-        .unwrap_or(target.shape.radius() * 4.0);
-    let target_pos = target_body_pos + (ship_pos - target_body_pos).normalize_to(distance);
+        .unwrap_or(target.shape.radius() * 20.0);
+    if distance > 0.0 {
+        let gm = GRAVITATIONAL_CONSTANT * *target.mass;
+        let period_time = TAU * (distance * distance * distance / gm).sqrt();
+        let theta = ((*state.root.time / period_time) % 1.0) * TAU;
+        target_pos += Vector3::new(f64::cos(theta), f64::sin(theta), 0.0) * distance;
+        let orbit_speed = distance * TAU / period_time;
+        target_vel += Vector3::new(-f64::sin(theta), f64::cos(theta), 0.0) * orbit_speed;
+    }
     let error_vec = target_pos - ship_pos;
-    let error_vel = target_body_vel - ship_vel;
+    let error_vel = target_vel - ship_vel;
     let autopilot = &mut state.get_mut(ship_id)?.ship_mut()?.autopilot;
     let p_value = KP * error_vec;
     let i_value = KI * autopilot.pid_accum;
