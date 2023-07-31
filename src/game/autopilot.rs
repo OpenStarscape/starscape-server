@@ -1,17 +1,18 @@
 use super::*;
 
-const KP: f64 = 62.0;
-const KI: f64 = -0.3;
-const KD: f64 = 4.1;
-const MAX_I: f64 = 0.02;
-
-/*
-lazy_static::lazy_static! {
-    static ref KP: f64 = std::env::var("KP").unwrap().parse().unwrap();
-    static ref KI: f64 = std::env::var("KI").unwrap().parse().unwrap();
-    static ref KD: f64 = std::env::var("KD").unwrap().parse().unwrap();
+fn env_var_parse_f64_or(var: &str, default: f64) -> f64 {
+    return match std::env::var(var) {
+        Ok(val) => val.parse().unwrap_or(default),
+        Err(_) => default,
+    };
 }
-*/
+
+lazy_static::lazy_static! {
+    static ref KP: f64 = env_var_parse_f64_or("PID_P", 62.0);
+    static ref KI: f64 = env_var_parse_f64_or("PID_I", -0.3);
+    static ref KD: f64 = env_var_parse_f64_or("PID_D", 4.1);
+    static ref MAX_I: f64 = env_var_parse_f64_or("PID_MAX_I", 0.02);
+}
 
 fn pid_autopilot(
     state: &mut State,
@@ -42,13 +43,13 @@ fn pid_autopilot(
     let error_vec = (target_pos - ship_pos) / (max_accel * max_accel);
     let error_vel = (target_vel - ship_vel) / max_accel;
     let autopilot = &mut state.get_mut(ship_id)?.ship_mut()?.autopilot;
-    let p_value = KP * error_vec;
-    let i_value = KI * autopilot.pid_accum;
-    let d_value = KD * error_vel;
+    let p_value = *KP * error_vec;
+    let i_value = *KI * autopilot.pid_accum;
+    let d_value = *KD * error_vel;
     autopilot.pid_accum += error_vec * dt;
     let accum_len = autopilot.pid_accum.magnitude();
-    if accum_len > MAX_I {
-        autopilot.pid_accum = (autopilot.pid_accum / accum_len) * MAX_I;
+    if accum_len > *MAX_I {
+        autopilot.pid_accum = (autopilot.pid_accum / accum_len) * *MAX_I;
     }
     Ok((p_value + i_value + d_value) * max_accel)
 }
