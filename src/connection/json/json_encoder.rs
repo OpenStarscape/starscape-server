@@ -17,13 +17,21 @@ impl<'a> Serialize for Contextualized<'a, Value> {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         match self.value {
             Value::Vector(vector) => {
+                if !vector.is_finite() {
+                    return Err(serde::ser::Error::custom("not finite"));
+                }
                 let mut tuple = serializer.serialize_tuple(3)?;
                 tuple.serialize_element(&vector.x)?;
                 tuple.serialize_element(&vector.y)?;
                 tuple.serialize_element(&vector.z)?;
                 tuple.end()
             }
-            Value::Scalar(value) => serializer.serialize_f64(*value),
+            Value::Scalar(value) => {
+                if !value.is_finite() {
+                    return Err(serde::ser::Error::custom("not finite"));
+                }
+                serializer.serialize_f64(*value)
+            }
             Value::Integer(value) => serializer.serialize_i64(*value),
             Value::Bool(value) => serializer.serialize_bool(*value),
             Value::Text(value) => serializer.serialize_str(value),
