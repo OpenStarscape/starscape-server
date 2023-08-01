@@ -8,9 +8,9 @@ fn env_var_parse_f64_or(var: &str, default: f64) -> f64 {
 }
 
 lazy_static::lazy_static! {
-    static ref ACCEL_P: f64 = env_var_parse_f64_or("AP_ACCEL_P", 15.0);
-    static ref DECEL_P: f64 = env_var_parse_f64_or("AP_DECEL_P", 1.0);
-    static ref ALIGN_P: f64 = env_var_parse_f64_or("AP_ALIGN_P", 10.0);
+    static ref ACCEL_P: f64 = env_var_parse_f64_or("AP_ACCEL_P", 20.0);
+    static ref DECEL_P: f64 = env_var_parse_f64_or("AP_DECEL_P", 0.9);
+    static ref ALIGN_P: f64 = env_var_parse_f64_or("AP_ALIGN_P", 70.0);
 }
 
 fn normalize_or_zero(v: Vector3<f64>) -> Vector3<f64> {
