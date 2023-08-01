@@ -58,10 +58,12 @@ fn orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Er
     //let params = orbit_params(state, ship_id)?;
     //let acceleration = accel_for_orbit(&params);
     let mut acceleration = pid_autopilot(state, dt, ship_id)?;
-    let mag = acceleration.magnitude();
     let max_accel = *state.get(ship_id)?.ship()?.max_acceleration;
-    if mag > max_accel {
-        acceleration = acceleration * (max_accel / mag);
+    if acceleration.magnitude2() > max_accel * max_accel {
+        acceleration = acceleration.normalize() * max_accel;
+    }
+    if !acceleration.is_finite() {
+        return Err(format!("acceleration {:?} is not finite", acceleration).into());
     }
     state
         .get_mut(ship_id)?
