@@ -141,9 +141,10 @@ fn handle_collision(state: &mut State, collision: &Collision) -> Result<(), Box<
     let rel_vel = *other_body.velocity - *our_body.velocity;
     let mass_ratio = *other_body.mass / (*our_body.mass + *other_body.mass);
     let vel_change = rel_vel * mass_ratio;
-    let max_vel_change = our_body.shape.radius() * 2.5;
+    let max_vel_change = our_body.shape.radius() * 2.5 * 0.0;
     if vel_change.magnitude2() > max_vel_change * max_vel_change {
         state.remove(collision.us)?;
+        state.remove(collision.them)?;
     } else {
         *state.get_mut(collision.us)?.velocity.get_mut() += vel_change;
     }
