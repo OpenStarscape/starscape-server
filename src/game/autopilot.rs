@@ -25,7 +25,7 @@ fn normalize_or_zero(v: Vector3<f64>) -> Vector3<f64> {
 
 fn calculate_accel(
     state: &mut State,
-    _dt: f64,
+    dt: f64,
     ship_id: Id<Body>,
 ) -> Result<Vector3<f64>, Box<dyn Error>> {
     let ship = state.get(ship_id)?;
@@ -35,13 +35,17 @@ fn calculate_accel(
     if max_accel <= 0.0 {
         return Err(format!("max_accel is {}", max_accel).into());
     }
-    let target_id = *ship.ship()?.autopilot.target;
+    let autopilot_data = &ship.ship()?.autopilot;
+    let target_id = *autopilot_data.target;
     let target = state.get(target_id)?;
     let mut target_pos = *target.position;
     let mut target_vel = *target.velocity;
-    let orbit_distance = ship
-        .ship()?
-        .autopilot
+    let emperical_target_accel = if autopilot_data.previous_target_vel.0 == target_id {
+        (target_vel - autopilot_data.previous_target_vel.1) / dt
+    } else {
+        Vector3::zero()
+    };
+    let orbit_distance = autopilot_data
         .distance
         .unwrap_or(target.shape.radius() * 20.0);
     if orbit_distance > 0.0 {
@@ -61,6 +65,11 @@ fn calculate_accel(
         let orbit_speed = orbit_distance * TAU / period_time;
         target_vel += Vector3::new(-f64::sin(theta), f64::cos(theta), 0.0) * orbit_speed;
     }
+    state
+        .get_mut(ship_id)?
+        .ship_mut()?
+        .autopilot
+        .previous_target_vel = (target_id, target_vel);
     // target's position relative to the ship
     let rel_target_pos = target_pos - ship_pos;
     let target_direction = normalize_or_zero(rel_target_pos);
@@ -85,7 +94,7 @@ fn calculate_accel(
     let accel_vec = *ACCEL_P * distance_at_vel_parity * target_direction;
     let decel_vec = *DECEL_P * accel_to_match * target_direction;
     let align_vec = *ALIGN_P * -ship_vel_off_course;
-    Ok(accel_vec + decel_vec + align_vec)
+    Ok(accel_vec + decel_vec + align_vec + emperical_target_accel)
 }
 
 fn orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {

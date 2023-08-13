@@ -34,6 +34,7 @@ pub struct AutopilotData {
     pub target: Element<Id<Body>>,
     pub distance: Element<Option<f64>>,
     pub pid_accum: Vector3<f64>,
+    pub previous_target_vel: (Id<Body>, Vector3<f64>),
 }
 
 /// A vehicle that can maneuver under its own thrust
@@ -53,6 +54,7 @@ impl Ship {
                 target: Element::new(Id::null()),
                 distance: Element::new(None),
                 pid_accum: Vector3::zero(),
+                previous_target_vel: (Id::null(), Vector3::zero()),
             },
         }
     }
