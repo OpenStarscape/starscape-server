@@ -251,12 +251,12 @@ impl Root {
                     .map(RequestResult::<Id<Body>>::from)??;
                 let distance = props
                     .remove("distance")
-                    .ok_or(BadRequest("distance not supplied".to_string()))
-                    .map(RequestResult::<f64>::from)??;
+                    .map(RequestResult::<f64>::from)
+                    .unwrap_or(Ok(f64::INFINITY))?;
                 let velocity = props
                     .remove("velocity")
-                    .ok_or(BadRequest("velocity not supplied".to_string()))
-                    .map(RequestResult::<f64>::from)??;
+                    .map(RequestResult::<f64>::from)
+                    .unwrap_or(Ok(f64::INFINITY))?;
                 state.root.pause_conditions.push(PauseCondition::Proximity {
                     a,
                     b,
