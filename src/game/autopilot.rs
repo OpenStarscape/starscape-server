@@ -82,10 +82,10 @@ fn calculate_accel(
     // (assuming the ship is pointed directly at the target)
     let accel_to_match = -ship_speed_towards_target * ship_speed_towards_target.abs()
         / (2.0 * rel_target_pos.magnitude().max(EPSILON));
-    let p_value = *ACCEL_P * distance_at_vel_parity * target_direction / max_accel;
-    let d_value = *DECEL_P * accel_to_match * target_direction / max_accel;
-    let i_value = *ALIGN_P * -ship_vel_off_course / max_accel;
-    Ok((p_value + i_value + d_value) * max_accel)
+    let accel_vec = *ACCEL_P * distance_at_vel_parity * target_direction;
+    let decel_vec = *DECEL_P * accel_to_match * target_direction;
+    let align_vec = *ALIGN_P * -ship_vel_off_course;
+    Ok(accel_vec + decel_vec + align_vec)
 }
 
 fn orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
