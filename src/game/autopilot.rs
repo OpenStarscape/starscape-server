@@ -23,11 +23,56 @@ fn normalize_or_zero(v: Vector3<f64>) -> Vector3<f64> {
     }
 }
 
-fn calculate_accel(
+fn match_point(
+    rel_target_pos: Vector3<f64>,
+    rel_target_vel: Vector3<f64>,
+    target_accel: Vector3<f64>,
+    max_accel: f64,
+) -> Vector3<f64> {
+    let target_direction = normalize_or_zero(rel_target_pos);
+    // the magnitude of the component of the ship's velocity vector that is pointed towards the
+    // target, can be negative
+    let speed_moving_apart = rel_target_vel.dot(target_direction);
+    // the vector component of the ship's velocity that is pointed towards the target
+    let target_component_of_ship_vel = -target_direction * speed_moving_apart;
+    // the vector component of the ship's velocity that is *not* pointed twards the target
+    let ship_vel_off_course = -rel_target_vel - target_component_of_ship_vel;
+    // the distance before (or after if negative) the target which the ship would be at when it
+    // stopped getting closer or further from the target if it put full thrust towards this
+    // (assuming the ship is pointed directly at the target)
+    let distance_at_vel_parity = rel_target_pos.magnitude()
+        + speed_moving_apart * speed_moving_apart.abs() / (2.0 * max_accel);
+    // the acceleration that would be required to match the target's position and velocity
+    // (assuming the ship is pointed directly at the target)
+    let accel_to_match = speed_moving_apart * speed_moving_apart.abs()
+        / (2.0 * rel_target_pos.magnitude().max(EPSILON));
+    let accel_vec = *ACCEL_P * distance_at_vel_parity * target_direction;
+    let decel_vec = *DECEL_P * accel_to_match * target_direction;
+    let align_vec = *ALIGN_P * -ship_vel_off_course;
+    accel_vec + decel_vec + align_vec + target_accel
+}
+
+fn set_accel(
     state: &mut State,
-    dt: f64,
     ship_id: Id<Body>,
-) -> Result<Vector3<f64>, Box<dyn Error>> {
+    mut acceleration: Vector3<f64>,
+) -> Result<(), Box<dyn Error>> {
+    let max_accel = *state.get(ship_id)?.ship()?.max_acceleration;
+    if acceleration.magnitude2() > max_accel * max_accel {
+        acceleration = acceleration.normalize() * max_accel;
+    }
+    if !acceleration.is_finite() {
+        return Err(format!("acceleration {:?} is not finite", acceleration).into());
+    }
+    state
+        .get_mut(ship_id)?
+        .ship_mut()?
+        .acceleration
+        .set(acceleration);
+    Ok(())
+}
+
+fn run_orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
     let ship = state.get(ship_id)?;
     let ship_pos = *ship.position;
     let ship_vel = *ship.velocity;
@@ -70,49 +115,13 @@ fn calculate_accel(
         .ship_mut()?
         .autopilot
         .previous_target_vel = (target_id, target_vel);
-    // target's position relative to the ship
-    let rel_target_pos = target_pos - ship_pos;
-    let target_direction = normalize_or_zero(rel_target_pos);
-    // ship's velocity relative to the target
-    let rel_ship_vel = ship_vel - target_vel;
-    // the magnitude of the component of the ship's velocity vector that is pointed towards the
-    // target, can be negative
-    let ship_speed_towards_target = rel_ship_vel.dot(target_direction);
-    // the vector component of the ship's velocity that is pointed towards the target
-    let target_component_of_ship_vel = target_direction * ship_speed_towards_target;
-    // the vector component of the ship's velocity that is *not* pointed twards the target
-    let ship_vel_off_course = rel_ship_vel - target_component_of_ship_vel;
-    // the distance before (or after if negative) the target which the ship would be at when it
-    // stopped getting closer or further from the target if it put full thrust towards this
-    // (assuming the ship is pointed directly at the target)
-    let distance_at_vel_parity = rel_target_pos.magnitude()
-        - ship_speed_towards_target * ship_speed_towards_target.abs() / (2.0 * max_accel);
-    // the acceleration that would be required to match the target's position and velocity
-    // (assuming the ship is pointed directly at the target)
-    let accel_to_match = -ship_speed_towards_target * ship_speed_towards_target.abs()
-        / (2.0 * rel_target_pos.magnitude().max(EPSILON));
-    let accel_vec = *ACCEL_P * distance_at_vel_parity * target_direction;
-    let decel_vec = *DECEL_P * accel_to_match * target_direction;
-    let align_vec = *ALIGN_P * -ship_vel_off_course;
-    Ok(accel_vec + decel_vec + align_vec + emperical_target_accel)
-}
-
-fn orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
-    //let params = orbit_params(state, ship_id)?;
-    //let acceleration = accel_for_orbit(&params);
-    let mut acceleration = calculate_accel(state, dt, ship_id)?;
-    let max_accel = *state.get(ship_id)?.ship()?.max_acceleration;
-    if acceleration.magnitude2() > max_accel * max_accel {
-        acceleration = acceleration.normalize() * max_accel;
-    }
-    if !acceleration.is_finite() {
-        return Err(format!("acceleration {:?} is not finite", acceleration).into());
-    }
-    state
-        .get_mut(ship_id)?
-        .ship_mut()?
-        .acceleration
-        .set(acceleration);
+    let acceleration = match_point(
+        target_pos - ship_pos,
+        target_vel - ship_vel,
+        emperical_target_accel,
+        max_accel,
+    );
+    set_accel(state, ship_id, acceleration)?;
     Ok(())
 }
 
@@ -129,7 +138,7 @@ pub fn run_autopilot(state: &mut State, dt: f64) {
         let scheme = *state.get(id).unwrap().ship().unwrap().autopilot.scheme;
         if let Err(err) = match scheme {
             AutopilotScheme::Off => Ok(()),
-            AutopilotScheme::Orbit => orbit(state, dt, id),
+            AutopilotScheme::Orbit => run_orbit(state, dt, id),
         } {
             let ship = state.get_mut(id).unwrap().ship_mut().unwrap();
             ship.acceleration.set(Vector3::zero());
