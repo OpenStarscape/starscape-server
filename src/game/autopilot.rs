@@ -104,7 +104,10 @@ fn run_orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dy
     let target = state.get(target_id)?;
     let mut target_pos = *target.position;
     let mut target_vel = *target.velocity;
-    let emperical_target_accel = if autopilot_data.previous_target_vel.0 == target_id {
+    // for some reason factoring in acceleration makes us fall into planets
+    let emperical_target_accel = if autopilot_data.previous_target_vel.0 == target_id
+        && !matches!(target.class, BodyClass::Celestial)
+    {
         (target_vel - autopilot_data.previous_target_vel.1) / dt
     } else {
         Vector3::zero()
