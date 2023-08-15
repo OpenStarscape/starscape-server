@@ -18,13 +18,10 @@ fn validate_thrust(max: f64, thrust: Vector3<f64>) -> (Vector3<f64>, RequestResu
 /// The autopilot program to use
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum AutopilotScheme {
-    /// No autopilot, client should set accel manually
     Off,
-    /// Orbit a body with the given parameters
-    /// - target: if null then orbits the currently most influential gravity body, else orbits the
-    ///   given body
-    /// - distance: distance from the target to orbit
     Orbit,
+    Dock,
+    Flyby,
 }
 
 /// The data required for server-side control of a ship
@@ -105,11 +102,15 @@ pub fn create_ship(state: &mut State, body: Body, max_accel: f64) -> Id<Body> {
             Ok(match scheme {
                 AutopilotScheme::Off => "off".to_string(),
                 AutopilotScheme::Orbit => "orbit".to_string(),
+                AutopilotScheme::Dock => "dock".to_string(),
+                AutopilotScheme::Flyby => "flyby".to_string(),
             })
         })
         .map_input(|_, scheme: String| match &scheme[..] {
             "off" => Ok((AutopilotScheme::Off, Ok(()))),
             "orbit" => Ok((AutopilotScheme::Orbit, Ok(()))),
+            "dock" => Ok((AutopilotScheme::Dock, Ok(()))),
+            "flyby" => Ok((AutopilotScheme::Flyby, Ok(()))),
             _ => Err(BadRequest(format!(
                 "{:?} is an invalid autopilot scheme",
                 scheme

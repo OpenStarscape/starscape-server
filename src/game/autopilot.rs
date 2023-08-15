@@ -52,6 +52,25 @@ fn match_point(
     accel_vec + decel_vec + align_vec + target_accel
 }
 
+fn flyby_point(
+    rel_target_pos: Vector3<f64>,
+    rel_target_vel: Vector3<f64>,
+    target_accel: Vector3<f64>,
+    max_accel: f64,
+) -> Vector3<f64> {
+    let target_direction = normalize_or_zero(rel_target_pos);
+    // the magnitude of the component of the ship's velocity vector that is pointed towards the
+    // target, can be negative
+    let speed_moving_apart = rel_target_vel.dot(target_direction);
+    // the vector component of the ship's velocity that is pointed towards the target
+    let target_component_of_ship_vel = -target_direction * speed_moving_apart;
+    // the vector component of the ship's velocity that is *not* pointed twards the target
+    let ship_vel_off_course = -rel_target_vel - target_component_of_ship_vel;
+    let accel_vec = *ACCEL_P * target_direction * max_accel;
+    let align_vec = *ALIGN_P * -ship_vel_off_course;
+    accel_vec + align_vec + target_accel
+}
+
 fn set_accel(
     state: &mut State,
     ship_id: Id<Body>,
@@ -90,9 +109,13 @@ fn run_orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dy
     } else {
         Vector3::zero()
     };
-    let orbit_distance = autopilot_data
-        .distance
-        .unwrap_or(target.shape.radius() * 20.0);
+    let orbit_distance = if *autopilot_data.scheme == AutopilotScheme::Dock {
+        0.0
+    } else {
+        autopilot_data
+            .distance
+            .unwrap_or(target.shape.radius() * 20.0)
+    };
     if orbit_distance > 0.0 {
         // the current algorithm requires a point to navigate to, so if an orbit is requested
         // calculate a moving point on that orbit
@@ -125,6 +148,39 @@ fn run_orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dy
     Ok(())
 }
 
+fn run_flyby(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dyn Error>> {
+    let ship = state.get(ship_id)?;
+    let ship_pos = *ship.position;
+    let ship_vel = *ship.velocity;
+    let max_accel = *ship.ship()?.max_acceleration;
+    if max_accel <= 0.0 {
+        return Err(format!("max_accel is {}", max_accel).into());
+    }
+    let autopilot_data = &ship.ship()?.autopilot;
+    let target_id = *autopilot_data.target;
+    let target = state.get(target_id)?;
+    let target_pos = *target.position;
+    let target_vel = *target.velocity;
+    let emperical_target_accel = if autopilot_data.previous_target_vel.0 == target_id {
+        (target_vel - autopilot_data.previous_target_vel.1) / dt
+    } else {
+        Vector3::zero()
+    };
+    state
+        .get_mut(ship_id)?
+        .ship_mut()?
+        .autopilot
+        .previous_target_vel = (target_id, target_vel);
+    let acceleration = flyby_point(
+        target_pos - ship_pos,
+        ship_vel - target_vel,
+        emperical_target_accel,
+        max_accel,
+    );
+    set_accel(state, ship_id, acceleration)?;
+    Ok(())
+}
+
 pub fn run_autopilot(state: &mut State, dt: f64) {
     // TODO: improve the ECS to make it easier to iterate through all ships
     let body_ids: Vec<Id<Body>> = state
@@ -139,6 +195,8 @@ pub fn run_autopilot(state: &mut State, dt: f64) {
         if let Err(err) = match scheme {
             AutopilotScheme::Off => Ok(()),
             AutopilotScheme::Orbit => run_orbit(state, dt, id),
+            AutopilotScheme::Dock => run_orbit(state, dt, id),
+            AutopilotScheme::Flyby => run_flyby(state, dt, id),
         } {
             let ship = state.get_mut(id).unwrap().ship_mut().unwrap();
             ship.acceleration.set(Vector3::zero());
