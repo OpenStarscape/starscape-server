@@ -29,11 +29,15 @@ pub fn tick(state: &mut State) -> bool {
                 break;
             }
         }
-        (physics_tick)(state, physics_dt);
+        physics_tick(state, physics_dt);
         if check_pause_conditions(state) {
             state.root.time_per_time_will_be_set_to(0.0);
             state.root.time_per_time.set(0.0);
         }
+    }
+    if physics_ticks == 0 {
+        // Gravity parents should be updated even if the game is paused
+        update_gravity_parents(state);
     }
 
     if let Some(quit_at) = *state.root.quit_at {

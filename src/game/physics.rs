@@ -5,20 +5,17 @@ use super::*;
 /// That means that converting to our units (km and mt) we get…
 pub const GRAVITATIONAL_CONSTANT: f64 = 6.67430e-17;
 
-/// Applies the force of gravity to bodies' velocities
-pub fn apply_gravity(state: &mut State, dt: f64) {
-    // we can't access the body (and thus the position) of a gravity well while we are mutating the
-    // position of bodies, so we collect all the info we need into a local vec (which should be
-    // good for performence as well)
-    struct GravityWell {
-        id: Id<Body>,
-        position: Point3<f64>,
-        velocity: Vector3<f64>,
-        mass: f64,
-        /// radius of the sphere-of-influence squared
-        sphere_of_influence2: f64,
-    }
-    let mut wells: Vec<GravityWell> = state
+// we can't access the body (and thus the position) of a gravity well while we are mutating the
+// position of bodies, so we collect all the info we need into a local vec
+struct GravityWell {
+    id: Id<Body>,
+    position: Point3<f64>,
+    velocity: Vector3<f64>,
+    mass: f64,
+}
+
+fn collect_gravity_wells(state: &State) -> Vec<GravityWell> {
+    state
         .iter::<Body>()
         .filter(|(_id, body)| body.is_gravity_well())
         .map(|(id, body)| GravityWell {
@@ -26,75 +23,49 @@ pub fn apply_gravity(state: &mut State, dt: f64) {
             position: *body.position,
             velocity: *body.velocity,
             mass: *body.mass,
-            sphere_of_influence2: 0.0,
         })
-        .collect();
-    // For the sphere of influence calculation, we need to look at gravity wells in descending order
-    wells.sort_unstable_by(|a, b| {
-        b.mass
-            .partial_cmp(&a.mass)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        .collect()
+}
+
+/// Applies the force of gravity to bodies' velocities
+pub fn apply_gravity(state: &mut State, dt: f64) {
+    let wells = collect_gravity_wells(state);
+    state.iter_mut::<Body>().for_each(|(id, body)| {
+        wells.iter().filter(|well| well.id != id).for_each(|well| {
+            let r2 = well.position.distance2(*body.position);
+            let gm = GRAVITATIONAL_CONSTANT * well.mass;
+            // Acceleration due to gravity follows the inverse square law
+            let acceleration = gm / r2;
+            // Change in velocity is acceleration towards the well
+            let delta_vel = (well.position - *body.position).normalize_to(acceleration * dt);
+            // Apply delta-velocity to the body
+            body.velocity.set(*body.velocity + delta_vel);
+        });
     });
-    if !wells.is_empty() {
-        // This will be the most massive object, presumably the sun
-        wells[0].sphere_of_influence2 = f64::INFINITY;
-    }
-    // Now calculate the sphere of influence of each body. To do this, we need to know the body's parent. But wait!
-    // isn't figuring out parents the reason we're calculating sphere of influence in the first place? Uh, yeah, so we
-    // have to get fancy. This is where the sorting comes in. We go through bodies in order of descending mass. For each
-    // body we only consider bodies we've already done (so bodies more massive than the current one). We find the last
-    // massive body that the current body is in the sphere of influence of. That is considered the parent, and lets us
-    // calculate the current body's sphere of influence.
-    for current in 1..wells.len() {
-        let current_position = wells[current].position;
-        for parent in (0..current).rev() {
-            // Get the distance², which is faster than normal distance and possibly all we need
-            let distance2 = current_position.distance2(wells[parent].position);
-            if distance2 <= wells[parent].sphere_of_influence2 {
-                // Should we set gravity_parent here? We could, but it will also be set below so don't bother
-                // Distance to the parent
-                let distance = distance2.sqrt();
-                let velocity2 = wells[current].velocity.distance2(wells[parent].velocity);
-                let g_times_parent_mass = GRAVITATIONAL_CONSTANT * wells[parent].mass;
-                // Semi-major axis of the current body's orbit around the parent
-                let semi_major = distance * g_times_parent_mass
-                    / (2.0 * g_times_parent_mass - distance * velocity2);
-                // Sphere of influence (approximate)
-                let sphere_of_influence =
-                    semi_major * (wells[current].mass / wells[parent].mass).powf(2.0 / 5.0);
-                wells[current].sphere_of_influence2 = sphere_of_influence * sphere_of_influence;
-            }
-        }
-    }
-    let iter = state.iter_mut::<Body>();
-    iter.for_each(|(id, body)| {
-        let (grav_parent, _grav_parent_mass) = wells.iter().fold(
-            (Id::null(), f64::INFINITY),
-            |(grav_parent, grav_parent_mass), well| {
-                if well.id != id {
-                    // Get the distance², which is faster than normal distance and all we need
-                    let distance2 = well.position.distance2(*body.position);
-                    // Acceleration due to gravity follows the inverse square law
-                    let acceleration = GRAVITATIONAL_CONSTANT * well.mass / distance2;
-                    // Change in velocity is previously calculated acceleration towards the well
-                    let delta_vel =
-                        (well.position - *body.position).normalize_to(acceleration * dt);
-                    // Apply delta-velocity to the body
-                    body.velocity.set(*body.velocity + delta_vel);
-                    // Now we check if if the well is a candidate to be this body's gravity parent. To be one it must:
-                    // - Be less massive than the current candidate
-                    // - Be more massive than the body
-                    // - Have a sphere of influence that includes the body
-                    if well.mass < grav_parent_mass
-                        && well.mass >= *body.mass
-                        && distance2 <= well.sphere_of_influence2
-                    {
-                        return (well.id, well.mass);
+}
+
+pub fn update_gravity_parents(state: &mut State) {
+    // We cannot re-use the gravity wells we collected in apply_gravity() because we want to pick up updated velocities
+    let wells = collect_gravity_wells(state);
+    state.iter_mut::<Body>().for_each(|(id, body)| {
+        let (grav_parent, _semi_major) = wells
+            .iter()
+            .filter(|well| well.id != id && well.mass > *body.mass)
+            .fold(
+                (Id::null(), f64::INFINITY),
+                |(grav_parent, grav_parent_semi_major), well| {
+                    let r = well.position.distance(*body.position);
+                    let gm = GRAVITATIONAL_CONSTANT * well.mass;
+                    let v = body.velocity.distance(well.velocity);
+                    // Calculate the semi-major axis of the body around the gravity well
+                    let semi_major = r * gm / (2.0 * gm - r * v * v);
+                    if semi_major > 0.0 && semi_major < grav_parent_semi_major {
+                        (well.id, semi_major)
+                    } else {
+                        (grav_parent, grav_parent_semi_major)
                     }
-                }
-                (grav_parent, grav_parent_mass)
-            },
-        );
+                },
+            );
         body.gravity_parent.set(grav_parent);
     });
 }
@@ -214,6 +185,7 @@ pub fn physics_tick(state: &mut State, delta: f64) {
     apply_gravity(state, delta);
     apply_collisions(state, delta);
     apply_motion(state, delta);
+    update_gravity_parents(state);
     run_autopilot(state, delta);
 }
 
