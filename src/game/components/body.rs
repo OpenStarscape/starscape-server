@@ -189,6 +189,16 @@ impl Body {
             })
             .map_into(),
         );
+
+        obj.add_action(
+            "destroy",
+            ActionConduit::new(move |state, ()| {
+                state.remove::<Body>(id)?;
+                Ok(())
+            })
+            .map_into(),
+        );
+
         id
     }
 
