@@ -1,5 +1,7 @@
 use super::*;
 
+const MAX_ECCENTRICITY: f64 = 0.95;
+
 /// [Orbital Elements on Wikipedia](https://en.wikipedia.org/wiki/Orbital_elements) may be helpful
 /// in understanding this struct
 #[derive(Debug, Clone, Copy)]
@@ -165,6 +167,9 @@ impl Conduit<Option<OrbitData>, ReadOnlyPropSetType> for OrbitConduit {
                 * ((v * v - (gm / r)) * relitive_pos
                     - (relitive_pos.dot(relitive_vel)) * relitive_vel);
             let eccentricity = eccentricity_vec.magnitude();
+            if eccentricity > MAX_ECCENTRICITY {
+                return Ok(None);
+            }
             let major_axis_unit = if ulps_eq!(eccentricity, 0.0) {
                 relitive_vel.normalize()
             } else {
