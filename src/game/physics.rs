@@ -308,7 +308,7 @@ mod gravity_tests {
             Body::new().with_position(position).with_velocity(velocity),
             false,
         );
-        apply_gravity(&mut state, 1.0);
+        update_gravity_parents(&mut state);
         assert_eq!(*state.get(body).unwrap().gravity_parent, planet);
         assert_eq!(*state.get(planet).unwrap().gravity_parent, Id::null());
     }
@@ -329,7 +329,7 @@ mod gravity_tests {
             true,
         );
         let body = create_body(&mut state, Body::new().with_position(position_b), false);
-        apply_gravity(&mut state, 1.0);
+        update_gravity_parents(&mut state);
         assert_eq!(*state.get(sun).unwrap().gravity_parent, Id::null());
         assert_eq!(*state.get(planet).unwrap().gravity_parent, sun);
         assert_eq!(*state.get(body).unwrap().gravity_parent, planet);

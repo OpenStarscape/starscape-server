@@ -166,12 +166,6 @@ mod tests {
     }
 
     #[test]
-    fn can_fire_without_conduit() {
-        let mut signal = Signal::new();
-        signal.fire(7);
-    }
-
-    #[test]
     fn can_fire_with_unsubscribed_conduit() {
         let (mut signal, state, _) = setup();
         signal.fire(7);

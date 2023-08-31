@@ -132,9 +132,14 @@ fn run_orbit(state: &mut State, dt: f64, ship_id: Id<Body>) -> Result<(), Box<dy
         }
         // the current angle of the the target point
         let theta = ((*state.root.time / period_time) % 1.0) * TAU;
-        target_pos += Vector3::new(f64::cos(theta), f64::sin(theta), 0.0) * orbit_distance;
+        let quat = Quaternion::from_arc(
+            Vector3::new(0.0, 0.0, 1.0),
+            Vector3::new(0.0, f64::sin(0.2), f64::cos(0.2)),
+            None,
+        );
+        target_pos += (quat * Vector3::new(f64::cos(theta), f64::sin(theta), 0.0)) * orbit_distance;
         let orbit_speed = orbit_distance * TAU / period_time;
-        target_vel += Vector3::new(-f64::sin(theta), f64::cos(theta), 0.0) * orbit_speed;
+        target_vel += (quat * Vector3::new(-f64::sin(theta), f64::cos(theta), 0.0)) * orbit_speed;
     }
     state
         .get_mut(ship_id)?
