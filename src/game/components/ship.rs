@@ -24,6 +24,13 @@ pub enum AutopilotScheme {
     Flyby,
 }
 
+pub struct AutopilotDataPrevious {
+    pub target_id: Id<Body>,
+    pub target_vel: Vector3<f64>,
+    pub self_vel: Vector3<f64>,
+    pub self_thrust: Vector3<f64>,
+}
+
 /// The data required for server-side control of a ship
 pub struct AutopilotData {
     /// What data to use and how it is interpreted is dependent on the scheme
@@ -31,7 +38,7 @@ pub struct AutopilotData {
     pub target: Element<Id<Body>>,
     pub distance: Element<Option<f64>>,
     pub pid_accum: Vector3<f64>,
-    pub previous_target_vel: (Id<Body>, Vector3<f64>),
+    pub previous: AutopilotDataPrevious,
 }
 
 /// A vehicle that can maneuver under its own thrust
@@ -51,7 +58,12 @@ impl Ship {
                 target: Element::new(Id::null()),
                 distance: Element::new(None),
                 pid_accum: Vector3::zero(),
-                previous_target_vel: (Id::null(), Vector3::zero()),
+                previous: AutopilotDataPrevious {
+                    target_id: Id::null(),
+                    target_vel: Vector3::zero(),
+                    self_vel: Vector3::zero(),
+                    self_thrust: Vector3::zero(),
+                },
             },
         }
     }
